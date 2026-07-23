@@ -1,13 +1,15 @@
+import React from 'react';
 import { EarTonalData } from '@/db/db';
 
 interface Props {
-  rightData: EarTonalData;
-  leftData: EarTonalData;
+  rightData: Partial<EarTonalData>;
+  leftData: Partial<EarTonalData>;
+  onPointClick?: (freq: string, db: number) => void;
 }
 
-const FREQUENCIES = ['125', '250', '500', '1000', '2000', '3000', '4000', '6000', '8000'];
+const FREQUENCIES = ['125', '250', '500', '750', '1000', '1500', '2000', '3000', '4000', '6000', '8000'];
 const FREQ_OFFSETS: Record<string, number> = {
-  '125': 0, '250': 1, '500': 2, '1000': 3, '2000': 4, '3000': 4.5, '4000': 5, '6000': 5.5, '8000': 6
+  '125': 0, '250': 1, '500': 2, '750': 2.5, '1000': 3, '1500': 3.5, '2000': 4, '3000': 4.5, '4000': 5, '6000': 5.5, '8000': 6
 };
 
 const WIDTH = 600;
@@ -19,8 +21,54 @@ const INNER_HEIGHT = HEIGHT - MARGIN.top - MARGIN.bottom;
 const getX = (freq: string) => MARGIN.left + (FREQ_OFFSETS[freq] / 6) * INNER_WIDTH;
 const getY = (dbVal: number) => MARGIN.top + ((dbVal + 10) / 130) * INNER_HEIGHT;
 
-export default function AudiogramSVG({ rightData, leftData }: Props) {
+// Inverse functions for interaction
+const getFreqFromX = (x: number): string => {
+  const normalizedX = (x - MARGIN.left) / INNER_WIDTH * 6;
+  let closestFreq = '1000';
+  let minDiff = Infinity;
+  for (const [freq, offset] of Object.entries(FREQ_OFFSETS)) {
+    if (!FREQUENCIES.includes(freq)) continue;
+    const diff = Math.abs(offset - normalizedX);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closestFreq = freq;
+    }
+  }
+  return closestFreq;
+};
+
+const getDbFromY = (y: number): number => {
+  const normalizedY = (y - MARGIN.top) / INNER_HEIGHT;
+  const dbVal = (normalizedY * 130) - 10;
+  // Snap to nearest 5 dB
+  const snappedDb = Math.round(dbVal / 5) * 5;
+  return Math.max(-10, Math.min(120, snappedDb));
+};
+
+export default function AudiogramSVG({ rightData, leftData, onPointClick }: Props) {
   
+  const handleSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!onPointClick) return;
+    const svgRect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - svgRect.left;
+    const y = e.clientY - svgRect.top;
+
+    // Scale to viewBox
+    const scaleX = WIDTH / svgRect.width;
+    const scaleY = HEIGHT / svgRect.height;
+    
+    const svgX = x * scaleX;
+    const svgY = y * scaleY;
+
+    // Don't click out of bounds
+    if (svgX < MARGIN.left - 20 || svgX > WIDTH - MARGIN.right + 20) return;
+    if (svgY < MARGIN.top - 20 || svgY > HEIGHT - MARGIN.bottom + 20) return;
+
+    const freq = getFreqFromX(svgX);
+    const db = getDbFromY(svgY);
+    onPointClick(freq, db);
+  };
+
   const renderGrid = () => {
     const lines = [];
     // Y Grid lines (-10 to 120 in steps of 10)
@@ -30,7 +78,7 @@ export default function AudiogramSVG({ rightData, leftData }: Props) {
         <line key={`hy_${db}`} x1={MARGIN.left} y1={y} x2={WIDTH - MARGIN.right} y2={y} stroke="#e2e8f0" strokeWidth="1" />
       );
       lines.push(
-        <text key={`hy_t_${db}`} x={MARGIN.left - 10} y={y + 4} textAnchor="end" fontSize="12" fill="#64748b">
+        <text key={`hy_t_${db}`} x={MARGIN.left - 10} y={y + 4} textAnchor="end" fontSize="12" fill="#64748b" style={{ pointerEvents: 'none' }}>
           {db}
         </text>
       );
@@ -42,7 +90,7 @@ export default function AudiogramSVG({ rightData, leftData }: Props) {
         <line key={`vx_${freq}`} x1={x} y1={MARGIN.top} x2={x} y2={HEIGHT - MARGIN.bottom} stroke="#e2e8f0" strokeWidth="1" />
       );
       lines.push(
-        <text key={`vx_t_${freq}`} x={x} y={MARGIN.top - 10} textAnchor="middle" fontSize="12" fill="#64748b">
+        <text key={`vx_t_${freq}`} x={x} y={MARGIN.top - 10} textAnchor="middle" fontSize="12" fill="#64748b" style={{ pointerEvents: 'none' }}>
           {freq}
         </text>
       );
@@ -50,14 +98,14 @@ export default function AudiogramSVG({ rightData, leftData }: Props) {
     return lines;
   };
 
-  const renderPath = (data: EarTonalData, color: string, dasharray: string) => {
+  const renderPath = (data: Partial<EarTonalData>, color: string, dasharray: string) => {
     const points = FREQUENCIES
-      .filter(f => data[f]?.va !== undefined && data[f]?.va !== 'NR')
-      .map(f => `${getX(f)},${getY(data[f].va as number)}`)
+      .filter(f => data[f as keyof EarTonalData]?.va !== undefined && data[f as keyof EarTonalData]?.va !== 'NR')
+      .map(f => `${getX(f)},${getY(data[f as keyof EarTonalData]!.va as number)}`)
       .join(' L ');
     
     if (!points) return null;
-    return <path d={`M ${points}`} fill="none" stroke={color} strokeWidth="2" strokeDasharray={dasharray} />;
+    return <path d={`M ${points}`} fill="none" stroke={color} strokeWidth="2" strokeDasharray={dasharray} style={{ pointerEvents: 'none' }} />;
   };
 
   const renderSymbol = (x: number, y: number, type: string, color: string, isNR: boolean, offsetDirection: 1 | -1) => {
@@ -95,7 +143,7 @@ export default function AudiogramSVG({ rightData, leftData }: Props) {
     }
 
     return (
-      <g key={`${x}-${y}-${type}`}>
+      <g key={`${x}-${y}-${type}`} style={{ pointerEvents: 'none' }}>
         {symbol}
         {isNR && (
           <g stroke={color} strokeWidth="2" fill="none">
@@ -113,7 +161,7 @@ export default function AudiogramSVG({ rightData, leftData }: Props) {
       const x = getX(freq);
       
       // OD
-      const r = rightData[freq];
+      const r = rightData?.[freq as keyof EarTonalData];
       if (r) {
         if (r.va !== undefined) {
           const isNR = r.va === 'NR';
@@ -128,7 +176,7 @@ export default function AudiogramSVG({ rightData, leftData }: Props) {
       }
 
       // OE
-      const l = leftData[freq];
+      const l = leftData?.[freq as keyof EarTonalData];
       if (l) {
         if (l.va !== undefined) {
           const isNR = l.va === 'NR';
@@ -146,9 +194,15 @@ export default function AudiogramSVG({ rightData, leftData }: Props) {
   };
 
   return (
-    <svg id="audiogram-svg" xmlns="http://www.w3.org/2000/svg" viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="w-full max-w-full bg-white border rounded-md">
-      <text x={WIDTH / 2} y={MARGIN.top - 25} textAnchor="middle" fontSize="14" fontWeight="bold">Frequência (Hz)</text>
-      <text x={15} y={HEIGHT / 2} textAnchor="middle" fontSize="14" fontWeight="bold" transform={`rotate(-90, 15, ${HEIGHT/2})`}>Intensidade (dB HL)</text>
+    <svg 
+      id="audiogram-svg" 
+      xmlns="http://www.w3.org/2000/svg" 
+      viewBox={`0 0 ${WIDTH} ${HEIGHT}`} 
+      className={`w-full max-w-full bg-white border rounded-md ${onPointClick ? 'cursor-crosshair' : ''}`}
+      onClick={handleSvgClick}
+    >
+      <text x={WIDTH / 2} y={MARGIN.top - 25} textAnchor="middle" fontSize="14" fontWeight="bold" style={{ pointerEvents: 'none' }}>Frequência (Hz)</text>
+      <text x={15} y={HEIGHT / 2} textAnchor="middle" fontSize="14" fontWeight="bold" transform={`rotate(-90, 15, ${HEIGHT/2})`} style={{ pointerEvents: 'none' }}>Intensidade (dB HL)</text>
       
       {/* Grid */}
       {renderGrid()}

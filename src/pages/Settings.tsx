@@ -8,11 +8,11 @@ import { Save, Download, Upload, CheckCircle2, AlertCircle } from 'lucide-react'
 
 export default function Settings() {
   const [settings, setSettings] = useState<Partial<SettingsType>>({
-    clinicName: '',
+    clinicName: 'ASSOCIAÇÃO PODE - PORTADORES DE DIREITOS ESPECIAIS',
     professionalName: '',
     crfaNumber: '',
-    phone: '',
-    address: '',
+    phone: '+55 (87) 3835-1688 / +55 (87) 98808-0085',
+    address: 'Rua Padre Augusto de Carvalho, 421, Centro, Pesqueira/PE, Brasil. CEP: 55200-000',
     logoUrl: ''
   });
 
@@ -21,6 +21,7 @@ export default function Settings() {
   const [importStatus, setImportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const savedSettings = useLiveQuery(() => db.settings.get('settings_1'));
 
@@ -29,6 +30,17 @@ export default function Settings() {
       setSettings(savedSettings);
     }
   }, [savedSettings]);
+
+  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setSettings({ ...settings, logoUrl: reader.result as string });
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -122,6 +134,50 @@ export default function Settings() {
           <CardTitle className="text-xl">Dados do Profissional e Clínica</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
+          <div className="space-y-3 pb-2 border-b border-slate-100 mb-4">
+            <label className="text-sm font-medium">Logo da Empresa</label>
+            <div className="flex items-center gap-5">
+              <div className="w-24 h-24 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden bg-slate-50">
+                {settings.logoUrl ? (
+                  <img src={settings.logoUrl} alt="Logo" className="w-full h-full object-contain p-2" />
+                ) : (
+                  <span className="text-xs text-slate-400 font-medium text-center px-2">Sem logo</span>
+                )}
+              </div>
+              <div className="flex flex-col items-start gap-2">
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  ref={logoInputRef} 
+                  onChange={handleLogoUpload} 
+                  className="hidden" 
+                />
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => logoInputRef.current?.click()}
+                    className="rounded-xl border-slate-200 shadow-sm bg-white"
+                    type="button"
+                  >
+                    <Upload className="w-4 h-4 mr-2 text-slate-500" />
+                    Anexar Logo
+                  </Button>
+                  {settings.logoUrl && (
+                    <Button 
+                      variant="ghost" 
+                      onClick={() => setSettings({ ...settings, logoUrl: '' })}
+                      className="rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50"
+                      type="button"
+                    >
+                      Remover
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500">Recomendado: PNG ou JPG com fundo transparente.</p>
+              </div>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <label className="text-sm font-medium">Nome da Clínica</label>
             <Input 

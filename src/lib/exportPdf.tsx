@@ -1,5 +1,5 @@
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet, pdf, Svg, Line, Path, Circle, Polygon, Polyline, Rect, G } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, pdf, Svg, Line, Path, Circle, Polygon, Polyline, Rect, G, Image } from '@react-pdf/renderer';
 import { saveAs } from 'file-saver';
 import { Audiometry, Patient, Settings, db, EarTonalData } from '@/db/db';
 
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
   }
 });
 
-const AudiogramPdfSVG = ({ rightData, leftData }: { rightData: EarTonalData, leftData: EarTonalData }) => {
+const AudiogramPdfSVG = ({ rightData, leftData }: { rightData: Partial<EarTonalData>, leftData: Partial<EarTonalData> }) => {
   const renderGrid = () => {
     const lines = [];
     for (let db = -10; db <= 120; db += 10) {
@@ -167,10 +167,12 @@ const AudiogramPdfSVG = ({ rightData, leftData }: { rightData: EarTonalData, lef
     return lines;
   };
 
-  const renderPath = (data: EarTonalData, color: string, dasharray: string) => {
+  const renderPath = (data: Partial<EarTonalData>, color: string, dasharray: string) => {
     const points = FREQUENCIES
-      .filter(f => data[f]?.va !== undefined && data[f]?.va !== 'NR')
-      .map(f => `${getX(f)},${getY(data[f].va as number)}`)
+      // @ts-ignore
+      .filter(f => data[f as any]?.va !== undefined && data[f as any]?.va !== 'NR')
+      // @ts-ignore
+      .map(f => `${getX(f)},${getY(data[f as any]!.va as number)}`)
       .join(' L ');
     
     if (!points) return null;
@@ -229,30 +231,36 @@ const AudiogramPdfSVG = ({ rightData, leftData }: { rightData: EarTonalData, lef
     FREQUENCIES.forEach(freq => {
       const x = getX(freq);
       
-      const r = rightData[freq];
+      // @ts-ignore
+      const r = rightData[freq as any];
       if (r) {
         if (r.va !== undefined) {
           const isNR = r.va === 'NR';
           const y = isNR ? getY(120) : getY(r.va as number);
+          // @ts-ignore
           points.push(renderSymbol(x, y, r.maskedVa ? 'OD_VA_MASK' : 'OD_VA', '#ef4444', isNR, -1));
         }
         if (r.vo !== undefined) {
           const isNR = r.vo === 'NR';
           const y = isNR ? getY(120) : getY(r.vo as number);
+          // @ts-ignore
           points.push(renderSymbol(x - 8, y, r.maskedVo ? 'OD_VO_MASK' : 'OD_VO', '#ef4444', isNR, -1));
         }
       }
 
-      const l = leftData[freq];
+      // @ts-ignore
+      const l = leftData[freq as any];
       if (l) {
         if (l.va !== undefined) {
           const isNR = l.va === 'NR';
           const y = isNR ? getY(120) : getY(l.va as number);
+          // @ts-ignore
           points.push(renderSymbol(x, y, l.maskedVa ? 'OE_VA_MASK' : 'OE_VA', '#3b82f6', isNR, 1));
         }
         if (l.vo !== undefined) {
           const isNR = l.vo === 'NR';
           const y = isNR ? getY(120) : getY(l.vo as number);
+          // @ts-ignore
           points.push(renderSymbol(x + 8, y, l.maskedVo ? 'OE_VO_MASK' : 'OE_VO', '#3b82f6', isNR, 1));
         }
       }
@@ -280,41 +288,33 @@ const AudiometryPDF = ({ exam, patient, settings }: { exam: Audiometry, patient:
     <Page size="A4" style={styles.page}>
       
       {/* HEADER */}
-      <View style={styles.headerBox} wrap={false}>
-        <View>
-          <Text style={styles.clinicName}>{settings?.clinicName || 'Clínica de Audiologia'}</Text>
-          <Text style={styles.profName}>{settings?.professionalName || 'Fonoaudiólogo Responsável'}</Text>
-          <Text style={styles.profName}>CRFa: {settings?.crfaNumber || '---'}</Text>
+      <View style={[styles.headerBox, { alignItems: 'center' }]} wrap={false}>
+        {settings?.logoUrl && (
+          <Image src={settings.logoUrl} style={{ width: 60, height: 60, objectFit: 'contain' }} />
+        )}
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#1e3a8a' }}>ASSOCIAÇÃO PODE - PORTADORES DE DIREITOS ESPECIAIS</Text>
+          <Text style={{ fontSize: 10, color: '#475569', marginTop: 3 }}>CENTRO ESPECIALIZADO EM REABILITAÇÃO (CER II)</Text>
+          <Text style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>MODALIDADES AUDITIVA E INTELECTUAL</Text>
+          <Text style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>CNPJ: 06.698.790/0001-07 / CNES: 5952239</Text>
         </View>
-        <View style={{ textAlign: 'right' }}>
-          <Text style={{ fontSize: 9, color: '#475569' }}>{settings?.phone}</Text>
-          <Text style={{ fontSize: 9, color: '#475569' }}>{settings?.address}</Text>
-          <Text style={{ fontSize: 10, marginTop: 10, fontWeight: 'bold' }}>Data: {new Date(exam.examDate).toLocaleDateString('pt-BR')}</Text>
-        </View>
+        {/* Placeholder para balancear o cabeçalho se houver logo na esquerda */}
+        {settings?.logoUrl && <View style={{ width: 60 }} />}
       </View>
 
-      {/* PATIENT & ANAMNESIS */}
+      {/* PATIENT */}
       <View style={styles.infoBox} wrap={false}>
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Paciente:</Text>
           <Text style={styles.infoValue}>{patient.name}</Text>
           <Text style={styles.infoLabel}>Nascimento:</Text>
-          <Text style={{ width: 100 }}>{patient.birthDate ? new Date(patient.birthDate).toLocaleDateString('pt-BR') : '---'}</Text>
+          <Text style={{ width: 100 }}>{patient.birthDate ? patient.birthDate.split('T')[0].split('-').reverse().join('/') : '---'}</Text>
+        </View>
+        <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Sexo:</Text>
-          <Text style={{ width: 50 }}>{patient.gender}</Text>
-        </View>
-        <View style={{ height: 1, backgroundColor: '#e2e8f0', marginVertical: 4 }}></View>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Queixa:</Text>
-          <Text style={styles.infoValue}>{exam.anamnesis.queixa || 'Não relatada'}</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Zumbido/Tontura:</Text>
-          <Text style={styles.infoValue}>
-            {exam.anamnesis.zumbido ? `Zumbido: ${exam.anamnesis.zumbido}. ` : ''}
-            {exam.anamnesis.tontura ? `Tontura: ${exam.anamnesis.tontura}.` : ''}
-            {!exam.anamnesis.zumbido && !exam.anamnesis.tontura ? 'Negados' : ''}
-          </Text>
+          <Text style={styles.infoValue}>{patient.gender}</Text>
+          <Text style={styles.infoLabel}>Data do Exame:</Text>
+          <Text style={{ width: 100 }}>{exam.examDate ? exam.examDate.split('T')[0].split('-').reverse().join('/') : '---'}</Text>
         </View>
       </View>
 
@@ -325,6 +325,9 @@ const AudiometryPDF = ({ exam, patient, settings }: { exam: Audiometry, patient:
         <View style={styles.leftCol}>
           <Text style={styles.sectionTitle}>Audiometria Tonal</Text>
           <AudiogramPdfSVG rightData={exam.tonalData.right} leftData={exam.tonalData.left} />
+          <Text style={{ fontSize: 7, color: '#64748b', marginTop: 4, textAlign: 'center' }}>
+            Classificação: OMS (2021); DAVIS E SILVERMAN (1970); SILMAN E SILVERMAN (1997).
+          </Text>
         </View>
 
         {/* RIGHT COLUMN: TABLES */}
@@ -341,10 +344,14 @@ const AudiometryPDF = ({ exam, patient, settings }: { exam: Audiometry, patient:
             {FREQUENCIES.map(f => (
               <View key={`tbl_${f}`} style={styles.tableRow}>
                 <Text style={styles.tableCellFreq}>{f}</Text>
-                <Text style={styles.tableCell}>{exam.tonalData.right[f]?.va ?? '-'}</Text>
-                <Text style={styles.tableCell}>{exam.tonalData.right[f]?.vo ?? '-'}</Text>
-                <Text style={styles.tableCell}>{exam.tonalData.left[f]?.va ?? '-'}</Text>
-                <Text style={styles.tableCell}>{exam.tonalData.left[f]?.vo ?? '-'}</Text>
+                {/* @ts-ignore */}
+                <Text style={styles.tableCell}>{exam.tonalData.right[f as any]?.va ?? '-'}</Text>
+                {/* @ts-ignore */}
+                <Text style={styles.tableCell}>{exam.tonalData.right[f as any]?.vo ?? '-'}</Text>
+                {/* @ts-ignore */}
+                <Text style={styles.tableCell}>{exam.tonalData.left[f as any]?.va ?? '-'}</Text>
+                {/* @ts-ignore */}
+                <Text style={styles.tableCell}>{exam.tonalData.left[f as any]?.vo ?? '-'}</Text>
               </View>
             ))}
           </View>
@@ -358,18 +365,18 @@ const AudiometryPDF = ({ exam, patient, settings }: { exam: Audiometry, patient:
             </View>
             <View style={styles.tableRow}>
               <Text style={styles.tableCellFreq}>LRF (dB)</Text>
-              <Text style={styles.tableCell}>{exam.vocalData.right.lrf ?? '-'}</Text>
-              <Text style={styles.tableCell}>{exam.vocalData.left.lrf ?? '-'}</Text>
+              <Text style={styles.tableCell}>{exam.logoAudiometry?.right?.srt?.db ?? '-'}</Text>
+              <Text style={styles.tableCell}>{exam.logoAudiometry?.left?.srt?.db ?? '-'}</Text>
             </View>
             <View style={styles.tableRow}>
               <Text style={styles.tableCellFreq}>LDV (dB)</Text>
-              <Text style={styles.tableCell}>{exam.vocalData.right.ldt ?? '-'}</Text>
-              <Text style={styles.tableCell}>{exam.vocalData.left.ldt ?? '-'}</Text>
+              <Text style={styles.tableCell}>{exam.logoAudiometry?.right?.voiceDetection?.db ?? '-'}</Text>
+              <Text style={styles.tableCell}>{exam.logoAudiometry?.left?.voiceDetection?.db ?? '-'}</Text>
             </View>
             <View style={styles.tableRow}>
               <Text style={styles.tableCellFreq}>IPRF (%)</Text>
-              <Text style={styles.tableCell}>{exam.vocalData.right.iprfMono ?? '-'}</Text>
-              <Text style={styles.tableCell}>{exam.vocalData.left.iprfMono ?? '-'}</Text>
+              <Text style={styles.tableCell}>{exam.logoAudiometry?.right?.irf?.mono?.percentage ?? '-'}</Text>
+              <Text style={styles.tableCell}>{exam.logoAudiometry?.left?.irf?.mono?.percentage ?? '-'}</Text>
             </View>
           </View>
 
@@ -377,16 +384,35 @@ const AudiometryPDF = ({ exam, patient, settings }: { exam: Audiometry, patient:
       </View>
 
       {/* PARECER */}
-      <Text style={[styles.sectionTitle, { marginTop: 10 }]}>Parecer Fonoaudiológico</Text>
+      <Text style={[styles.sectionTitle, { marginTop: 10 }]}>Resultado / Conduta</Text>
       <View style={styles.reportBox}>
-        <Text style={{ lineHeight: 1.5 }}>{exam.finalReport || 'Sem parecer registrado.'}</Text>
+        <Text style={{ lineHeight: 1.5 }}>{exam.resultAndConduct || 'Sem parecer registrado.'}</Text>
       </View>
 
       {/* FOOTER */}
       <View style={styles.footer} wrap={false}>
-        <View style={styles.signatureLine}></View>
-        <Text style={{ fontSize: 9, fontWeight: 'bold', marginBottom: 2 }}>{settings?.professionalName || 'Fonoaudiólogo(a)'}</Text>
-        <Text style={{ fontSize: 8, color: '#475569' }}>CRFa: {settings?.crfaNumber || '---'}</Text>
+        <View style={{ alignItems: 'center', marginBottom: 15 }}>
+          <View style={styles.signatureLine}></View>
+          <Text style={{ fontSize: 9, fontWeight: 'bold', marginBottom: 2 }}>{settings?.professionalName || 'Fonoaudiólogo(a)'}</Text>
+          <Text style={{ fontSize: 8, color: '#475569' }}>CRFa: {settings?.crfaNumber || '---'}</Text>
+        </View>
+
+        {/* CONTATOS */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTop: '1px solid #cbd5e1', paddingTop: 8, width: '100%' }}>
+          <View style={{ width: '30%', alignItems: 'flex-start' }}>
+            <Text style={{ fontSize: 7, color: '#475569', marginBottom: 2 }}>+55 (87) 3835-1688</Text>
+            <Text style={{ fontSize: 7, color: '#475569' }}>+55 (87) 98808-0085</Text>
+          </View>
+          <View style={{ width: '40%', alignItems: 'center' }}>
+            <Text style={{ fontSize: 7, color: '#475569', marginBottom: 2 }}>Rua Padre Augusto de Carvalho, 421</Text>
+            <Text style={{ fontSize: 7, color: '#475569' }}>Centro, Pesqueira/PE, Brasil. CEP: 55200-000</Text>
+          </View>
+          <View style={{ width: '30%', alignItems: 'flex-end' }}>
+            <Text style={{ fontSize: 7, color: '#475569', marginBottom: 2 }}>www.associacaopode.org</Text>
+            <Text style={{ fontSize: 7, color: '#475569', marginBottom: 2 }}>associacaopode2@yahoo.com.br</Text>
+            <Text style={{ fontSize: 7, color: '#475569' }}>@podepesqueira / @PODEpesqueira</Text>
+          </View>
+        </View>
       </View>
 
     </Page>

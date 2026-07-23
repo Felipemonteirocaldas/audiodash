@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/db';
 import { Users, Activity, Plus, WifiOff, Clock, ChevronRight, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import bgImage from '@/assets/pexels-olly-3891209.jpg';
 
 export default function Dashboard() {
   const patientCount = useLiveQuery(() => db.patients.count(), []) ?? 0;
@@ -17,7 +18,16 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <div className="pb-12">
+    <>
+      {/* BACKGROUND IMAGE PARA A TELA TODA */}
+      <div 
+        className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat blur-[6px] scale-105 opacity-70 pointer-events-none" 
+        style={{ backgroundImage: `url('${bgImage}')` }}
+      ></div>
+      {/* OVERLAY PARA GARANTIR LEGIBILIDADE */}
+      <div className="fixed inset-0 z-0 bg-white/40 pointer-events-none"></div>
+
+      <div className="pb-12 relative z-10">
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight text-slate-900">Dashboard</h1>
         <p className="text-slate-500 mt-1">Visão geral do seu sistema clínico.</p>
@@ -26,21 +36,24 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
         
         {/* Hero Card - spans 2 cols, 2 rows */}
-        <div className="md:col-span-2 lg:col-span-2 md:row-span-2 rounded-[2rem] bg-white border border-slate-200/60 p-10 shadow-sm flex flex-col justify-between group overflow-hidden relative min-h-[300px]">
+        <div className="md:col-span-2 lg:col-span-2 md:row-span-2 rounded-[2rem] border border-white/40 bg-white/40 backdrop-blur-xl p-10 shadow-sm flex flex-col justify-between group overflow-hidden relative min-h-[300px]">
+            <div className="absolute inset-0 z-0 bg-gradient-to-r from-white/60 to-transparent pointer-events-none"></div>
+            
             <div className="z-10 relative">
                 <h2 className="text-4xl font-semibold tracking-tight text-slate-900 mb-3">Bem-vindo ao AudioDash</h2>
-                <p className="text-slate-500 max-w-sm text-lg leading-relaxed font-medium">Gerencie pacientes e crie laudos audiométricos premium, sem depender de internet.</p>
+                <p className="text-slate-700 max-w-sm text-lg leading-relaxed font-medium">Gerencie pacientes e crie laudos audiométricos premium, sem depender de internet.</p>
             </div>
             <div className="z-10 relative mt-12 flex flex-wrap gap-4">
                 <Link to="/exam/new" className="bg-slate-900 text-white hover:bg-slate-800 font-semibold px-7 py-3.5 rounded-2xl transition-all shadow-md flex items-center gap-2">
                   <Plus className="w-5 h-5" /> Novo Exame
                 </Link>
-                <Link to="/patients" className="bg-slate-100 text-slate-700 hover:bg-slate-200 font-semibold px-7 py-3.5 rounded-2xl transition-all flex items-center gap-2">
+                <Link to="/patients" className="bg-white/80 backdrop-blur-md border border-slate-200/50 text-slate-800 hover:bg-white font-semibold px-7 py-3.5 rounded-2xl transition-all flex items-center gap-2">
                   <Users className="w-5 h-5" /> Pacientes
                 </Link>
             </div>
+            
             {/* Decorative element - ultra soft */}
-            <div className="absolute -bottom-32 -right-32 w-[500px] h-[500px] bg-gradient-to-br from-blue-50/50 to-indigo-50/50 rounded-full blur-3xl group-hover:scale-105 transition-transform duration-1000"></div>
+            <div className="absolute -bottom-32 -right-32 w-[500px] h-[500px] bg-gradient-to-br from-blue-100/30 to-indigo-100/30 rounded-full blur-3xl group-hover:scale-105 transition-transform duration-1000"></div>
         </div>
 
         {/* Stat 1 */}
@@ -131,5 +144,6 @@ export default function Dashboard() {
         </div>
       </div>
     </div>
+    </>
   );
 }

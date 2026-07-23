@@ -17,7 +17,7 @@ export const exportToDocx = async (exam: Audiometry, patient: Patient) => {
         new docx.Paragraph({
           children: [new docx.TextRun({ text: "Parecer Fonoaudiológico:", bold: true })],
         }),
-        new docx.Paragraph({ text: exam.finalReport }),
+        new docx.Paragraph({ text: exam.resultAndConduct || '' }),
       ],
     }],
   });
