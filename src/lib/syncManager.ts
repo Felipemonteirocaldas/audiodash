@@ -178,7 +178,7 @@ class SyncManager {
         
         if (data && data.length > 0) {
           const localRecords = data.map(d => ({ ...d, syncStatus: 'synced' }));
-          await db[table].bulkPut(localRecords);
+          await (db[table] as any).bulkPut(localRecords);
         }
       }
       this._lastSyncTime = Date.now();
