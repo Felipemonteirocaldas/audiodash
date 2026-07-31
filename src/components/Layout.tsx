@@ -1,11 +1,13 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Activity, Users, Settings, Wifi, WifiOff, AlertCircle, CheckCircle2, Calendar } from 'lucide-react';
+import { Activity, Users, Settings, Wifi, WifiOff, AlertCircle, CheckCircle2, Calendar, LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { syncManager, type SyncStatus } from '@/lib/syncManager';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function Layout() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
+  const { logout } = useAuth();
 
   useEffect(() => {
     const handleOnline = () => {
@@ -90,7 +92,7 @@ export default function Layout() {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Activity className="h-6 w-6 text-primary" />
-            <Link to="/" className="text-xl font-bold text-foreground">
+            <Link to="/dashboard" className="text-xl font-bold text-foreground">
               AudioDash
             </Link>
             {getSyncBadge()}
@@ -109,6 +111,9 @@ export default function Layout() {
             <Link to="/settings" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-2">
               <Settings className="h-4 w-4" /> Configs
             </Link>
+            <button onClick={logout} className="text-sm font-medium text-red-600 hover:text-red-700 transition-colors flex items-center gap-2 ml-4">
+              <LogOut className="h-4 w-4" /> Sair
+            </button>
           </nav>
         </div>
       </header>
@@ -120,7 +125,7 @@ export default function Layout() {
       {/* Mobile Bottom Navigation */}
       <nav className="md:hidden border-t bg-card fixed bottom-0 left-0 right-0 z-50 pb-safe">
         <div className="flex justify-around items-center h-16">
-          <Link to="/" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-primary">
+          <Link to="/dashboard" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-primary">
             <Activity className="h-5 w-5" />
             <span className="text-[10px]">Início</span>
           </Link>
@@ -140,6 +145,10 @@ export default function Layout() {
             <Settings className="h-5 w-5" />
             <span className="text-[10px]">Configs</span>
           </Link>
+          <button onClick={logout} className="flex flex-col items-center gap-1 text-muted-foreground hover:text-red-500">
+            <LogOut className="h-5 w-5" />
+            <span className="text-[10px]">Sair</span>
+          </button>
         </div>
       </nav>
     </div>

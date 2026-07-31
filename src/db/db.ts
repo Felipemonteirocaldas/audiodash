@@ -1,5 +1,13 @@
 import Dexie, { type EntityTable } from 'dexie';
 
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  passwordHash: string; // Senha (hash ou plain text simples para Dexie local)
+  createdAt: number;
+}
+
 export interface Patient {
   id: string;
   name: string;
@@ -228,7 +236,8 @@ export interface Settings {
   syncStatus: 'synced' | 'pending';
 }
 
-const db = new Dexie('AudioDashDB_v5') as Dexie & {
+const db = new Dexie('AudioDashDB_v6') as Dexie & {
+  users: EntityTable<User, 'id'>;
   patients: EntityTable<Patient, 'id'>;
   audiometries: EntityTable<Audiometry, 'id'>;
   anamneses: EntityTable<Anamnesis, 'id'>;
@@ -237,7 +246,8 @@ const db = new Dexie('AudioDashDB_v5') as Dexie & {
 };
 
 // Schema declaration
-db.version(5).stores({
+db.version(6).stores({
+  users: 'id, email',
   patients: 'id, name, cpf, syncStatus',
   audiometries: 'id, patientId, examDate, syncStatus',
   anamneses: 'id, patientId, examDate, syncStatus',
