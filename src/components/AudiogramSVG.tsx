@@ -227,7 +227,7 @@ export default function AudiogramSVG({ rightData, leftData, baselineRightData, b
         const y = isNR ? getY(120) : getY(f.va as number);
         points.push(
           <g key={`ff-${x}-${y}`}>
-            {renderSymbol(x, y, 'FREE_FIELD', '#10b981', isNR, 0)}
+            {renderSymbol(x, y, 'FREE_FIELD', '#10b981', isNR, 1)}
           </g>
         );
       }

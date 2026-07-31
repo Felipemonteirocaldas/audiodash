@@ -12,6 +12,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      workbox: {
+        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024 // 10MB
+      },
       manifest: {
         name: 'AudioDash',
         short_name: 'AudioDash',

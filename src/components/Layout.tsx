@@ -1,4 +1,4 @@
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link } from 'react-router-dom';
 import { Activity, Users, Settings, Wifi, WifiOff, AlertCircle, CheckCircle2, Calendar, LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { syncManager, type SyncStatus } from '@/lib/syncManager';

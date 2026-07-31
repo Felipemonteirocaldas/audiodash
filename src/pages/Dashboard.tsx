@@ -6,7 +6,6 @@ import { Link } from 'react-router-dom';
 
 export default function Dashboard() {
   const patientCount = useLiveQuery(() => db.patients.count(), []) ?? 0;
-  const examCount = useLiveQuery(() => db.audiometries.count(), []) ?? 0;
   const allExams = useLiveQuery(() => db.audiometries.toArray(), []);
   
   const recentExams = useLiveQuery(async () => {
