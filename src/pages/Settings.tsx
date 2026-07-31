@@ -29,7 +29,7 @@ export default function Settings() {
 
   useEffect(() => {
     if (savedSettings) {
-      setSettings(savedSettings);
+      setSettings(prev => ({...prev, ...savedSettings}));
     }
   }, [savedSettings]);
 

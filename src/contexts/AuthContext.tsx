@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { db, User } from '@/db/db';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase, isConfigured as isSupabaseConfigured } from '@/lib/supabase';
+import { syncManager } from '@/lib/syncManager';
 
 interface AuthContextType {
   user: User | null;
@@ -37,11 +38,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               createdAt: new Date(session.user.created_at).getTime()
             });
             setAuthProvider('supabase');
+            syncManager.pullFromSupabase(session.user.id);
           }
 
           // Listen for auth changes
           const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            (_event, session) => {
+            async (_event, session) => {
               if (session?.user) {
                 setUser({
                   id: session.user.id,
@@ -51,7 +53,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   createdAt: new Date(session.user.created_at).getTime()
                 });
                 setAuthProvider('supabase');
-              } else {
+                if (_event === 'SIGNED_IN') {
+                  syncManager.pullFromSupabase(session.user.id);
+                }
+              } else if (_event === 'SIGNED_OUT') {
                 setUser(null);
               }
               setIsLoading(false);
@@ -188,12 +193,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
+      // Check for unsynced data before allowing logout
+      const pendingCounts = await Promise.all([
+        db.patients.where('syncStatus').equals('pending').count(),
+        db.audiometries.where('syncStatus').equals('pending').count(),
+        db.anamneses.where('syncStatus').equals('pending').count(),
+        db.appointments.where('syncStatus').equals('pending').count(),
+        db.settings.where('syncStatus').equals('pending').count()
+      ]);
+      
+      const hasUnsyncedData = pendingCounts.some(count => count > 0);
+      
+      if (hasUnsyncedData) {
+        alert('Atenção: Você tem dados offline que ainda não foram enviados para a nuvem. Conecte-se à internet e aguarde a sincronização antes de sair para não perder seus dados.');
+        return; // Abort logout
+      }
+
       if (isSupabaseConfigured && supabase) {
         await supabase.auth.signOut();
       }
     } catch (error) {
       console.error('Logout error', error);
     } finally {
+      await Promise.all([
+        db.patients.clear(),
+        db.audiometries.clear(),
+        db.anamneses.clear(),
+        db.appointments.clear(),
+        db.settings.clear()
+      ]);
       setUser(null);
       setAuthProvider(null);
       localStorage.removeItem('audiodash_user_id');

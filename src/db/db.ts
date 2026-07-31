@@ -22,6 +22,7 @@ export interface Patient {
   createdAt: number;
   updatedAt: number;
   syncStatus: 'synced' | 'pending';
+  user_id?: string;
 }
 
 export interface Appointment {
@@ -36,6 +37,7 @@ export interface Appointment {
   createdAt: number;
   updatedAt: number;
   syncStatus: 'synced' | 'pending';
+  user_id?: string;
 }
 
 // Header Info
@@ -173,6 +175,7 @@ export interface Anamnesis {
   createdAt: number;
   updatedAt: number;
   syncStatus: 'synced' | 'pending';
+  user_id?: string;
 }
 
 export interface Audiometry {
@@ -222,6 +225,7 @@ export interface Audiometry {
   createdAt: number;
   updatedAt: number;
   syncStatus: 'synced' | 'pending';
+  user_id?: string;
 }
 
 export interface Settings {
@@ -234,6 +238,7 @@ export interface Settings {
   logoUrl: string;
   updatedAt: number;
   syncStatus: 'synced' | 'pending';
+  user_id?: string;
 }
 
 const db = new Dexie('AudioDashDB_v6') as Dexie & {
@@ -246,13 +251,13 @@ const db = new Dexie('AudioDashDB_v6') as Dexie & {
 };
 
 // Schema declaration
-db.version(6).stores({
+db.version(7).stores({
   users: 'id, email',
-  patients: 'id, name, cpf, syncStatus',
-  audiometries: 'id, patientId, examDate, syncStatus',
-  anamneses: 'id, patientId, examDate, syncStatus',
-  settings: 'id, syncStatus',
-  appointments: 'id, date, status, syncStatus'
+  patients: 'id, user_id, name, cpf, syncStatus',
+  audiometries: 'id, user_id, patientId, examDate, syncStatus',
+  anamneses: 'id, user_id, patientId, examDate, syncStatus',
+  settings: 'id, user_id, syncStatus',
+  appointments: 'id, user_id, date, status, syncStatus'
 });
 
 export { db };

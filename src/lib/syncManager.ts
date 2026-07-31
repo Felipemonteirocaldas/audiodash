@@ -61,10 +61,17 @@ class SyncManager {
   private async pushToSupabase(table: string, records: any[]): Promise<boolean> {
     if (!supabase) return false;
 
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+    if (!userId) {
+      console.error('[SyncManager] Usuário não logado, cancelando push.');
+      return false;
+    }
+
     // Remove campos exclusivos do banco local (IndexedDB) antes de enviar para nuvem
     const cleanRecords = records.map(record => {
       const { syncStatus, ...cleanRecord } = record;
-      return cleanRecord;
+      return { ...cleanRecord, user_id: userId };
     });
 
     const { error } = await supabase.from(table).upsert(cleanRecords);
@@ -147,6 +154,41 @@ class SyncManager {
       console.error('[SyncManager] Falha na sincronização:', error);
     } finally {
       this.isSyncing = false;
+      window.dispatchEvent(new Event('sync-completed'));
+    }
+  }
+
+  /**
+   * Pulls all records for the specified user from Supabase into the local DB.
+   * This is typically called right after login.
+   */
+  async pullFromSupabase(userId: string): Promise<boolean> {
+    if (!navigator.onLine || !isConfigured || !supabase) return false;
+    
+    this.setStatus('syncing');
+    try {
+      const tables = ['patients', 'audiometries', 'settings', 'appointments'] as const;
+      
+      for (const table of tables) {
+        const { data, error } = await supabase.from(table).select('*').eq('user_id', userId);
+        if (error) {
+          console.error(`[SyncManager] Erro ao puxar '${table}':`, error.message);
+          continue; // Skip this table but try others
+        }
+        
+        if (data && data.length > 0) {
+          const localRecords = data.map(d => ({ ...d, syncStatus: 'synced' }));
+          await db[table].bulkPut(localRecords);
+        }
+      }
+      this._lastSyncTime = Date.now();
+      this.setStatus('success');
+      return true;
+    } catch (error) {
+      console.error('[SyncManager] Erro no pull:', error);
+      this.setStatus('error', error instanceof Error ? error.message : 'Erro no pull');
+      return false;
+    } finally {
       window.dispatchEvent(new Event('sync-completed'));
     }
   }
