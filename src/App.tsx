@@ -18,17 +18,17 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Login />} />
         <Route element={<ProtectedRoute />}>
-          <Route path="/dashboard" element={<Layout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="agenda" element={<Agenda />} />
-            <Route path="patients" element={<Patients />} />
-            <Route path="exam/new/:patientId?" element={<NewExam />} />
-            <Route path="exam/:examId" element={<NewExam />} />
-            <Route path="compare/:examId1/:examId2" element={<CompareExams />} />
-            <Route path="anamnesis/new/:patientId" element={<AnamnesisForm />} />
-            <Route path="anamnesis/:anamnesisId" element={<AnamnesisForm />} />
-            <Route path="evolution/:patientId" element={<EvolutionControl />} />
-            <Route path="settings" element={<Settings />} />
+          <Route element={<Layout />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/agenda" element={<Agenda />} />
+            <Route path="/patients" element={<Patients />} />
+            <Route path="/exam/new/:patientId?" element={<NewExam />} />
+            <Route path="/exam/:examId" element={<NewExam />} />
+            <Route path="/compare/:examId1/:examId2" element={<CompareExams />} />
+            <Route path="/anamnesis/new/:patientId" element={<AnamnesisForm />} />
+            <Route path="/anamnesis/:anamnesisId" element={<AnamnesisForm />} />
+            <Route path="/evolution/:patientId" element={<EvolutionControl />} />
+            <Route path="/settings" element={<Settings />} />
           </Route>
         </Route>
       </Routes>
