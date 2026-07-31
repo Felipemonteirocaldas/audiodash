@@ -27,7 +27,9 @@ const styles = StyleSheet.create({
   headerBox: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    borderBottom: '2px solid #2563eb',
+    borderBottomWidth: 2,
+    borderBottomStyle: 'solid',
+    borderBottomColor: '#2563eb',
     paddingBottom: 8,
     marginBottom: 10
   },
@@ -42,7 +44,9 @@ const styles = StyleSheet.create({
     color: '#475569'
   },
   infoBox: {
-    border: '1px solid #e2e8f0',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: '#e2e8f0',
     borderRadius: 4,
     padding: 8,
     marginBottom: 10,
@@ -84,7 +88,9 @@ const styles = StyleSheet.create({
     borderRadius: 2
   },
   chartContainer: {
-    border: '1px solid #cbd5e1',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: '#cbd5e1',
     borderRadius: 4,
     backgroundColor: '#ffffff',
     alignItems: 'center',
@@ -93,8 +99,12 @@ const styles = StyleSheet.create({
   table: {
     width: '100%',
     flexDirection: 'column',
-    borderTop: '1px solid #cbd5e1',
-    borderLeft: '1px solid #cbd5e1',
+    borderTopWidth: 1,
+    borderTopStyle: 'solid',
+    borderTopColor: '#cbd5e1',
+    borderLeftWidth: 1,
+    borderLeftStyle: 'solid',
+    borderLeftColor: '#cbd5e1',
     marginBottom: 10
   },
   tableRow: {
@@ -105,16 +115,24 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   tableCell: {
-    borderRight: '1px solid #cbd5e1',
-    borderBottom: '1px solid #cbd5e1',
+    borderRightWidth: 1,
+    borderRightStyle: 'solid',
+    borderRightColor: '#cbd5e1',
+    borderBottomWidth: 1,
+    borderBottomStyle: 'solid',
+    borderBottomColor: '#cbd5e1',
     padding: 3,
     flex: 1,
     textAlign: 'center',
     fontSize: 8
   },
   tableCellFreq: {
-    borderRight: '1px solid #cbd5e1',
-    borderBottom: '1px solid #cbd5e1',
+    borderRightWidth: 1,
+    borderRightStyle: 'solid',
+    borderRightColor: '#cbd5e1',
+    borderBottomWidth: 1,
+    borderBottomStyle: 'solid',
+    borderBottomColor: '#cbd5e1',
     padding: 3,
     flex: 1.2,
     fontWeight: 'bold',
@@ -123,7 +141,9 @@ const styles = StyleSheet.create({
     fontSize: 8
   },
   reportBox: {
-    border: '1px solid #e2e8f0',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: '#e2e8f0',
     borderRadius: 4,
     padding: 8,
     minHeight: 50,
@@ -138,7 +158,9 @@ const styles = StyleSheet.create({
   },
   signatureLine: {
     width: 200,
-    borderBottom: '1px solid #333',
+    borderBottomWidth: 1,
+    borderBottomStyle: 'solid',
+    borderBottomColor: '#333',
     marginBottom: 4
   }
 });
@@ -176,7 +198,15 @@ const AudiogramPdfSVG = ({ rightData, leftData }: { rightData: Partial<EarTonalD
       .join(' L ');
     
     if (!points) return null;
-    return <Path d={`M ${points}`} fill="none" stroke={color} strokeWidth={2} strokeDasharray={dasharray} />;
+    return (
+      <Path 
+        d={`M ${points}`} 
+        fill="none" 
+        stroke={color} 
+        strokeWidth={2} 
+        {...(dasharray && dasharray !== '0' ? { strokeDasharray: dasharray } : {})} 
+      />
+    );
   };
 
   const renderSymbol = (x: number, y: number, type: string, color: string, isNR: boolean, offsetDirection: 1 | -1) => {
@@ -324,7 +354,7 @@ const AudiometryPDF = ({ exam, patient, settings }: { exam: Audiometry, patient:
         {/* LEFT COLUMN: CHART */}
         <View style={styles.leftCol}>
           <Text style={styles.sectionTitle}>Audiometria Tonal</Text>
-          <AudiogramPdfSVG rightData={exam.tonalData.right} leftData={exam.tonalData.left} />
+          <AudiogramPdfSVG rightData={exam.tonalData?.right || {}} leftData={exam.tonalData?.left || {}} />
           <Text style={{ fontSize: 7, color: '#64748b', marginTop: 4, textAlign: 'center' }}>
             Classificação: OMS (2021); DAVIS E SILVERMAN (1970); SILMAN E SILVERMAN (1997).
           </Text>
@@ -345,13 +375,13 @@ const AudiometryPDF = ({ exam, patient, settings }: { exam: Audiometry, patient:
               <View key={`tbl_${f}`} style={styles.tableRow}>
                 <Text style={styles.tableCellFreq}>{f}</Text>
                 {/* @ts-ignore */}
-                <Text style={styles.tableCell}>{exam.tonalData.right[f as any]?.va ?? '-'}</Text>
+                <Text style={styles.tableCell}>{exam.tonalData?.right?.[f as any]?.va ?? '-'}</Text>
                 {/* @ts-ignore */}
-                <Text style={styles.tableCell}>{exam.tonalData.right[f as any]?.vo ?? '-'}</Text>
+                <Text style={styles.tableCell}>{exam.tonalData?.right?.[f as any]?.vo ?? '-'}</Text>
                 {/* @ts-ignore */}
-                <Text style={styles.tableCell}>{exam.tonalData.left[f as any]?.va ?? '-'}</Text>
+                <Text style={styles.tableCell}>{exam.tonalData?.left?.[f as any]?.va ?? '-'}</Text>
                 {/* @ts-ignore */}
-                <Text style={styles.tableCell}>{exam.tonalData.left[f as any]?.vo ?? '-'}</Text>
+                <Text style={styles.tableCell}>{exam.tonalData?.left?.[f as any]?.vo ?? '-'}</Text>
               </View>
             ))}
           </View>
@@ -398,7 +428,7 @@ const AudiometryPDF = ({ exam, patient, settings }: { exam: Audiometry, patient:
         </View>
 
         {/* CONTATOS */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTop: '1px solid #cbd5e1', paddingTop: 8, width: '100%' }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopStyle: 'solid', borderTopColor: '#cbd5e1', paddingTop: 8, width: '100%' }}>
           <View style={{ width: '30%', alignItems: 'flex-start' }}>
             <Text style={{ fontSize: 7, color: '#475569', marginBottom: 2 }}>+55 (87) 3835-1688</Text>
             <Text style={{ fontSize: 7, color: '#475569' }}>+55 (87) 98808-0085</Text>
@@ -420,9 +450,23 @@ const AudiometryPDF = ({ exam, patient, settings }: { exam: Audiometry, patient:
 );
 
 export const exportToPdf = async (exam: Audiometry, patient: Patient) => {
-  const settingsArray = await db.settings.toArray();
-  const settings = settingsArray[0];
+  try {
+    const settingsArray = await db.settings.toArray();
+    const settings = settingsArray[0];
 
-  const blob = await pdf(<AudiometryPDF exam={exam} patient={patient} settings={settings} />).toBlob();
-  saveAs(blob, `Laudo_${patient.name.replace(/\s+/g, '_')}.pdf`);
+    const blob = await pdf(<AudiometryPDF exam={exam} patient={patient} settings={settings} />).toBlob();
+    
+    // Fallback native download method (doesn't rely on file-saver)
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Laudo_${patient.name.replace(/\s+/g, '_')}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } catch (err: any) {
+    console.error(err);
+    alert('Erro ao gerar PDF: ' + (err.message || String(err)));
+  }
 };

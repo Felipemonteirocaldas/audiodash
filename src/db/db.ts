@@ -16,6 +16,20 @@ export interface Patient {
   syncStatus: 'synced' | 'pending';
 }
 
+export interface Appointment {
+  id: string;
+  patientName: string;
+  patientId?: string; // Optional link to a registered patient
+  date: string; // YYYY-MM-DD
+  time: string; // HH:mm
+  type: string; // Type of exam/consultation
+  status: 'scheduled' | 'completed' | 'canceled';
+  notes?: string;
+  createdAt: number;
+  updatedAt: number;
+  syncStatus: 'synced' | 'pending';
+}
+
 // Header Info
 export interface ExamHeader {
   audiometer?: string;
@@ -91,6 +105,68 @@ export interface ReflexPoint {
 }
 export type EarReflexData = Record<ReflexFrequency, ReflexPoint>;
 
+// Meatoscopy (Inspeção)
+export interface Meatoscopy {
+  right: 'normal' | 'cerumen' | 'foreign_body' | 'perforation' | 'other' | '';
+  left: 'normal' | 'cerumen' | 'foreign_body' | 'perforation' | 'other' | '';
+  rightDescription?: string;
+  leftDescription?: string;
+  referToENT?: boolean;
+}
+
+// Complementary Tests
+export interface ComplementaryTests {
+  weber?: string;
+  toneDecay?: string;
+}
+
+// Audiological Opinion (Parecer)
+export interface AudiologicalOpinion {
+  clinical?: string; // e.g., Normal, Alterado
+  lossTypeRight?: string; // Tipo de Perda OD
+  lossTypeLeft?: string; // Tipo de Perda OE
+  lossDegreeRight?: string; // Grau de Perda OD
+  lossDegreeLeft?: string; // Grau de Perda OE
+  hearingReduction?: string; // Redução da Audição
+  configurationRight?: string; // Configuração OD
+  configurationLeft?: string; // Configuração OE
+  opinionText?: string;
+}
+
+// Anamnesis
+export interface Anamnesis {
+  id: string;
+  patientId: string;
+  examDate: string;
+  
+  // Occupational
+  company?: string;
+  role?: string;
+  sector?: string;
+  dailyHours?: string;
+  timeAtCompany?: string;
+  noiseExposure?: 'sim' | 'nao' | '';
+  chemicalExposure?: 'sim' | 'nao' | '';
+  ppe?: 'concha' | 'plug' | 'outro' | 'nenhum' | '';
+  ppeTime?: string;
+  
+  // Clinical
+  tinnitus?: 'sim' | 'nao' | '';
+  dizziness?: 'sim' | 'nao' | '';
+  earache?: 'sim' | 'nao' | '';
+  hearingDifficulty?: 'sim' | 'nao' | '';
+  familyHistory?: 'sim' | 'nao' | '';
+  surgery?: string;
+  diabetes?: 'sim' | 'nao' | '';
+  hypertension?: 'sim' | 'nao' | '';
+  
+  notes?: string;
+
+  createdAt: number;
+  updatedAt: number;
+  syncStatus: 'synced' | 'pending';
+}
+
 export interface Audiometry {
   id: string;
   patientId: string;
@@ -125,6 +201,14 @@ export interface Audiometry {
     sondaOE?: string;
   };
 
+  examPurpose?: 'referencial' | 'sequencial' | 'outro';
+  examCategory?: 'clinico' | 'ocupacional';
+  freeField?: Partial<EarTonalData>;
+
+  meatoscopy?: Meatoscopy;
+  complementary?: ComplementaryTests;
+  opinion?: AudiologicalOpinion;
+
   resultAndConduct: string; // "Resultado / Conduta"
   
   createdAt: number;
@@ -144,17 +228,21 @@ export interface Settings {
   syncStatus: 'synced' | 'pending';
 }
 
-const db = new Dexie('AudioDashDB_v3') as Dexie & {
+const db = new Dexie('AudioDashDB_v5') as Dexie & {
   patients: EntityTable<Patient, 'id'>;
   audiometries: EntityTable<Audiometry, 'id'>;
+  anamneses: EntityTable<Anamnesis, 'id'>;
   settings: EntityTable<Settings, 'id'>;
+  appointments: EntityTable<Appointment, 'id'>;
 };
 
 // Schema declaration
-db.version(3).stores({
+db.version(5).stores({
   patients: 'id, name, cpf, syncStatus',
   audiometries: 'id, patientId, examDate, syncStatus',
-  settings: 'id, syncStatus'
+  anamneses: 'id, patientId, examDate, syncStatus',
+  settings: 'id, syncStatus',
+  appointments: 'id, date, status, syncStatus'
 });
 
 export { db };

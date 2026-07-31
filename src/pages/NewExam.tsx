@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db, Audiometry, TonalFrequency, ReflexFrequency } from '@/db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { exportToDocx } from '@/lib/exportWord';
 import { exportToExcelJs } from '@/lib/exportExcel';
 import { exportToPdf } from '@/lib/exportPdf';
-import { FileText, FileSpreadsheet, File, Save } from 'lucide-react';
+import { FileText, FileSpreadsheet, File, Save, CheckCircle2, AlertCircle } from 'lucide-react';
 import AudiogramSVG from '@/components/AudiogramSVG';
 import TympanogramSVG from '@/components/TympanogramSVG';
 
@@ -17,12 +17,13 @@ const FREQUENCIES: TonalFrequency[] = ['125', '250', '500', '750', '1000', '1500
 const REFLEX_FREQS: ReflexFrequency[] = ['500', '1000', '2000', '4000'];
 
 export default function NewExam() {
-  const { patientId } = useParams();
+  const { patientId, examId } = useParams();
   const navigate = useNavigate();
   
   const [selectedPatientId, setSelectedPatientId] = useState<string>(patientId || '');
   const patients = useLiveQuery(() => db.patients.toArray(), []);
   const [examDate, setExamDate] = useState(new Date().toISOString().split('T')[0]);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const selectedPatient = patients?.find(p => p.id === selectedPatientId);
   
   // Calculate age if birthDate is present
@@ -41,9 +42,46 @@ export default function NewExam() {
     tympanometry: { right: {}, left: {} },
     reflexes: { right: {}, left: {}, sondaOD: '', sondaOE: '' },
     resultAndConduct: '',
+    examPurpose: 'referencial',
+    examCategory: 'clinico',
+    freeField: {}
   });
 
-  type DrawingTool = 'OD_VA' | 'OD_VO' | 'OE_VA' | 'OE_VO' | null;
+  useEffect(() => {
+    if (examId) {
+      db.audiometries.get(examId).then(existingExam => {
+        if (existingExam) {
+          setSelectedPatientId(existingExam.patientId);
+          setExamDate(existingExam.examDate || new Date().toISOString().split('T')[0]);
+          setExam(existingExam);
+        }
+      });
+    } else {
+      // Reset state for new exam
+      setExam({
+        header: { audiometer: '', impedanciometer: '', requestingPhysician: '', speechTherapist: '' },
+        tonalData: { right: {}, left: {} },
+        tonalMasking: { right: {}, left: {} },
+        logoAudiometry: { 
+          right: { srt: {}, irf: { mono: {}, dis: {}, tris: {} }, voiceDetection: {} },
+          left: { srt: {}, irf: { mono: {}, dis: {}, tris: {} }, voiceDetection: {} } 
+        },
+        tympanometry: { right: {}, left: {} },
+        reflexes: { right: {}, left: {}, sondaOD: '', sondaOE: '' },
+        resultAndConduct: '',
+        examPurpose: 'referencial',
+        examCategory: 'clinico',
+        freeField: {},
+        meatoscopy: { right: '', left: '' },
+        complementary: { weber: '', toneDecay: '' },
+        opinion: {}
+      });
+      setSelectedPatientId(patientId || '');
+      setExamDate(new Date().toISOString().split('T')[0]);
+    }
+  }, [examId, patientId]);
+
+  type DrawingTool = 'OD_VA' | 'OD_VO' | 'OE_VA' | 'OE_VO' | 'FREE_FIELD' | null;
   const [activeTool, setActiveTool] = useState<DrawingTool>('OD_VA');
   const [isMasked, setIsMasked] = useState(false);
   const [isNR, setIsNR] = useState(false);
@@ -53,6 +91,26 @@ export default function NewExam() {
 
   const handleAudiogramClick = (freq: string, db: number) => {
     if (!activeTool) return;
+
+    if (activeTool === 'FREE_FIELD') {
+      const currentPoint = exam.freeField?.[freq as TonalFrequency];
+      let valToSet: string | number | undefined = isNR ? 'NR' : db;
+      if (currentPoint && currentPoint.va === valToSet) {
+        valToSet = undefined;
+      }
+      setExam(prev => ({
+        ...prev,
+        freeField: {
+          ...(prev.freeField || {}),
+          [freq]: {
+            ...(prev.freeField?.[freq] || {}),
+            va: valToSet === 'NR' ? 'NR' : (valToSet === undefined ? undefined : parseInt(valToSet.toString()))
+          }
+        }
+      }));
+      return;
+    }
+
     const isRight = activeTool.startsWith('OD');
     const isVA = activeTool.endsWith('VA');
     const ear = isRight ? 'right' : 'left';
@@ -105,11 +163,15 @@ export default function NewExam() {
     }));
   };
 
-  const clearAudiogram = (ear: 'right' | 'left', field: 'va' | 'vo') => {
+  const clearAudiogram = (ear: 'right' | 'left' | 'freeField', field?: 'va' | 'vo') => {
+    if (ear === 'freeField') {
+      setExam(prev => ({ ...prev, freeField: {} }));
+      return;
+    }
     setExam(prev => {
       const earData = { ...prev.tonalData?.[ear] };
       FREQUENCIES.forEach(freq => {
-        if (earData[freq as TonalFrequency]) {
+        if (earData[freq as TonalFrequency] && field) {
           earData[freq as TonalFrequency] = { 
             ...earData[freq as TonalFrequency], 
             [field]: undefined, 
@@ -166,24 +228,45 @@ export default function NewExam() {
     }
     return {
       ...exam,
-      id: crypto.randomUUID(),
+      id: examId || exam.id || crypto.randomUUID(),
       patientId: selectedPatientId,
       examDate,
-      createdAt: Date.now(),
+      createdAt: exam.createdAt || Date.now(),
       updatedAt: Date.now(),
       syncStatus: 'pending'
     } as Audiometry;
   };
 
   const handleSave = async () => {
+    const essentialFreqs: TonalFrequency[] = ['500', '1000', '2000', '4000'];
+    let missingSBFa = false;
+    for (const ear of ['right', 'left'] as const) {
+      for (const freq of essentialFreqs) {
+        if (exam.tonalData?.[ear]?.[freq]?.va === undefined) {
+          missingSBFa = true;
+        }
+      }
+    }
+    
+    if (missingSBFa) {
+      const proceed = window.confirm('Atenção: O Guia de Orientações da SBFa recomenda testar as frequências de 500, 1000, 2000 e 4000Hz em ambas as orelhas. Faltam alguns dados. Deseja salvar mesmo assim?');
+      if (!proceed) return;
+    }
+
     const examData = getExamData();
     if (!examData) return;
+    setSaveStatus('saving');
     try {
-      await db.audiometries.add(examData);
-      alert('Exame salvo com sucesso!');
-      navigate('/');
+      await db.audiometries.put(examData);
+      setSaveStatus('success');
+      setTimeout(() => {
+        setSaveStatus('idle');
+        navigate('/');
+      }, 1500);
     } catch (e) {
-      alert('Erro ao salvar o exame.');
+      console.error(e);
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 3000);
     }
   };
 
@@ -197,7 +280,19 @@ export default function NewExam() {
 
   const ActionButtons = () => (
     <div className="flex gap-2 items-center flex-wrap">
-      <Button onClick={handleSave} className="gap-2"><Save className="w-4 h-4" /> Salvar Exame</Button>
+      {saveStatus === 'success' && (
+        <span className="text-emerald-600 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5">
+          <CheckCircle2 className="w-4 h-4" /> Salvo!
+        </span>
+      )}
+      {saveStatus === 'error' && (
+        <span className="text-red-600 bg-red-50 border border-red-100 px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5">
+          <AlertCircle className="w-4 h-4" /> Erro ao salvar
+        </span>
+      )}
+      <Button onClick={handleSave} disabled={saveStatus === 'saving'} className="gap-2">
+        <Save className="w-4 h-4" /> {saveStatus === 'saving' ? 'Salvando...' : 'Salvar Exame'}
+      </Button>
       <Button variant="outline" onClick={() => handleExport('pdf')} className="gap-2"><FileText className="w-4 h-4 text-red-500" /> PDF</Button>
       <Button variant="outline" onClick={() => handleExport('docx')} className="gap-2"><File className="w-4 h-4 text-blue-500" /> Word</Button>
       <Button variant="outline" onClick={() => handleExport('xlsx')} className="gap-2"><FileSpreadsheet className="w-4 h-4 text-green-500" /> Excel</Button>
@@ -235,6 +330,31 @@ export default function NewExam() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Data do Exame</label>
               <Input type="date" value={examDate} onChange={e => setExamDate(e.target.value)} />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Propósito do Exame</label>
+              <select 
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={exam.examPurpose || 'referencial'}
+                onChange={e => setExam({...exam, examPurpose: e.target.value as any})}
+              >
+                <option value="referencial">Referencial (Admissional/Inicial)</option>
+                <option value="sequencial">Sequencial (Periódico/Demissional)</option>
+                <option value="outro">Outro</option>
+              </select>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Categoria</label>
+              <select 
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={exam.examCategory || 'clinico'}
+                onChange={e => setExam({...exam, examCategory: e.target.value as any})}
+              >
+                <option value="clinico">Clínico</option>
+                <option value="ocupacional">Ocupacional (ASO)</option>
+              </select>
             </div>
           </CardContent>
         </Card>
@@ -319,6 +439,11 @@ export default function NewExam() {
                 <Button variant="ghost" size="sm" className="h-4 text-[10px] px-1 text-blue-500" onClick={() => clearAudiogram('left', 'vo')}>Limpar</Button>
               </div>
               <div className="w-px h-8 bg-border mx-2 self-start mt-1"></div>
+              <div className="flex flex-col gap-1 items-center">
+                <Button size="sm" variant={activeTool === 'FREE_FIELD' ? 'default' : 'outline'} onClick={() => setActiveTool('FREE_FIELD')} className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 border-emerald-200">Campo Livre</Button>
+                <Button variant="ghost" size="sm" className="h-4 text-[10px] px-1 text-emerald-500" onClick={() => clearAudiogram('freeField')}>Limpar</Button>
+              </div>
+              <div className="w-px h-8 bg-border mx-2 self-start mt-1"></div>
               <div className="flex gap-2 items-start">
                 <Button size="sm" variant={isMasked ? 'default' : 'outline'} onClick={() => setIsMasked(!isMasked)} className={isMasked ? "bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-300" : ""}>
                   Mascarado
@@ -332,7 +457,7 @@ export default function NewExam() {
           <CardContent className="flex justify-center items-center p-6">
             <div className="w-full max-w-[600px]">
               {/* @ts-ignore */}
-              <AudiogramSVG rightData={exam.tonalData?.right || {}} leftData={exam.tonalData?.left || {}} onPointClick={handleAudiogramClick} />
+              <AudiogramSVG rightData={exam.tonalData?.right || {}} leftData={exam.tonalData?.left || {}} freeFieldData={exam.freeField || {}} onPointClick={handleAudiogramClick} />
             </div>
           </CardContent>
         </Card>
@@ -605,6 +730,104 @@ export default function NewExam() {
                 </tr>
               </tfoot>
             </table>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader><CardTitle>Inspeção do Conduto Auditivo</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-red-500">Orelha Direita (OD)</label>
+              <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={exam.meatoscopy?.right || ''}
+                onChange={e => setExam({...exam, meatoscopy: {...exam.meatoscopy, right: e.target.value as any}})}>
+                <option value="">Selecione...</option>
+                <option value="normal">Normal</option>
+                <option value="cerumen">Presença de Cerúmen</option>
+                <option value="foreign_body">Corpo Estranho</option>
+                <option value="perforation">Perfuração</option>
+                <option value="other">Outro</option>
+              </select>
+              <Input placeholder="Descrição adicional (OD)" value={exam.meatoscopy?.rightDescription || ''} onChange={e => setExam({...exam, meatoscopy: {...exam.meatoscopy, rightDescription: e.target.value}})} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-blue-500">Orelha Esquerda (OE)</label>
+              <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={exam.meatoscopy?.left || ''}
+                onChange={e => setExam({...exam, meatoscopy: {...exam.meatoscopy, left: e.target.value as any}})}>
+                <option value="">Selecione...</option>
+                <option value="normal">Normal</option>
+                <option value="cerumen">Presença de Cerúmen</option>
+                <option value="foreign_body">Corpo Estranho</option>
+                <option value="perforation">Perfuração</option>
+                <option value="other">Outro</option>
+              </select>
+              <Input placeholder="Descrição adicional (OE)" value={exam.meatoscopy?.leftDescription || ''} onChange={e => setExam({...exam, meatoscopy: {...exam.meatoscopy, leftDescription: e.target.value}})} />
+            </div>
+            <div className="flex items-center gap-2 mt-4">
+              <input type="checkbox" id="referENT" checked={exam.meatoscopy?.referToENT || false} onChange={e => setExam({...exam, meatoscopy: {...exam.meatoscopy, referToENT: e.target.checked}})} className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+              <label htmlFor="referENT" className="text-sm font-medium cursor-pointer">Encaminhar para Otorrinolaringologista</label>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Testes Complementares</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Weber</label>
+              <Input placeholder="Ex: Indiferente, Lateralizado para direita..." value={exam.complementary?.weber || ''} onChange={e => setExam({...exam, complementary: {...exam.complementary, weber: e.target.value}})} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Tone Decay</label>
+              <Input placeholder="Ex: Negativo" value={exam.complementary?.toneDecay || ''} onChange={e => setExam({...exam, complementary: {...exam.complementary, toneDecay: e.target.value}})} />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6">
+        <Card>
+          <CardHeader><CardTitle>Parecer Audiológico (Classificação)</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4 border border-slate-200 p-4 rounded-md">
+                   <h4 className="font-bold text-red-500">Orelha Direita</h4>
+                   <div className="space-y-2">
+                     <label className="text-xs font-medium">Tipo de Perda</label>
+                     <Input placeholder="Ex: Neurossensorial" value={exam.opinion?.lossTypeRight || ''} onChange={e => setExam({...exam, opinion: {...exam.opinion, lossTypeRight: e.target.value}})} />
+                   </div>
+                   <div className="space-y-2">
+                     <label className="text-xs font-medium">Grau de Perda</label>
+                     <Input placeholder="Ex: Leve" value={exam.opinion?.lossDegreeRight || ''} onChange={e => setExam({...exam, opinion: {...exam.opinion, lossDegreeRight: e.target.value}})} />
+                   </div>
+                   <div className="space-y-2">
+                     <label className="text-xs font-medium">Configuração</label>
+                     <Input placeholder="Ex: Descendente" value={exam.opinion?.configurationRight || ''} onChange={e => setExam({...exam, opinion: {...exam.opinion, configurationRight: e.target.value}})} />
+                   </div>
+                </div>
+                <div className="space-y-4 border border-slate-200 p-4 rounded-md">
+                   <h4 className="font-bold text-blue-500">Orelha Esquerda</h4>
+                   <div className="space-y-2">
+                     <label className="text-xs font-medium">Tipo de Perda</label>
+                     <Input placeholder="Ex: Condutiva" value={exam.opinion?.lossTypeLeft || ''} onChange={e => setExam({...exam, opinion: {...exam.opinion, lossTypeLeft: e.target.value}})} />
+                   </div>
+                   <div className="space-y-2">
+                     <label className="text-xs font-medium">Grau de Perda</label>
+                     <Input placeholder="Ex: Moderado" value={exam.opinion?.lossDegreeLeft || ''} onChange={e => setExam({...exam, opinion: {...exam.opinion, lossDegreeLeft: e.target.value}})} />
+                   </div>
+                   <div className="space-y-2">
+                     <label className="text-xs font-medium">Configuração</label>
+                     <Input placeholder="Ex: Plana" value={exam.opinion?.configurationLeft || ''} onChange={e => setExam({...exam, opinion: {...exam.opinion, configurationLeft: e.target.value}})} />
+                   </div>
+                </div>
+             </div>
+             <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
+               <label className="text-sm font-medium">Classificação Clínica Geral</label>
+               <Input placeholder="Ex: Audição dentro dos padrões de normalidade" value={exam.opinion?.clinical || ''} onChange={e => setExam({...exam, opinion: {...exam.opinion, clinical: e.target.value}})} />
+             </div>
           </CardContent>
         </Card>
       </div>

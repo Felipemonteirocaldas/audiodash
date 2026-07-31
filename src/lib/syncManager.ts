@@ -1,8 +1,13 @@
 import { db } from '@/db/db';
-import { supabase } from './supabase';
+import { supabase, isConfigured } from './supabase';
+
+export type SyncStatus = 'idle' | 'syncing' | 'success' | 'error' | 'offline' | 'unconfigured';
 
 class SyncManager {
   private isSyncing = false;
+  private _status: SyncStatus = 'idle';
+  private _lastError: string | null = null;
+  private _lastSyncTime: number | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -10,64 +15,136 @@ class SyncManager {
     }
   }
 
-  private async pushToOnlineDatabase(table: string, records: any[]) {
-    console.log(`[SyncManager] Pushing ${records.length} records to table '${table}'...`, records);
-    
-    // Check if we have credentials
-    if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-      console.warn('[SyncManager] Supabase URL or Anon Key not configured. Skipping real push.');
-      return false; // Cannot push without credentials
+  get status() { return this._status; }
+  get lastError() { return this._lastError; }
+  get lastSyncTime() { return this._lastSyncTime; }
+
+  private setStatus(status: SyncStatus, error?: string) {
+    this._status = status;
+    this._lastError = error || null;
+    window.dispatchEvent(new CustomEvent('sync-status-change', { detail: { status, error } }));
+  }
+
+  /**
+   * Tests if the Supabase connection is reachable
+   */
+  async testConnection(): Promise<{ ok: boolean; error?: string }> {
+    if (!isConfigured || !supabase) {
+      return { ok: false, error: 'Supabase não está configurado. Verifique as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no arquivo .env' };
     }
 
-    const { error } = await supabase.from(table).upsert(records);
+    try {
+      // Try a lightweight query to test the connection
+      const { error } = await supabase.from('patients').select('id', { count: 'exact', head: true });
+      
+      if (error) {
+        // 42P01 = relation does not exist (table not created yet)
+        if (error.code === '42P01') {
+          return { ok: false, error: `Tabela 'patients' não encontrada no Supabase. As tabelas precisam ser criadas no painel do Supabase.` };
+        }
+        return { ok: false, error: `Erro do Supabase: ${error.message} (código: ${error.code})` };
+      }
+
+      return { ok: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erro desconhecido';
+      if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
+        return { ok: false, error: 'Não foi possível conectar ao Supabase. O projeto pode estar pausado ou a URL está incorreta.' };
+      }
+      return { ok: false, error: `Erro de conexão: ${message}` };
+    }
+  }
+
+  /**
+   * Push pending records to Supabase
+   */
+  private async pushToSupabase(table: string, records: any[]): Promise<boolean> {
+    if (!supabase) return false;
+
+    // Remove campos exclusivos do banco local (IndexedDB) antes de enviar para nuvem
+    const cleanRecords = records.map(record => {
+      const { syncStatus, ...cleanRecord } = record;
+      return cleanRecord;
+    });
+
+    const { error } = await supabase.from(table).upsert(cleanRecords);
     
     if (error) {
-      console.error(`[SyncManager] Error pushing to '${table}':`, error);
-      return false;
+      console.error(`[SyncManager] Erro ao enviar para '${table}':`, error.message);
+      throw new Error(`Erro na tabela ${table}: ${error.message} (Código: ${error.code})`);
     }
     
-    console.log(`[SyncManager] Successfully pushed to '${table}'`);
+    console.log(`[SyncManager] ✓ ${records.length} registros enviados para '${table}'`);
     return true;
   }
 
-  async sync() {
+  /**
+   * Main sync function — pushes all pending local records to Supabase
+   */
+  async sync(): Promise<void> {
+    // Guard: offline
     if (!navigator.onLine) {
-      console.log('[SyncManager] Offline, skipping sync.');
+      this.setStatus('offline');
+      console.log('[SyncManager] Offline — sync ignorado.');
       return;
     }
 
-    if (this.isSyncing) {
+    // Guard: Supabase not configured
+    if (!isConfigured || !supabase) {
+      this.setStatus('unconfigured');
+      console.warn('[SyncManager] Supabase não configurado — executando em modo offline.');
       return;
     }
+
+    // Guard: already syncing
+    if (this.isSyncing) return;
 
     this.isSyncing = true;
-    console.log('[SyncManager] Sync started...');
-    
-    // Dispatch event to update UI
+    this.setStatus('syncing');
     window.dispatchEvent(new Event('sync-started'));
+    console.log('[SyncManager] Iniciando sincronização...');
 
     try {
-      const tables = ['patients', 'audiometries', 'settings'] as const;
+      const tables = ['patients', 'audiometries', 'settings', 'appointments'] as const;
+      let totalSynced = 0;
+      let hadErrors = false;
 
       for (const table of tables) {
-        // Find all pending records
         const pendingRecords = await db[table].where('syncStatus').equals('pending').toArray();
 
         if (pendingRecords.length > 0) {
-          const success = await this.pushToOnlineDatabase(table, pendingRecords);
+          const success = await this.pushToSupabase(table, pendingRecords);
           
           if (success) {
-            // Update local records to 'synced'
+            // Mark records as synced locally
             const ids = pendingRecords.map(r => r.id);
-            await db[table].bulkUpdate(
-              ids.map(id => ({ key: id, changes: { syncStatus: 'synced' } }))
+            await Promise.all(
+              ids.map(id => db[table].update(id, { syncStatus: 'synced' }))
             );
+            totalSynced += pendingRecords.length;
+          } else {
+            hadErrors = true;
           }
         }
       }
-      console.log('[SyncManager] Sync completed successfully.');
+
+      this._lastSyncTime = Date.now();
+
+      if (hadErrors) {
+        // we'll only reach here if pushToSupabase returned false instead of throwing
+        this.setStatus('error', 'Alguns registros não puderam ser sincronizados.');
+        console.warn(`[SyncManager] Sync parcial: ${totalSynced} enviados, com erros.`);
+      } else if (totalSynced === 0) {
+        this.setStatus('success');
+        console.log('[SyncManager] Nenhum registro pendente para sincronizar.');
+      } else {
+        this.setStatus('success');
+        console.log(`[SyncManager] ✓ Sync completo: ${totalSynced} registros sincronizados.`);
+      }
     } catch (error) {
-      console.error('[SyncManager] Sync failed:', error);
+      const message = error instanceof Error ? error.message : 'Erro desconhecido';
+      this.setStatus('error', message);
+      console.error('[SyncManager] Falha na sincronização:', error);
     } finally {
       this.isSyncing = false;
       window.dispatchEvent(new Event('sync-completed'));

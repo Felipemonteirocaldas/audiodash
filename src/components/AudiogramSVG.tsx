@@ -2,8 +2,11 @@ import React from 'react';
 import { EarTonalData } from '@/db/db';
 
 interface Props {
-  rightData: Partial<EarTonalData>;
-  leftData: Partial<EarTonalData>;
+  rightData?: Partial<EarTonalData>;
+  leftData?: Partial<EarTonalData>;
+  baselineRightData?: Partial<EarTonalData>;
+  baselineLeftData?: Partial<EarTonalData>;
+  freeFieldData?: Partial<EarTonalData>;
   onPointClick?: (freq: string, db: number) => void;
 }
 
@@ -45,7 +48,7 @@ const getDbFromY = (y: number): number => {
   return Math.max(-10, Math.min(120, snappedDb));
 };
 
-export default function AudiogramSVG({ rightData, leftData, onPointClick }: Props) {
+export default function AudiogramSVG({ rightData, leftData, baselineRightData, baselineLeftData, freeFieldData, onPointClick }: Props) {
   
   const handleSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
     if (!onPointClick) return;
@@ -98,14 +101,15 @@ export default function AudiogramSVG({ rightData, leftData, onPointClick }: Prop
     return lines;
   };
 
-  const renderPath = (data: Partial<EarTonalData>, color: string, dasharray: string) => {
+  const renderPath = (data: Partial<EarTonalData> | undefined, color: string, dasharray: string, opacity: number = 1) => {
+    if (!data) return null;
     const points = FREQUENCIES
       .filter(f => data[f as keyof EarTonalData]?.va !== undefined && data[f as keyof EarTonalData]?.va !== 'NR')
       .map(f => `${getX(f)},${getY(data[f as keyof EarTonalData]!.va as number)}`)
       .join(' L ');
     
     if (!points) return null;
-    return <path d={`M ${points}`} fill="none" stroke={color} strokeWidth="2" strokeDasharray={dasharray} style={{ pointerEvents: 'none' }} />;
+    return <path d={`M ${points}`} fill="none" stroke={color} strokeWidth="2" strokeDasharray={dasharray} strokeOpacity={opacity} style={{ pointerEvents: 'none' }} />;
   };
 
   const renderSymbol = (x: number, y: number, type: string, color: string, isNR: boolean, offsetDirection: 1 | -1) => {
@@ -140,6 +144,9 @@ export default function AudiogramSVG({ rightData, leftData, onPointClick }: Prop
       case 'OE_VO_MASK': // ]
         symbol = <polyline points={`${x-4},${y-8} ${x+4},${y-8} ${x+4},${y+8} ${x-4},${y+8}`} fill="none" stroke={color} strokeWidth="2" />;
         break;
+      case 'FREE_FIELD': // S
+        symbol = <text x={x} y={y+5} textAnchor="middle" fontSize="16" fontWeight="bold" fill={color}>S</text>;
+        break;
     }
 
     return (
@@ -155,39 +162,74 @@ export default function AudiogramSVG({ rightData, leftData, onPointClick }: Prop
     );
   };
 
-  const renderDataPoints = () => {
+  const renderDataPoints = (rData?: Partial<EarTonalData>, lData?: Partial<EarTonalData>, opacity: number = 1) => {
     const points: React.ReactNode[] = [];
     FREQUENCIES.forEach(freq => {
       const x = getX(freq);
       
       // OD
-      const r = rightData?.[freq as keyof EarTonalData];
+      const r = rData?.[freq as keyof EarTonalData];
       if (r) {
         if (r.va !== undefined) {
           const isNR = r.va === 'NR';
           const y = isNR ? getY(120) : getY(r.va as number);
-          points.push(renderSymbol(x, y, r.maskedVa ? 'OD_VA_MASK' : 'OD_VA', '#ef4444', isNR, -1));
+          points.push(
+            <g key={`od-va-${x}-${y}`} style={{ opacity }}>
+              {renderSymbol(x, y, r.maskedVa ? 'OD_VA_MASK' : 'OD_VA', '#ef4444', isNR, -1)}
+            </g>
+          );
         }
         if (r.vo !== undefined) {
           const isNR = r.vo === 'NR';
           const y = isNR ? getY(120) : getY(r.vo as number);
-          points.push(renderSymbol(x - 8, y, r.maskedVo ? 'OD_VO_MASK' : 'OD_VO', '#ef4444', isNR, -1));
+          points.push(
+            <g key={`od-vo-${x}-${y}`} style={{ opacity }}>
+              {renderSymbol(x - 8, y, r.maskedVo ? 'OD_VO_MASK' : 'OD_VO', '#ef4444', isNR, -1)}
+            </g>
+          );
         }
       }
 
       // OE
-      const l = leftData?.[freq as keyof EarTonalData];
+      const l = lData?.[freq as keyof EarTonalData];
       if (l) {
         if (l.va !== undefined) {
           const isNR = l.va === 'NR';
           const y = isNR ? getY(120) : getY(l.va as number);
-          points.push(renderSymbol(x, y, l.maskedVa ? 'OE_VA_MASK' : 'OE_VA', '#3b82f6', isNR, 1));
+          points.push(
+            <g key={`oe-va-${x}-${y}`} style={{ opacity }}>
+              {renderSymbol(x, y, l.maskedVa ? 'OE_VA_MASK' : 'OE_VA', '#3b82f6', isNR, 1)}
+            </g>
+          );
         }
         if (l.vo !== undefined) {
           const isNR = l.vo === 'NR';
           const y = isNR ? getY(120) : getY(l.vo as number);
-          points.push(renderSymbol(x + 8, y, l.maskedVo ? 'OE_VO_MASK' : 'OE_VO', '#3b82f6', isNR, 1));
+          points.push(
+            <g key={`oe-vo-${x}-${y}`} style={{ opacity }}>
+              {renderSymbol(x + 8, y, l.maskedVo ? 'OE_VO_MASK' : 'OE_VO', '#3b82f6', isNR, 1)}
+            </g>
+          );
         }
+      }
+    });
+    return points;
+  };
+
+  const renderFreeFieldPoints = (data?: Partial<EarTonalData>) => {
+    if (!data) return null;
+    const points: React.ReactNode[] = [];
+    FREQUENCIES.forEach(freq => {
+      const x = getX(freq);
+      const f = data[freq as keyof EarTonalData];
+      if (f && f.va !== undefined) {
+        const isNR = f.va === 'NR';
+        const y = isNR ? getY(120) : getY(f.va as number);
+        points.push(
+          <g key={`ff-${x}-${y}`}>
+            {renderSymbol(x, y, 'FREE_FIELD', '#10b981', isNR, 0)}
+          </g>
+        );
       }
     });
     return points;
@@ -207,12 +249,21 @@ export default function AudiogramSVG({ rightData, leftData, onPointClick }: Prop
       {/* Grid */}
       {renderGrid()}
       
+      {/* Baselines connecting VA points */}
+      {renderPath(baselineRightData, '#ef4444', '0', 0.25)}
+      {renderPath(baselineLeftData, '#3b82f6', '5,5', 0.25)}
+
       {/* Lines connecting VA points */}
       {renderPath(rightData, '#ef4444', '0')}
       {renderPath(leftData, '#3b82f6', '5,5')}
+      {renderPath(freeFieldData, '#10b981', '0')}
       
-      {/* Data points */}
-      {renderDataPoints()}
+      {/* Baseline Data points */}
+      {renderDataPoints(baselineRightData, baselineLeftData, 0.25)}
+
+      {/* Current Data points */}
+      {renderDataPoints(rightData, leftData, 1)}
+      {renderFreeFieldPoints(freeFieldData)}
     </svg>
   );
 }

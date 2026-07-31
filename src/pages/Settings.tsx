@@ -4,7 +4,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { db, Settings as SettingsType } from '@/db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Save, Download, Upload, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Save, Download, Upload, CheckCircle2, AlertCircle, Database, RefreshCw, Cloud } from 'lucide-react';
+import { syncManager } from '@/lib/syncManager';
+import { isConfigured as supabaseConfigured } from '@/lib/supabase';
 
 export default function Settings() {
   const [settings, setSettings] = useState<Partial<SettingsType>>({
@@ -301,6 +303,141 @@ export default function Settings() {
           )}
         </CardContent>
       </Card>
+
+      {/* Supabase Connection Diagnostics */}
+      <Card className="rounded-[2rem] border-slate-200/60 shadow-sm overflow-hidden">
+        <CardHeader className="bg-slate-50/50 border-b border-slate-100 pb-6">
+          <CardTitle className="text-xl flex items-center gap-2">
+            <Cloud className="w-5 h-5 text-indigo-500" />
+            Banco de Dados Online (Supabase)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6 space-y-5">
+          <SupabaseDiagnostics />
+        </CardContent>
+      </Card>
     </div>
+  );
+}
+
+function SupabaseDiagnostics() {
+  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null);
+  const [isTesting, setIsTesting] = useState(false);
+  const [syncState, setSyncState] = useState({ status: syncManager.status, error: syncManager.lastError });
+
+  useEffect(() => {
+    const handleSyncStatusChange = () => {
+      setSyncState({ status: syncManager.status, error: syncManager.lastError });
+    };
+    window.addEventListener('sync-status-change', handleSyncStatusChange);
+    return () => window.removeEventListener('sync-status-change', handleSyncStatusChange);
+  }, []);
+
+  const handleTestConnection = async () => {
+    setIsTesting(true);
+    setTestResult(null);
+    try {
+      const result = await syncManager.testConnection();
+      setTestResult(result);
+    } catch {
+      setTestResult({ ok: false, error: 'Falha inesperada ao testar conexão.' });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const handleForceSync = async () => {
+    await syncManager.sync();
+  };
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '(não definido)';
+
+  return (
+    <>
+      {/* Status atual */}
+      <div className="flex items-start gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${supabaseConfigured ? 'bg-green-100' : 'bg-amber-100'}`}>
+          <Database className={`w-5 h-5 ${supabaseConfigured ? 'text-green-600' : 'text-amber-600'}`} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <h4 className="font-semibold text-sm text-slate-900">
+              {supabaseConfigured ? 'Supabase Configurado' : 'Supabase Não Configurado'}
+            </h4>
+            <span className={`w-2 h-2 rounded-full ${supabaseConfigured ? 'bg-green-500' : 'bg-amber-500'}`}></span>
+          </div>
+          <p className="text-xs text-slate-500 break-all">
+            URL: <code className="bg-slate-200/60 px-1.5 py-0.5 rounded text-[11px]">{supabaseUrl}</code>
+          </p>
+        </div>
+      </div>
+
+      {/* Resultado do teste */}
+      {testResult && (
+        <div className={`p-4 rounded-xl border ${testResult.ok ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+          <div className="flex items-start gap-3">
+            {testResult.ok ? (
+              <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            )}
+            <div>
+              <h4 className={`font-semibold text-sm ${testResult.ok ? 'text-green-800' : 'text-red-800'}`}>
+                {testResult.ok ? 'Conexão OK!' : 'Falha na conexão'}
+              </h4>
+              <p className={`text-xs mt-1 ${testResult.ok ? 'text-green-700' : 'text-red-700'}`}>
+                {testResult.ok 
+                  ? 'O Supabase está acessível e as tabelas foram encontradas.' 
+                  : testResult.error}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ações */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Button
+          variant="outline"
+          onClick={handleTestConnection}
+          disabled={isTesting}
+          className="rounded-xl h-auto py-4 border-slate-200 hover:bg-slate-50 hover:text-slate-900"
+        >
+          <RefreshCw className={`w-5 h-5 mr-2 text-slate-500 ${isTesting ? 'animate-spin' : ''}`} />
+          <div className="text-left">
+            <div className="font-semibold">{isTesting ? 'Testando...' : 'Testar Conexão'}</div>
+            <div className="text-xs text-slate-500 font-normal">Verificar acesso ao Supabase</div>
+          </div>
+        </Button>
+
+        <Button
+          variant="outline"
+          onClick={handleForceSync}
+          className="rounded-xl h-auto py-4 border-slate-200 hover:bg-slate-50 hover:text-slate-900"
+        >
+          <Cloud className="w-5 h-5 mr-2 text-slate-500" />
+          <div className="text-left">
+            <div className="font-semibold">Forçar Sincronização</div>
+            <div className="text-xs text-slate-500 font-normal">Enviar dados pendentes</div>
+          </div>
+        </Button>
+      </div>
+
+      {/* Sync Error Display */}
+      {syncState.status === 'error' && syncState.error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mt-4">
+          <h4 className="font-semibold text-sm text-red-800 mb-1">Detalhes do erro de Sincronização:</h4>
+          <code className="text-xs text-red-700 block whitespace-pre-wrap">{syncState.error}</code>
+        </div>
+      )}
+
+      {/* Info box */}
+      <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5">
+        <p className="text-sm font-medium text-indigo-900/80 leading-relaxed">
+          O Supabase é usado como backup na nuvem. Seus dados são salvos primeiro <b>localmente</b> (IndexedDB) e depois sincronizados automaticamente quando há internet. 
+          Mesmo sem Supabase, o app funciona 100% offline.
+        </p>
+      </div>
+    </>
   );
 }

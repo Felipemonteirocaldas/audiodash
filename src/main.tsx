@@ -3,10 +3,10 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App.tsx'
 import './index.css'
-import { syncDataToSupabase } from './services/syncService'
+import { syncManager } from './lib/syncManager'
 
 // Run initial sync on app load if online
-syncDataToSupabase();
+syncManager.sync();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

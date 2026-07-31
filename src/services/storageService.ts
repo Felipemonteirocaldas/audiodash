@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase, isConfigured } from '../lib/supabase';
 
 /**
  * Faz o upload de um arquivo (por exemplo, um PDF) para o bucket de armazenamento.
@@ -7,6 +7,11 @@ import { supabase } from '../lib/supabase';
  * @returns A URL pública do arquivo ou null em caso de erro
  */
 export const uploadReportToStorage = async (file: Blob | File, fileName: string): Promise<string | null> => {
+  if (!isConfigured || !supabase) {
+    console.warn('[StorageService] Supabase não configurado. Upload ignorado.');
+    return null;
+  }
+
   try {
     const { data, error } = await supabase.storage
       .from('audiometry-reports')

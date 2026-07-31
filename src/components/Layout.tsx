@@ -1,27 +1,27 @@
-import { Outlet, Link } from 'react-router-dom';
-import { Activity, Users, Settings, Wifi, WifiOff } from 'lucide-react';
+import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Activity, Users, Settings, Wifi, WifiOff, AlertCircle, CheckCircle2, Calendar } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { syncManager } from '@/lib/syncManager';
+import { syncManager, type SyncStatus } from '@/lib/syncManager';
 
 export default function Layout() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
 
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      // Let the syncManager handle its own online event, but we can also trigger it explicitly just in case
       syncManager.sync();
     };
     const handleOffline = () => setIsOnline(false);
     
-    const handleSyncStart = () => setIsSyncing(true);
-    const handleSyncComplete = () => setIsSyncing(false);
+    const handleSyncStatusChange = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setSyncStatus(detail.status);
+    };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    window.addEventListener('sync-started', handleSyncStart);
-    window.addEventListener('sync-completed', handleSyncComplete);
+    window.addEventListener('sync-status-change', handleSyncStatusChange);
 
     // Trigger initial sync on load if online
     if (navigator.onLine) {
@@ -31,10 +31,58 @@ export default function Layout() {
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-      window.removeEventListener('sync-started', handleSyncStart);
-      window.removeEventListener('sync-completed', handleSyncComplete);
+      window.removeEventListener('sync-status-change', handleSyncStatusChange);
     };
   }, []);
+
+  const getSyncBadge = () => {
+    if (!isOnline) {
+      return (
+        <div className="ml-4 px-2.5 py-1 rounded-full text-xs flex items-center gap-1.5 bg-red-100 text-red-700 font-medium">
+          <WifiOff className="h-3 w-3" />
+          Offline
+        </div>
+      );
+    }
+
+    switch (syncStatus) {
+      case 'syncing':
+        return (
+          <div className="ml-4 px-2.5 py-1 rounded-full text-xs flex items-center gap-1.5 bg-blue-100 text-blue-700 font-medium animate-pulse">
+            <Activity className="h-3 w-3" />
+            Sincronizando...
+          </div>
+        );
+      case 'error':
+        return (
+          <div className="ml-4 px-2.5 py-1 rounded-full text-xs flex items-center gap-1.5 bg-amber-100 text-amber-700 font-medium" title={syncManager.lastError || ''}>
+            <AlertCircle className="h-3 w-3" />
+            Erro sync
+          </div>
+        );
+      case 'unconfigured':
+        return (
+          <div className="ml-4 px-2.5 py-1 rounded-full text-xs flex items-center gap-1.5 bg-slate-100 text-slate-600 font-medium">
+            <WifiOff className="h-3 w-3" />
+            Modo local
+          </div>
+        );
+      case 'success':
+        return (
+          <div className="ml-4 px-2.5 py-1 rounded-full text-xs flex items-center gap-1.5 bg-green-100 text-green-700 font-medium">
+            <CheckCircle2 className="h-3 w-3" />
+            Sincronizado
+          </div>
+        );
+      default:
+        return (
+          <div className="ml-4 px-2.5 py-1 rounded-full text-xs flex items-center gap-1.5 bg-green-100 text-green-700 font-medium">
+            <Wifi className="h-3 w-3" />
+            Online
+          </div>
+        );
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -45,19 +93,13 @@ export default function Layout() {
             <Link to="/" className="text-xl font-bold text-foreground">
               AudioDash
             </Link>
-            <div className={`ml-4 px-2 py-1 rounded-full text-xs flex items-center gap-1 ${isOnline ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-              {isOnline ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-              {isOnline ? 'Online' : 'Offline'}
-            </div>
-            {isSyncing && (
-              <div className="ml-2 px-2 py-1 rounded-full text-xs flex items-center gap-1 bg-blue-100 text-blue-700 animate-pulse">
-                <Activity className="h-3 w-3" />
-                Sincronizando...
-              </div>
-            )}
+            {getSyncBadge()}
           </div>
           
           <nav className="hidden md:flex items-center gap-4">
+            <Link to="/agenda" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-2">
+              <Calendar className="h-4 w-4" /> Agenda
+            </Link>
             <Link to="/exam/new" className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-2">
               <Activity className="h-4 w-4" /> Novo Exame
             </Link>
@@ -81,6 +123,10 @@ export default function Layout() {
           <Link to="/" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-primary">
             <Activity className="h-5 w-5" />
             <span className="text-[10px]">Início</span>
+          </Link>
+          <Link to="/agenda" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-primary">
+            <Calendar className="h-5 w-5" />
+            <span className="text-[10px]">Agenda</span>
           </Link>
           <Link to="/patients" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-primary">
             <Users className="h-5 w-5" />

@@ -44,7 +44,7 @@ export const exportToExcelJs = async (exam: Audiometry, patient: Patient) => {
   sheet.cell('A5').value('Nome:').style({ bold: true });
   sheet.cell('B5').value(patient.name);
   sheet.cell('D5').value('Data:').style({ bold: true });
-  sheet.cell('E5').value(new Date(exam.examDate).toLocaleDateString('pt-BR'));
+  sheet.cell('E5').value(exam.examDate.split('-').reverse().join('/'));
   
   sheet.cell('A6').value('Anamnese:').style({ bold: true });
 
