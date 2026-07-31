@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { LogoAD } from '@/components/LogoAD';
 
 export default function ProtectedRoute() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return (
@@ -18,6 +18,13 @@ export default function ProtectedRoute() {
 
   if (!isAuthenticated) {
     return <Navigate to="/" replace />;
+  }
+
+  // Verifica se o usuário tem uma assinatura ativa
+  // Se for nulo ou diferente de 'active' (e estamos considerando que null = sem plano)
+  // Para testes locais ou se a property ainda não existe, comente as 3 linhas abaixo.
+  if (user && user.subscriptionStatus !== 'active') {
+    return <Navigate to="/paywall" replace />;
   }
 
   return <Outlet />;

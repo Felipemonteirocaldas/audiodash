@@ -9,6 +9,7 @@ import CompareExams from './pages/CompareExams';
 import AnamnesisForm from './pages/AnamnesisForm';
 import EvolutionControl from './pages/EvolutionControl';
 import Agenda from './pages/Agenda';
+import Paywall from './pages/Paywall';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -17,6 +18,7 @@ export default function App() {
     <AuthProvider>
       <Routes>
         <Route path="/" element={<Login />} />
+        <Route path="/paywall" element={<Paywall />} />
         <Route element={<ProtectedRoute />}>
           <Route element={<Layout />}>
             <Route path="/dashboard" element={<Dashboard />} />

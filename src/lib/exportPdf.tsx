@@ -323,10 +323,10 @@ const AudiometryPDF = ({ exam, patient, settings }: { exam: Audiometry, patient:
           <Image src={settings.logoUrl} style={{ width: 60, height: 60, objectFit: 'contain' }} />
         )}
         <View style={{ flex: 1, alignItems: 'center' }}>
-          <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#1e3a8a' }}>ASSOCIAÇÃO PODE - PORTADORES DE DIREITOS ESPECIAIS</Text>
-          <Text style={{ fontSize: 10, color: '#475569', marginTop: 3 }}>CENTRO ESPECIALIZADO EM REABILITAÇÃO (CER II)</Text>
-          <Text style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>MODALIDADES AUDITIVA E INTELECTUAL</Text>
-          <Text style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>CNPJ: 06.698.790/0001-07 / CNES: 5952239</Text>
+          <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#1e3a8a' }}>{settings?.clinicName || 'Nome da Clínica'}</Text>
+          <Text style={{ fontSize: 10, color: '#475569', marginTop: 3 }}>{settings?.professionalName ? `Fonoaudiólogo(a): ${settings.professionalName} ${settings.crfaNumber ? `- CRFa: ${settings.crfaNumber}` : ''}` : 'Fonoaudiólogo(a) responsável'}</Text>
+          <Text style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>{settings?.phone || 'Telefone não informado'}</Text>
+          <Text style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>{settings?.address || 'Endereço não informado'}</Text>
         </View>
         {/* Placeholder para balancear o cabeçalho se houver logo na esquerda */}
         {settings?.logoUrl && <View style={{ width: 60 }} />}

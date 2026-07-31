@@ -6,6 +6,8 @@ export interface User {
   email: string;
   passwordHash: string; // Senha (hash ou plain text simples para Dexie local)
   createdAt: number;
+  subscriptionStatus?: 'active' | 'inactive' | 'past_due' | 'canceled' | null;
+  stripeCustomerId?: string | null;
 }
 
 export interface Patient {

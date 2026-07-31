@@ -30,12 +30,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const { data: { session } } = await supabase.auth.getSession();
           
           if (session?.user) {
+            // Fetch subscription status from public.users table
+            const { data: userData } = await supabase
+              .from('users')
+              .select('subscription_status, dodo_customer_id')
+              .eq('id', session.user.id)
+              .single();
+
             setUser({
               id: session.user.id,
               name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Usuário',
               email: session.user.email || '',
               passwordHash: '', // Not needed for supabase user session
-              createdAt: new Date(session.user.created_at).getTime()
+              createdAt: new Date(session.user.created_at).getTime(),
+              subscriptionStatus: userData?.subscription_status || null,
+              stripeCustomerId: userData?.dodo_customer_id || null // reusing field for Dodo id locally
             });
             setAuthProvider('supabase');
             syncManager.pullFromSupabase(session.user.id);
@@ -45,12 +54,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (_event, session) => {
               if (session?.user) {
+                const { data: userData } = await supabase
+                  .from('users')
+                  .select('subscription_status, dodo_customer_id')
+                  .eq('id', session.user.id)
+                  .single();
+
                 setUser({
                   id: session.user.id,
                   name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Usuário',
                   email: session.user.email || '',
                   passwordHash: '',
-                  createdAt: new Date(session.user.created_at).getTime()
+                  createdAt: new Date(session.user.created_at).getTime(),
+                  subscriptionStatus: userData?.subscription_status || null,
+                  stripeCustomerId: userData?.dodo_customer_id || null
                 });
                 setAuthProvider('supabase');
                 if (_event === 'SIGNED_IN') {

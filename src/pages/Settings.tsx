@@ -10,11 +10,11 @@ import { isConfigured as supabaseConfigured } from '@/lib/supabase';
 
 export default function Settings() {
   const [settings, setSettings] = useState<Partial<SettingsType>>({
-    clinicName: 'ASSOCIAÇÃO PODE - PORTADORES DE DIREITOS ESPECIAIS',
+    clinicName: '',
     professionalName: '',
     crfaNumber: '',
-    phone: '+55 (87) 3835-1688 / +55 (87) 98808-0085',
-    address: 'Rua Padre Augusto de Carvalho, 421, Centro, Pesqueira/PE, Brasil. CEP: 55200-000',
+    phone: '',
+    address: '',
     logoUrl: ''
   });
 
