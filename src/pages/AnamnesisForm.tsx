@@ -100,7 +100,7 @@ export default function AnamnesisForm() {
         <Card>
           <CardHeader><CardTitle>Dados Ocupacionais</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Empresa</label>
                 <Input value={anamnesis.company || ''} onChange={e => setAnamnesis({...anamnesis, company: e.target.value})} />
@@ -123,7 +123,7 @@ export default function AnamnesisForm() {
               </div>
             </div>
 
-            <div className="border-t pt-4 mt-4 grid grid-cols-2 gap-4">
+            <div className="border-t pt-4 mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
               <YesNoSelect label="Exposição a Ruído?" value={anamnesis.noiseExposure} onChange={(v: string) => setAnamnesis({...anamnesis, noiseExposure: v as any})} />
               <YesNoSelect label="Exposição a Químicos?" value={anamnesis.chemicalExposure} onChange={(v: string) => setAnamnesis({...anamnesis, chemicalExposure: v as any})} />
               
@@ -152,7 +152,7 @@ export default function AnamnesisForm() {
         <Card>
           <CardHeader><CardTitle>Histórico Clínico e Antecedentes</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <YesNoSelect label="Dificuldade para ouvir?" value={anamnesis.hearingDifficulty} onChange={(v: string) => setAnamnesis({...anamnesis, hearingDifficulty: v as any})} />
               <YesNoSelect label="Zumbido?" value={anamnesis.tinnitus} onChange={(v: string) => setAnamnesis({...anamnesis, tinnitus: v as any})} />
               <YesNoSelect label="Tontura/Vertigem?" value={anamnesis.dizziness} onChange={(v: string) => setAnamnesis({...anamnesis, dizziness: v as any})} />

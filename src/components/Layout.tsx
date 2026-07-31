@@ -1,5 +1,6 @@
 import { Outlet, Link } from 'react-router-dom';
 import { Activity, Users, Settings, Wifi, WifiOff, AlertCircle, CheckCircle2, Calendar, LogOut } from 'lucide-react';
+import { LogoAD } from './LogoAD';
 import { useState, useEffect } from 'react';
 import { syncManager, type SyncStatus } from '@/lib/syncManager';
 import { useAuth } from '@/contexts/AuthContext';
@@ -91,7 +92,7 @@ export default function Layout() {
       <header className="border-b bg-card sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Activity className="h-6 w-6 text-primary" />
+            <LogoAD className="h-8 w-auto text-primary" />
             <Link to="/dashboard" className="text-xl font-bold text-foreground">
               AudioDash
             </Link>

@@ -151,8 +151,8 @@ export default function Dashboard() {
           
           <div className="flex flex-col md:flex-row gap-8 flex-1 items-center justify-center">
             {/* Tabela */}
-            <div className="flex-1 w-full text-sm">
-              <table className="w-full">
+            <div className="flex-1 w-full text-sm overflow-x-auto">
+              <table className="w-full min-w-[300px]">
                 <thead>
                   <tr className="text-slate-400 border-b border-slate-100">
                     <th className="text-left pb-2 font-medium">Situação</th>
@@ -162,22 +162,22 @@ export default function Dashboard() {
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   <tr>
-                    <td className="py-2 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500"></div>Normal</td>
+                    <td className="py-2 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></div>Normal</td>
                     <td className="py-2 text-right font-medium">{normalCount}</td>
                     <td className="py-2 text-right text-slate-500">{getPercent(normalCount)}%</td>
                   </tr>
                   <tr>
-                    <td className="py-2 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-amber-500"></div>Alterado Ocupacional</td>
+                    <td className="py-2 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-amber-500 shrink-0"></div>Alterado Ocupacional</td>
                     <td className="py-2 text-right font-medium">{alteradoOcupacional}</td>
                     <td className="py-2 text-right text-slate-500">{getPercent(alteradoOcupacional)}%</td>
                   </tr>
                   <tr>
-                    <td className="py-2 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-orange-500"></div>Alterado Não Ocup.</td>
+                    <td className="py-2 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-orange-500 shrink-0"></div>Alterado Não Ocup.</td>
                     <td className="py-2 text-right font-medium">{alteradoNaoOcupacional}</td>
                     <td className="py-2 text-right text-slate-500">{getPercent(alteradoNaoOcupacional)}%</td>
                   </tr>
                   <tr>
-                    <td className="py-2 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-slate-300"></div>Sem classificação</td>
+                    <td className="py-2 flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-slate-300 shrink-0"></div>Sem classificação</td>
                     <td className="py-2 text-right font-medium">{semClassificacao}</td>
                     <td className="py-2 text-right text-slate-500">{getPercent(semClassificacao)}%</td>
                   </tr>

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Headphones, Mail, Lock, ArrowRight, ShieldCheck, User } from 'lucide-react';
+import { Mail, Lock, ArrowRight, ShieldCheck, User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { LogoAD } from '@/components/LogoAD';
 
 export default function Login() {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -76,10 +77,8 @@ export default function Login() {
 
           <div className="relative z-10">
             <div className="flex items-center gap-3 text-white mb-16">
-              <div className="bg-indigo-500 p-2 rounded-xl">
-                <Headphones className="w-8 h-8" />
-              </div>
-              <span className="text-2xl font-bold tracking-tight">AudioDash</span>
+              <LogoAD className="w-16 h-auto" />
+              <span className="text-3xl font-bold tracking-tight">AudioDash</span>
             </div>
             
             <div className="space-y-6">
@@ -105,9 +104,7 @@ export default function Login() {
         <div className="w-full md:w-1/2 p-8 md:p-12 lg:p-16 flex flex-col justify-center bg-white z-10 overflow-y-auto">
           
           <div className="md:hidden flex items-center gap-3 text-slate-900 mb-10">
-            <div className="bg-indigo-600 p-2 rounded-xl text-white">
-              <Headphones className="w-6 h-6" />
-            </div>
+            <LogoAD className="w-12 h-auto" />
             <span className="text-2xl font-bold tracking-tight">AudioDash</span>
           </div>
 

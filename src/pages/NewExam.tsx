@@ -371,10 +371,10 @@ export default function NewExam() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="lg:col-span-2 overflow-x-auto">
+        <Card className="lg:col-span-2 overflow-hidden">
           <CardHeader><CardTitle>Audiometria Tonal</CardTitle></CardHeader>
-          <CardContent>
-            <table className="w-full text-sm text-left">
+          <CardContent className="overflow-x-auto pb-4">
+            <table className="w-full text-sm text-left min-w-[600px]">
               <thead>
                 <tr>
                   <th className="p-2 border-b">Frequência (Hz)</th>
@@ -464,10 +464,10 @@ export default function NewExam() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <Card>
+        <Card className="overflow-hidden">
           <CardHeader><CardTitle>Mascaramento Geral</CardTitle></CardHeader>
-          <CardContent>
-             <table className="w-full text-sm text-left">
+          <CardContent className="overflow-x-auto pb-4">
+             <table className="w-full text-sm text-left min-w-[500px]">
               <thead>
                 <tr>
                   <th></th>
@@ -510,11 +510,12 @@ export default function NewExam() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex justify-center border p-4 bg-white rounded-md">
+            <div className="flex justify-center border p-4 bg-white rounded-md overflow-x-auto">
               <TympanogramSVG rightData={exam.tympanometry?.right} leftData={exam.tympanometry?.left} onPointClick={handleTympanogramClick} />
             </div>
-            <table className="w-full text-sm text-left">
-              <thead>
+            <div className="overflow-x-auto pb-4">
+              <table className="w-full text-sm text-left min-w-[400px]">
+                <thead>
                 <tr>
                   <th></th>
                   <th className="p-2 border-b text-red-500">OD</th>
@@ -539,20 +540,21 @@ export default function NewExam() {
                 </tr>
               </tbody>
             </table>
+            </div>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Logoaudiometria */}
-        <Card className="lg:col-span-2 overflow-x-auto">
+        <Card className="lg:col-span-2 overflow-hidden">
           <CardHeader><CardTitle>Logoaudiometria</CardTitle></CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-6 overflow-x-auto pb-4">
             
             {/* SRT */}
-            <div>
+            <div className="overflow-x-auto">
               <h3 className="font-bold mb-2">SRT</h3>
-              <table className="w-full text-sm text-left border">
+              <table className="w-full text-sm text-left border min-w-[400px]">
                 <thead>
                   <tr className="bg-muted">
                     <th className="p-2 border">Ouvido</th>
@@ -579,9 +581,9 @@ export default function NewExam() {
             </div>
 
             {/* Índice de Reconhecimento de Fala */}
-            <div>
+            <div className="overflow-x-auto mt-6">
               <h3 className="font-bold mb-2">Índice de Reconhecimento de Fala</h3>
-              <table className="w-full text-sm text-left border">
+              <table className="w-full text-sm text-left border min-w-[500px]">
                 <thead>
                   <tr className="bg-muted">
                     <th className="p-2 border" colSpan={2}>Ouvido / Sílaba</th>
@@ -636,9 +638,9 @@ export default function NewExam() {
             </div>
 
             {/* Detecção de Voz */}
-            <div>
+            <div className="overflow-x-auto mt-6">
               <h3 className="font-bold mb-2">Detecção de Voz</h3>
-              <table className="w-full text-sm text-left border">
+              <table className="w-full text-sm text-left border min-w-[400px]">
                 <thead>
                   <tr className="bg-muted">
                     <th className="p-2 border">Ouvido</th>
@@ -668,10 +670,10 @@ export default function NewExam() {
         </Card>
 
         {/* Reflexo Estapediano */}
-        <Card className="lg:col-span-2 overflow-x-auto">
+        <Card className="lg:col-span-2 overflow-hidden">
           <CardHeader><CardTitle>Reflexo Estapediano</CardTitle></CardHeader>
-          <CardContent>
-             <table className="w-full text-sm text-left border">
+          <CardContent className="overflow-x-auto pb-4">
+             <table className="w-full text-sm text-left border min-w-[800px]">
               <thead>
                 <tr className="bg-muted">
                   <th className="p-2 border" rowSpan={2}>Hz</th>
