@@ -418,33 +418,33 @@ export default function NewExam() {
         </Card>
 
         {/* Audiogram View */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <Card className="lg:col-span-2 overflow-hidden">
+          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-2 gap-4">
             <CardTitle>Audiograma Interativo</CardTitle>
-            <div className="flex gap-4">
-              <div className="flex flex-col gap-1 items-center">
+            <div className="flex gap-2 sm:gap-4 overflow-x-auto w-full pb-2 scrollbar-hide">
+              <div className="flex flex-col gap-1 items-center shrink-0">
                 <Button size="sm" variant={activeTool === 'OD_VA' ? 'default' : 'outline'} onClick={() => setActiveTool('OD_VA')} className="bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 border-red-200">VA Dir</Button>
                 <Button variant="ghost" size="sm" className="h-4 text-[10px] px-1 text-red-500" onClick={() => clearAudiogram('right', 'va')}>Limpar</Button>
               </div>
-              <div className="flex flex-col gap-1 items-center">
+              <div className="flex flex-col gap-1 items-center shrink-0">
                 <Button size="sm" variant={activeTool === 'OD_VO' ? 'default' : 'outline'} onClick={() => setActiveTool('OD_VO')} className="bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 border-red-200">VO Dir</Button>
                 <Button variant="ghost" size="sm" className="h-4 text-[10px] px-1 text-red-500" onClick={() => clearAudiogram('right', 'vo')}>Limpar</Button>
               </div>
-              <div className="flex flex-col gap-1 items-center">
+              <div className="flex flex-col gap-1 items-center shrink-0">
                 <Button size="sm" variant={activeTool === 'OE_VA' ? 'default' : 'outline'} onClick={() => setActiveTool('OE_VA')} className="bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border-blue-200">VA Esq</Button>
                 <Button variant="ghost" size="sm" className="h-4 text-[10px] px-1 text-blue-500" onClick={() => clearAudiogram('left', 'va')}>Limpar</Button>
               </div>
-              <div className="flex flex-col gap-1 items-center">
+              <div className="flex flex-col gap-1 items-center shrink-0">
                 <Button size="sm" variant={activeTool === 'OE_VO' ? 'default' : 'outline'} onClick={() => setActiveTool('OE_VO')} className="bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border-blue-200">VO Esq</Button>
                 <Button variant="ghost" size="sm" className="h-4 text-[10px] px-1 text-blue-500" onClick={() => clearAudiogram('left', 'vo')}>Limpar</Button>
               </div>
-              <div className="w-px h-8 bg-border mx-2 self-start mt-1"></div>
-              <div className="flex flex-col gap-1 items-center">
+              <div className="w-px h-8 bg-border mx-1 self-start mt-1 shrink-0"></div>
+              <div className="flex flex-col gap-1 items-center shrink-0">
                 <Button size="sm" variant={activeTool === 'FREE_FIELD' ? 'default' : 'outline'} onClick={() => setActiveTool('FREE_FIELD')} className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 border-emerald-200">Campo Livre</Button>
                 <Button variant="ghost" size="sm" className="h-4 text-[10px] px-1 text-emerald-500" onClick={() => clearAudiogram('freeField')}>Limpar</Button>
               </div>
-              <div className="w-px h-8 bg-border mx-2 self-start mt-1"></div>
-              <div className="flex gap-2 items-start">
+              <div className="w-px h-8 bg-border mx-1 self-start mt-1 shrink-0"></div>
+              <div className="flex gap-2 items-start shrink-0">
                 <Button size="sm" variant={isMasked ? 'default' : 'outline'} onClick={() => setIsMasked(!isMasked)} className={isMasked ? "bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-300" : ""}>
                   Mascarado
                 </Button>
@@ -454,8 +454,8 @@ export default function NewExam() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="flex justify-center items-center p-6">
-            <div className="w-full max-w-[600px]">
+          <CardContent className="flex justify-start sm:justify-center items-center p-6 overflow-x-auto">
+            <div className="w-full min-w-[500px] max-w-[600px]">
               {/* @ts-ignore */}
               <AudiogramSVG rightData={exam.tonalData?.right || {}} leftData={exam.tonalData?.left || {}} freeFieldData={exam.freeField || {}} onPointClick={handleAudiogramClick} />
             </div>
