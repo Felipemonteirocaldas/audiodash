@@ -9,8 +9,7 @@ import {
   ShieldCheck, 
   Download,
   BarChart3,
-  Sliders,
-  Stethoscope
+  Sliders
 } from 'lucide-react';
 
 export default function BentoGridSection() {

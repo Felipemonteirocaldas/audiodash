@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, HelpCircle } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 
 export default function FAQSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
