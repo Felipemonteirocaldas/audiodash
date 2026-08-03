@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Listen for auth changes
           const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (_event, session) => {
-              if (session?.user) {
+              if (session?.user && supabase) {
                 const { data: userData } = await supabase
                   .from('users')
                   .select('subscription_status, dodo_customer_id')

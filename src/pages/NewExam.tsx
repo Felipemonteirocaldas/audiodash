@@ -294,8 +294,6 @@ export default function NewExam() {
         <Save className="w-4 h-4" /> {saveStatus === 'saving' ? 'Salvando...' : 'Salvar Exame'}
       </Button>
       <Button variant="outline" onClick={() => handleExport('pdf')} className="gap-2"><FileText className="w-4 h-4 text-red-500" /> PDF</Button>
-      <Button variant="outline" onClick={() => handleExport('docx')} className="gap-2"><File className="w-4 h-4 text-blue-500" /> Word</Button>
-      <Button variant="outline" onClick={() => handleExport('xlsx')} className="gap-2"><FileSpreadsheet className="w-4 h-4 text-green-500" /> Excel</Button>
     </div>
   );
 

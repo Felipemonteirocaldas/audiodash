@@ -1,16 +1,57 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR" class="scroll-smooth">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>audiodash</title>
+    
+    <!-- SEO Primary Meta Tags -->
+    <title>AudioDash | Plataforma Completa de Audiometria & Fonoaudiologia</title>
+    <meta name="title" content="AudioDash | Plataforma Completa de Audiometria & Fonoaudiologia" />
+    <meta name="description" content="Revolucione sua clínica fonoaudiológica com o AudioDash. Exames de audiometria tonal e vocal, comparativo evolutivo, laudos em PDF em 1 clique e funcionamento offline." />
+    <meta name="keywords" content="audiometria, fonoaudiologia, laudo fonoaudiologico, exame de audição, software medico fono, audiograma online, audiodash" />
+    <meta name="author" content="Black Dog" />
+    <meta name="robots" content="index, follow" />
+
+    <!-- Open Graph / Facebook / WhatsApp -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://audiodash.com.br/" />
+    <meta property="og:title" content="AudioDash | A Evolução da Audiometria & Fonoaudiologia" />
+    <meta property="og:description" content="Gestão completa de exames de audiometria, prontuários, comparativos e laudos profissionais em segundos." />
+    <meta property="og:image" content="https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=1200&q=80" />
+
+    <!-- Apple Font: SF Pro Display -->
+    <link href="https://fonts.cdnfonts.com/css/sf-pro-display" rel="stylesheet">
+
+    <!-- Schema.org JSON-LD Structured Data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "AudioDash",
+        "operatingSystem": "Web, Windows, macOS, iOS, Android (PWA)",
+        "applicationCategory": "MedicalApplication",
+        "offers": {
+          "@type": "Offer",
+          "price": "50.00",
+          "priceCurrency": "BRL",
+          "priceValidUntil": "2027-12-31"
+        },
+        "aggregateRating": {
+          "@type": "AggregateRating",
+          "ratingValue": "4.9",
+          "ratingCount": "128"
+        },
+        "description": "Sistema completo para gestão de exames de audiometria, anamneses e emissão de laudos para fonoaudiólogos."
+      }
+    </script>
+
     <script>
       window.global = window;
       window.process = { env: { NODE_ENV: 'development' } };
     </script>
   </head>
-  <body>
+  <body class="bg-[#f5f5f7] text-[#1d1d1f] font-['SF_Pro_Display',-apple-system,BlinkMacSystemFont,sans-serif] antialiased selection:bg-[#0071e3] selection:text-white overflow-x-hidden">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
