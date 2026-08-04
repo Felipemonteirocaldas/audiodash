@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, Appointment } from '@/db/db';
+import { syncManager } from '@/lib/syncManager';
 import {
   Calendar as CalendarIcon,
   Clock,

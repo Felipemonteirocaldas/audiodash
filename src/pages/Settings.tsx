@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { db, Settings as SettingsType } from '@/db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Save, Download, Upload, CheckCircle2, AlertCircle, Trash2, AlertTriangle, ShieldCheck, ExternalLink, Loader2, CreditCard, RefreshCw } from 'lucide-react';
+import { Save, Download, Upload, CheckCircle2, AlertCircle, Trash2, AlertTriangle, ShieldCheck, ExternalLink, Loader2, CreditCard } from 'lucide-react';
 import { syncManager } from '@/lib/syncManager';
 import { customAlert } from '@/lib/dialogs';
 import { useAuth } from '@/contexts/AuthContext';

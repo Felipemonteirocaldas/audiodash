@@ -28,7 +28,7 @@ export function MobileNav() {
             </Link>
           );
         })}
-        <button onClick={logout} className="flex flex-col items-center gap-1 text-slate-500 hover:text-red-500">
+        <button onClick={() => logout()} className="flex flex-col items-center gap-1 text-slate-500 hover:text-red-500">
           <LogOut className="h-5 w-5" />
           <span className="text-[10px]">Sair</span>
         </button>

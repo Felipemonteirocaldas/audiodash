@@ -173,11 +173,11 @@ export function Sidebar() {
         </a>
 
         <button 
-          onClick={logout}
+          onClick={() => logout()}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:text-red-600 hover:bg-red-50 transition-colors border border-slate-200/80"
         >
           <LogOut className="h-4 w-4" />
-          Sair do Sistema
+          <span className="truncate">Sair do Sistema</span>
         </button>
       </div>
     </aside>
