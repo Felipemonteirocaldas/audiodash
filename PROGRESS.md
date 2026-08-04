@@ -17,6 +17,7 @@ Este arquivo serve como um registro contínuo do que foi construído, ajustado e
   * Correção do alinhamento da seção *Bento Grid*.
   * Adição de elementos de branding.
 * **Auditorias UX:** Realizadas revisões de experiência focadas no uso geral e na versão Mobile.
+* **Refatoração Mobile (Sem Scroll Lateral):** Auditoria impecável no layout mobile em todas as telas (Dashboard, Configurações, Prontuário, Comparativo). Removidos todos os *scrolls* horizontais e travamentos de largura (`min-w`), forçando os componentes (como gráficos SVG, botões de abas e tabelas densas) a redimensionarem fluidamente (com `flex-wrap` e tabelas auto-ajustáveis), resultando em um visual padronizado de alto nível.
 
 #### ⚙️ Funcionalidades e Fluxos (Features)
 * **Assinaturas:** Criada a funcionalidade de cancelamento de assinatura pelo próprio usuário (seção de configurações) e realizada auditoria de segurança de pagamentos.
