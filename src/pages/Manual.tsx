@@ -1,5 +1,5 @@
 import { LogoAD } from '@/components/LogoAD';
-import { BookOpen, Stethoscope, Users, Calendar, Activity, Database, ShieldCheck, HelpCircle } from 'lucide-react';
+import { Stethoscope, Users, Calendar, Activity, Database } from 'lucide-react';
 
 export default function Manual() {
   return (

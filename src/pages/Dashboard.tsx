@@ -117,25 +117,44 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {patientCount === 0 && totalExams === 0 && (
+        <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-200/80 mb-6 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+          <div className="relative z-10">
+            <h2 className="text-2xl font-bold mb-2 flex items-center gap-2 text-slate-800">
+              Bem-vindo(a) ao AudioDash! 🎉
+            </h2>
+            <p className="text-slate-500 max-w-xl text-sm leading-relaxed">
+              O seu painel está vazio por enquanto, mas não por muito tempo. Para que os gráficos e a inteligência do sistema comecem a funcionar, cadastre o seu primeiro paciente e faça o primeiro laudo.
+            </p>
+          </div>
+          <div className="flex gap-3 shrink-0 relative z-10 w-full md:w-auto">
+            <Link to="/pacientes" className="flex-1 md:flex-none px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2">
+              <Users className="w-5 h-5" />
+              Cadastrar 1º Paciente
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* BENTO GRID */}
       <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-12 gap-6 auto-rows-[minmax(120px,auto)]">
 
         {/* 1. RELÓGIO & CLIMA (Col: 3) */}
-        <div className="lg:col-span-3 md:col-span-2 row-span-2 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-3xl p-6 text-white flex flex-col justify-between shadow-lg shadow-indigo-200">
+        <div className="lg:col-span-3 md:col-span-2 row-span-2 bg-white border border-slate-200/80 rounded-3xl p-6 flex flex-col justify-between shadow-sm">
           <div>
-            <div className="text-5xl font-bold tracking-tighter mb-2">
+            <div className="text-5xl font-bold tracking-tighter mb-2 text-slate-800">
               {time.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
             </div>
-            <div className="text-indigo-100 font-medium">
+            <div className="text-slate-500 font-medium">
               {time.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
             </div>
           </div>
           
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 mt-6 border border-white/20">
+          <div className="bg-slate-50 rounded-2xl p-4 mt-6 border border-slate-100">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm text-indigo-100 mb-1">{weather.label}</div>
-                <div className="text-2xl font-bold">
+                <div className="text-sm text-slate-500 mb-1">{weather.label}</div>
+                <div className="text-2xl font-bold text-slate-800">
                   {weather.temp !== null ? `${weather.temp}°C` : '--°C'}
                 </div>
               </div>
@@ -208,13 +227,13 @@ export default function Dashboard() {
         {/* 3. ATALHOS RÁPIDOS (Col: 3) */}
         <div className="lg:col-span-3 md:col-span-4 row-span-1 flex flex-col gap-3 bg-white rounded-3xl border border-slate-200/80 p-5 shadow-sm">
           <Link
-            to="/patients"
+            to="/pacientes"
             className="flex-1 flex items-center justify-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-2xl p-4 font-semibold transition-colors group"
           >
             <Users className="w-5 h-5 group-hover:scale-110 transition-transform" />
             Novo Paciente
           </Link>
-          <Link to="/patients" className="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-2xl flex items-center justify-center gap-2 p-4 font-semibold transition-colors">
+          <Link to="/pacientes" className="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-2xl flex items-center justify-center gap-2 p-4 font-semibold transition-colors">
             <Users className="w-5 h-5" /> Ver Pacientes
           </Link>
         </div>
@@ -239,13 +258,16 @@ export default function Dashboard() {
           <div className="space-y-4 relative z-10 flex-1 flex flex-col">
              {todayAppointments && todayAppointments.length > 0 ? (
                todayAppointments.map(app => (
-                 <div key={app.id} className="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex justify-between items-center">
+                 <Link to="/agenda" key={app.id} className="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex justify-between items-center hover:bg-slate-100 transition-colors group cursor-pointer block">
                     <div>
-                       <div className="font-medium text-slate-800">{app.patientName}</div>
+                       <div className="font-medium text-slate-800 group-hover:text-indigo-600 transition-colors">{app.patientName}</div>
                        <div className="text-sm text-slate-500">{app.type}</div>
                     </div>
-                    <div className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full text-sm font-semibold">{app.time}</div>
-                 </div>
+                    <div className="flex items-center gap-3">
+                      <div className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full text-sm font-semibold">{app.time}</div>
+                      <ChevronRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block" />
+                    </div>
+                 </Link>
                ))
              ) : (
                <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-4">
@@ -270,11 +292,11 @@ export default function Dashboard() {
             <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
               <Clock className="w-5 h-5 text-indigo-500" /> Últimos Exames
             </h3>
-            <Link to="/exams" className="text-sm text-indigo-600 font-medium hover:underline">Ver todos</Link>
+            <Link to="/exames" className="text-sm text-indigo-600 font-medium hover:underline">Ver todos</Link>
           </div>
           <div className="flex-1 flex flex-col justify-between">
             {recentExams?.length ? recentExams.map(exam => (
-              <Link key={exam.id} to={`/exam/${exam.id}`} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0 group hover:bg-slate-50 -mx-2 px-2 rounded-xl transition-colors">
+              <Link key={exam.id} to={`/exame/${exam.id}`} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0 group hover:bg-slate-50 -mx-2 px-2 rounded-xl transition-colors">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-700 font-bold">
                     {exam.patientName.charAt(0)}
@@ -295,7 +317,7 @@ export default function Dashboard() {
                 <p className="text-slate-500 font-medium">Nenhum exame recente.</p>
                 <p className="text-sm text-slate-400 mt-1">Você ainda não realizou exames.</p>
               </div>
-              <Link to="/exam/new" className="px-5 py-2.5 bg-indigo-50 text-indigo-700 font-semibold rounded-xl text-sm hover:bg-indigo-100 transition-colors border border-indigo-100">
+              <Link to="/exame/novo" className="px-5 py-2.5 bg-indigo-50 text-indigo-700 font-semibold rounded-xl text-sm hover:bg-indigo-100 transition-colors border border-indigo-100">
                 Fazer o 1º Exame
               </Link>
             </div>

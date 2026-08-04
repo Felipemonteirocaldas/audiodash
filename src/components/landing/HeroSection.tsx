@@ -12,6 +12,16 @@ import {
   Award 
 } from 'lucide-react';
 
+const FREQUENCY_LINES = [0, 20, 40, 60, 80, 100];
+const AUDIOGRAM_POINTS = [
+  { freq: '250', od: '40dB' },
+  { freq: '500', od: '45dB' },
+  { freq: '1k', od: '50dB' },
+  { freq: '2k', od: '65dB' },
+  { freq: '4k', od: '70dB' },
+  { freq: '8k', od: '80dB' },
+];
+
 export default function HeroSection() {
   const [activeTab, setActiveTab] = useState<'tonal' | 'vocal' | 'comparativo'>('tonal');
 
@@ -164,7 +174,7 @@ export default function HeroSection() {
                   {/* Clean Audiogram Chart */}
                   <div className="h-48 sm:h-56 relative flex items-end justify-between px-2 pt-6 pb-2 border-l border-b border-slate-300 bg-white rounded-bl-lg">
                     {/* Horizontal Freq Lines */}
-                    {[0, 20, 40, 60, 80, 100].map((val) => (
+                    {FREQUENCY_LINES.map((val) => (
                       <div
                         key={val}
                         className="absolute left-0 right-0 border-t border-slate-200 flex items-center justify-between text-[9px] font-mono text-slate-400"
@@ -194,14 +204,7 @@ export default function HeroSection() {
                     </svg>
 
                     {/* Frequency Dots */}
-                    {[
-                      { freq: '250', od: '40dB' },
-                      { freq: '500', od: '45dB' },
-                      { freq: '1k', od: '50dB' },
-                      { freq: '2k', od: '65dB' },
-                      { freq: '4k', od: '70dB' },
-                      { freq: '8k', od: '80dB' },
-                    ].map((item, idx) => (
+                    {AUDIOGRAM_POINTS.map((item, idx) => (
                       <div key={idx} className="flex flex-col items-center gap-1 z-10">
                         <div className="w-3.5 h-3.5 rounded-full bg-red-500 border-2 border-white shadow-md"></div>
                         <span className="text-[10px] font-mono font-semibold text-slate-500 mt-2">{item.freq}</span>

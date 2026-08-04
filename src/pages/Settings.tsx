@@ -6,6 +6,7 @@ import { db, Settings as SettingsType } from '@/db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Save, Download, Upload, CheckCircle2, AlertCircle } from 'lucide-react';
 import { syncManager } from '@/lib/syncManager';
+import { customAlert } from '@/lib/dialogs';
 
 export default function Settings() {
   const [settings, setSettings] = useState<Partial<SettingsType>>({
@@ -75,8 +76,8 @@ export default function Settings() {
       // Trigger cloud sync immediately and check for errors
       await syncManager.sync();
       
-      if (syncManager.status === 'error') {
-        alert("Erro detalhado do Supabase: " + syncManager.lastError);
+      if (syncManager.lastError) {
+        await customAlert("Erro detalhado do Supabase: " + syncManager.lastError);
         setSaveStatus('error');
       } else {
         setSaveStatus('success');
@@ -145,7 +146,7 @@ export default function Settings() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-8 pb-12">
+    <div className="max-w-4xl mx-auto space-y-8 pb-12">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-slate-900">Configurações do Consultório</h1>
         <p className="text-slate-500 mt-1">Gerencie os dados da clínica e o armazenamento do sistema.</p>

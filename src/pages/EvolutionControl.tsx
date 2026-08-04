@@ -25,7 +25,7 @@ export default function EvolutionControl() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Link to="/patients">
+        <Link to="/pacientes">
           <Button variant="outline" size="icon" className="w-10 h-10 rounded-full">
             <ArrowLeft className="w-5 h-5" />
           </Button>

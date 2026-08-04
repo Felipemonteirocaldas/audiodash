@@ -66,9 +66,9 @@ export function GlobalSearch() {
     setIsOpen(false);
     setSearchTerm('');
     if (result.type === 'patient') {
-      navigate(`/evolution/${result.item.id}`);
+      navigate(`/evolucao/${result.item.id}`);
     } else if (result.type === 'exam') {
-      navigate(`/exam/${result.item.id}`);
+      navigate(`/exame/${result.item.id}`);
     }
   };
 

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Save, CheckCircle2, AlertCircle, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { syncManager } from '@/lib/syncManager';
+import { customAlert } from '@/lib/dialogs';
 
 export default function AnamnesisForm() {
   const { patientId, anamnesisId } = useParams();
@@ -34,7 +35,11 @@ export default function AnamnesisForm() {
   }, [anamnesisId, patientId]);
 
   const handleSave = async () => {
-    if (!anamnesis.patientId) return alert('Paciente inválido.');
+    if (!anamnesis.patientId) {
+      await customAlert('Paciente inválido.');
+      return;
+    }
+    
     setSaveStatus('saving');
     
     const dataToSave = {
@@ -53,7 +58,7 @@ export default function AnamnesisForm() {
       setTimeout(() => {
         setSaveStatus('idle');
         if (!anamnesisId) {
-          navigate(`/anamnesis/${dataToSave.id}`, { replace: true });
+          navigate(`/anamnese/${dataToSave.id}`, { replace: true });
         }
       }, 1500);
     } catch (e) {
@@ -81,7 +86,7 @@ export default function AnamnesisForm() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4 flex-wrap">
-        <Link to="/patients">
+        <Link to="/pacientes">
           <Button variant="outline" size="icon" className="w-10 h-10 rounded-full">
             <ArrowLeft className="w-5 h-5" />
           </Button>

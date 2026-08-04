@@ -84,7 +84,7 @@ export default function CompareExams() {
   return (
     <div className="space-y-8 pb-12">
       <div className="flex items-center gap-4">
-        <Link to="/exams">
+        <Link to="/exames">
           <Button variant="outline" size="icon" className="w-10 h-10 rounded-full hover:bg-slate-100 transition-colors">
             <ArrowLeft className="w-5 h-5 text-slate-600" />
           </Button>
@@ -141,7 +141,7 @@ export default function CompareExams() {
               </CardContent>
             </Card>
             
-            <Card className="relative overflow-hidden border-indigo-200/80 shadow-md shadow-indigo-100/50 hover:shadow-lg transition-shadow bg-gradient-to-br from-white to-indigo-50/30">
+            <Card className="relative overflow-hidden border-slate-200/80 shadow-sm hover:shadow-md transition-shadow bg-white">
               <div className="absolute inset-x-0 top-0 h-1 bg-indigo-500"></div>
               <CardHeader className="bg-indigo-50/30 pb-4 border-b border-indigo-100/60">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2 text-indigo-900">
@@ -172,7 +172,7 @@ export default function CompareExams() {
               <CardTitle className="text-xl">Audiograma Comparativo</CardTitle>
               <p className="text-sm text-slate-500 mt-1">As curvas do exame referencial são exibidas em tons mais claros.</p>
             </CardHeader>
-            <CardContent className="p-4 sm:p-8 flex flex-col items-center bg-gradient-to-b from-slate-50/50 to-white">
+            <CardContent className="p-4 sm:p-8 flex flex-col items-center bg-slate-50/50">
               <div className="w-full max-w-[800px] bg-white rounded-2xl shadow-sm border border-slate-200/60 p-4 overflow-x-auto">
                 {/* @ts-ignore */}
                 <AudiogramSVG 

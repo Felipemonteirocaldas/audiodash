@@ -2,6 +2,7 @@ import React from 'react';
 import { Document, Page, Text, View, StyleSheet, pdf, Svg, Line, Path, Circle, Polygon, Polyline, Rect, G, Image } from '@react-pdf/renderer';
 
 import { Audiometry, Patient, Settings, db, EarTonalData } from '@/db/db';
+import { customAlert } from '@/lib/dialogs';
 
 const FREQUENCIES = ['125', '250', '500', '1000', '2000', '3000', '4000', '6000', '8000'];
 const FREQ_OFFSETS: Record<string, number> = {
@@ -430,17 +431,35 @@ const AudiometryPDF = ({ exam, patient, settings }: { exam: Audiometry, patient:
         {/* CONTATOS */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopStyle: 'solid', borderTopColor: '#cbd5e1', paddingTop: 8, width: '100%' }}>
           <View style={{ width: '30%', alignItems: 'flex-start' }}>
-            <Text style={{ fontSize: 7, color: '#475569', marginBottom: 2 }}>+55 (87) 3835-1688</Text>
-            <Text style={{ fontSize: 7, color: '#475569' }}>+55 (87) 98808-0085</Text>
+            {settings?.phone ? (
+              <Text style={{ fontSize: 7, color: '#475569', marginBottom: 2 }}>{settings.phone}</Text>
+            ) : null}
+            {settings?.email ? (
+              <Text style={{ fontSize: 7, color: '#475569' }}>{settings.email}</Text>
+            ) : null}
           </View>
           <View style={{ width: '40%', alignItems: 'center' }}>
-            <Text style={{ fontSize: 7, color: '#475569', marginBottom: 2 }}>Rua Padre Augusto de Carvalho, 421</Text>
-            <Text style={{ fontSize: 7, color: '#475569' }}>Centro, Pesqueira/PE, Brasil. CEP: 55200-000</Text>
+            {(settings?.address || settings?.neighborhood) ? (
+              <Text style={{ fontSize: 7, color: '#475569', marginBottom: 2 }}>
+                {[settings?.address, settings?.neighborhood].filter(Boolean).join(', ')}
+              </Text>
+            ) : null}
+            {(settings?.city || settings?.state || settings?.zipCode) ? (
+              <Text style={{ fontSize: 7, color: '#475569' }}>
+                {[
+                  settings?.city && settings?.state ? `${settings.city}/${settings.state}, Brasil` : '',
+                  settings?.zipCode ? `CEP: ${settings.zipCode}` : ''
+                ].filter(Boolean).join('. ')}
+              </Text>
+            ) : null}
           </View>
           <View style={{ width: '30%', alignItems: 'flex-end' }}>
-            <Text style={{ fontSize: 7, color: '#475569', marginBottom: 2 }}>www.associacaopode.org</Text>
-            <Text style={{ fontSize: 7, color: '#475569', marginBottom: 2 }}>associacaopode2@yahoo.com.br</Text>
-            <Text style={{ fontSize: 7, color: '#475569' }}>@podepesqueira / @PODEpesqueira</Text>
+            {settings?.website ? (
+              <Text style={{ fontSize: 7, color: '#475569', marginBottom: 2 }}>{settings.website}</Text>
+            ) : null}
+            {settings?.instagram ? (
+              <Text style={{ fontSize: 7, color: '#475569' }}>{settings.instagram}</Text>
+            ) : null}
           </View>
         </View>
       </View>
@@ -467,7 +486,7 @@ export const exportToPdf = async (exam: Audiometry, patient: Patient) => {
     URL.revokeObjectURL(url);
   } catch (err: any) {
     console.error(err);
-    alert('Erro ao gerar PDF: ' + (err.message || String(err)));
+    await customAlert('Erro ao gerar PDF: ' + (err.message || String(err)));
   }
 };
 
@@ -606,7 +625,7 @@ export const exportComparisonToPdf = async (baseline: Audiometry, current: Audio
     URL.revokeObjectURL(url);
   } catch (err: any) {
     console.error(err);
-    alert('Erro ao gerar PDF Comparativo: ' + (err.message || String(err)));
+    await customAlert('Erro ao gerar PDF Comparativo: ' + (err.message || String(err)));
   }
 };
 

@@ -28,7 +28,7 @@ export default function Login() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/dashboard');
+      navigate('/painel');
     }
   }, [isAuthenticated, navigate]);
 
@@ -54,7 +54,7 @@ export default function Login() {
           throw new Error('E-mail ou senha incorretos.');
         }
       }
-      navigate('/dashboard');
+      navigate('/painel');
     } catch (err: any) {
       setError(err.message || 'Ocorreu um erro.');
     } finally {

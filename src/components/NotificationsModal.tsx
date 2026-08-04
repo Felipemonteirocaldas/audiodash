@@ -118,7 +118,7 @@ export function NotificationsModal() {
       time: `Exame em ${new Date(exam.examDate).toLocaleDateString('pt-BR')}`,
       type: 'alert',
       read: readIds.has(notifId),
-      link: `/exam/${exam.id}`
+      link: `/exame/${exam.id}`
     });
   });
 

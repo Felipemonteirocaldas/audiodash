@@ -37,6 +37,7 @@ import {
   syncAppointmentUpdated,
   syncAppointmentDeleted,
 } from '@/lib/calendarSyncService';
+import { customConfirm } from '@/lib/dialogs';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -594,7 +595,8 @@ export default function Agenda() {
   };
 
   const deleteAppointment = async (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este agendamento?')) {
+    const proceed = await customConfirm('Tem certeza que deseja excluir este agendamento?');
+    if (proceed) {
       // Sync deletion to external calendars first
       await syncAppointmentDeleted(id);
       await db.appointments.delete(id);
@@ -625,7 +627,7 @@ export default function Agenda() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center shadow-sm shadow-indigo-200">
+            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-sm">
               <CalendarIcon className="w-5 h-5 text-white" />
             </div>
             Agenda
@@ -690,10 +692,9 @@ export default function Agenda() {
             </button>
           </div>
 
-          {/* New appointment */}
           <button
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white px-4 py-2 rounded-xl font-medium transition-all shadow-sm shadow-indigo-200 hover:shadow-md"
+            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl font-medium transition-all shadow-sm hover:shadow-md"
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Novo Agendamento</span>
@@ -761,7 +762,7 @@ export default function Agenda() {
               </div>
             ) : dayAppointments.length === 0 ? (
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 flex flex-col items-center justify-center">
-                <div className="w-20 h-20 bg-gradient-to-br from-indigo-50 to-violet-50 rounded-2xl flex items-center justify-center mb-5">
+                <div className="w-20 h-20 bg-indigo-50 rounded-2xl flex items-center justify-center mb-5">
                   <CalendarIcon className="w-10 h-10 text-indigo-300" />
                 </div>
                 <h3 className="text-lg font-semibold text-slate-700">Dia livre</h3>
@@ -770,7 +771,7 @@ export default function Agenda() {
                 </p>
                 <button
                   onClick={() => setShowModal(true)}
-                  className="mt-6 flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl font-medium text-sm hover:shadow-md transition-all"
+                  className="mt-6 flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium text-sm hover:shadow-md transition-all"
                 >
                   <Plus className="w-4 h-4" />
                   Criar agendamento
@@ -800,9 +801,9 @@ export default function Agenda() {
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             {/* Header */}
-            <div className="p-6 border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-violet-50">
+            <div className="p-6 border-b border-slate-100 bg-slate-50">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center shadow-sm">
+                <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-sm">
                   <Plus className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -937,7 +938,7 @@ export default function Agenda() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-medium rounded-xl transition-all shadow-sm"
+                  className="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl transition-all shadow-sm"
                 >
                   Salvar Agendamento
                 </button>

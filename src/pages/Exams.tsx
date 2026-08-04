@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import Fuse from 'fuse.js';
-import { Search, Plus, FileText, Activity, Users, CheckCircle2 } from 'lucide-react';
+import { Search, Plus, FileText, Activity, Users, CheckCircle2, Download } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { exportToPdf } from '@/lib/exportPdf';
 
 export default function Exams() {
   const navigate = useNavigate();
@@ -60,7 +61,7 @@ export default function Exams() {
 
   const handleCompare = () => {
     if (selectedExams.length === 2) {
-      navigate(`/compare/${selectedExams[0]}/${selectedExams[1]}`);
+      navigate(`/comparar/${selectedExams[0]}/${selectedExams[1]}`);
     }
   };
 
@@ -72,7 +73,7 @@ export default function Exams() {
           <p className="text-slate-500 mt-1">Gerencie e compare audiometrias dos seus pacientes.</p>
         </div>
         {selectedPatientId && (
-          <Link to={`/exam/new/${selectedPatientId}`}>
+          <Link to={`/exame/novo/${selectedPatientId}`}>
             <Button className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm h-11 px-6">
               <Plus className="h-4 w-4" /> Novo Exame para este Paciente
             </Button>
@@ -191,8 +192,21 @@ export default function Exams() {
                       </div>
                     </div>
 
-                    <div className="flex gap-2 ml-10 md:ml-0">
-                      <Link to={`/exam/${exam.id}`}>
+                    <div className="flex gap-2 ml-10 md:ml-0 flex-wrap">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={async () => {
+                          const patient = allPatients?.find(p => p.id === selectedPatientId);
+                          if (patient) {
+                            await exportToPdf(exam, patient);
+                          }
+                        }}
+                        className="gap-2 bg-white text-red-600 hover:bg-red-50 border-red-200"
+                      >
+                        <Download className="h-4 w-4" /> Gerar PDF
+                      </Button>
+                      <Link to={`/exame/${exam.id}`}>
                         <Button variant="outline" size="sm" className="gap-2 bg-white text-slate-700 hover:bg-slate-50">
                           <FileText className="h-4 w-4" /> Abrir / Editar Exame
                         </Button>
@@ -209,7 +223,7 @@ export default function Exams() {
                   </div>
                   <h3 className="text-lg font-medium text-slate-700">Nenhum exame encontrado</h3>
                   <p className="text-slate-500 mt-1 mb-6">Este paciente ainda não possui audiometrias cadastradas.</p>
-                  <Link to={`/exam/new/${selectedPatientId}`}>
+                  <Link to={`/exame/novo/${selectedPatientId}`}>
                     <Button className="gap-2">
                       <Plus className="w-4 h-4" /> Criar Primeiro Exame
                     </Button>

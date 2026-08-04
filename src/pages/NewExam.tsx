@@ -13,6 +13,7 @@ import { FileText, FileSpreadsheet, File, Save, CheckCircle2, AlertCircle, Arrow
 import { syncManager } from '@/lib/syncManager';
 import AudiogramSVG from '@/components/AudiogramSVG';
 import TympanogramSVG from '@/components/TympanogramSVG';
+import { customAlert, customConfirm } from '@/lib/dialogs';
 
 const FREQUENCIES: TonalFrequency[] = ['125', '250', '500', '750', '1000', '1500', '2000', '3000', '4000', '6000', '8000'];
 const REFLEX_FREQS: ReflexFrequency[] = ['500', '1000', '2000', '4000'];
@@ -224,7 +225,7 @@ export default function NewExam() {
 
   const getExamData = (): Audiometry | null => {
     if (!selectedPatientId) {
-      alert('Selecione um paciente!');
+      customAlert('Selecione um paciente!');
       return null;
     }
     return {
@@ -250,7 +251,7 @@ export default function NewExam() {
     }
     
     if (missingSBFa) {
-      const proceed = window.confirm('Atenção: O Guia de Orientações da SBFa recomenda testar as frequências de 500, 1000, 2000 e 4000Hz em ambas as orelhas. Faltam alguns dados. Deseja salvar mesmo assim?');
+      const proceed = await customConfirm('Atenção: O Guia de Orientações da SBFa recomenda testar as frequências de 500, 1000, 2000 e 4000Hz em ambas as orelhas. Faltam alguns dados. Deseja salvar mesmo assim?');
       if (!proceed) return;
     }
 
@@ -266,7 +267,7 @@ export default function NewExam() {
         setSaveStatus('idle');
         if (!examId) {
           // If it was a new exam, update URL so we don't create duplicates on next save
-          navigate(`/exam/${examData.id}`, { replace: true });
+          navigate(`/exame/${examData.id}`, { replace: true });
         }
       }, 1500);
     } catch (e) {
@@ -278,7 +279,10 @@ export default function NewExam() {
 
   const handleExport = async (type: 'pdf' | 'docx' | 'xlsx') => {
     const examData = getExamData();
-    if (!examData || !selectedPatient) return alert('Selecione um paciente antes de exportar.');
+    if (!examData || !selectedPatient) {
+      await customAlert('Selecione um paciente antes de exportar.');
+      return;
+    }
     if (type === 'pdf') await exportToPdf(examData, selectedPatient);
     else if (type === 'docx') await exportToDocx(examData, selectedPatient);
     else if (type === 'xlsx') await exportToExcelJs(examData, selectedPatient);
@@ -307,7 +311,7 @@ export default function NewExam() {
     <div className="space-y-6">
       <div className="flex justify-between items-center flex-wrap gap-4">
         <div className="flex items-center gap-4">
-          <Link to="/exams">
+          <Link to="/exames">
             <Button variant="outline" size="sm" className="gap-2 h-9">
               <ArrowLeft className="w-4 h-4" /> Exames
             </Button>

@@ -28,7 +28,7 @@ export default function ProtectedRoute() {
   );
 
   if (!isLocalhost && user && user.subscriptionStatus !== 'active') {
-    return <Navigate to="/paywall" replace />;
+    return <Navigate to="/planos" replace />;
   }
 
   return <Outlet />;

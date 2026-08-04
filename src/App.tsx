@@ -15,28 +15,30 @@ import Paywall from './pages/Paywall';
 import Manual from './pages/Manual';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import { Dialogs } from './components/ui/Dialogs';
 
 export default function App() {
   return (
     <AuthProvider>
+      <Dialogs />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/paywall" element={<Paywall />} />
+        <Route path="/planos" element={<Paywall />} />
         <Route path="/manual" element={<Manual />} />
         <Route element={<ProtectedRoute />}>
           <Route element={<Layout />}>
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/painel" element={<Dashboard />} />
             <Route path="/agenda" element={<Agenda />} />
-            <Route path="/patients" element={<Patients />} />
-            <Route path="/exams" element={<Exams />} />
-            <Route path="/exam/new/:patientId?" element={<NewExam />} />
-            <Route path="/exam/:examId" element={<NewExam />} />
-            <Route path="/compare/:examId1/:examId2" element={<CompareExams />} />
-            <Route path="/anamnesis/new/:patientId" element={<AnamnesisForm />} />
-            <Route path="/anamnesis/:anamnesisId" element={<AnamnesisForm />} />
-            <Route path="/evolution/:patientId" element={<EvolutionControl />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/pacientes" element={<Patients />} />
+            <Route path="/exames" element={<Exams />} />
+            <Route path="/exame/novo/:patientId?" element={<NewExam />} />
+            <Route path="/exame/:examId" element={<NewExam />} />
+            <Route path="/comparar/:examId1/:examId2" element={<CompareExams />} />
+            <Route path="/anamnese/novo/:patientId" element={<AnamnesisForm />} />
+            <Route path="/anamnese/:anamnesisId" element={<AnamnesisForm />} />
+            <Route path="/evolucao/:patientId" element={<EvolutionControl />} />
+            <Route path="/configuracoes" element={<Settings />} />
           </Route>
         </Route>
       </Routes>

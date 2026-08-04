@@ -4,8 +4,11 @@ import { db, Patient } from '@/db/db';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Plus, FileText, Activity, Edit } from 'lucide-react';
+import { Search, Plus, FileText, Activity, Edit, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { supabase, isConfigured } from '@/lib/supabase';
+import { customAlert } from '@/lib/dialogs';
+import { syncManager } from '@/lib/syncManager';
 
 function calculateAge(birthDate: string) {
   if (!birthDate) return '';
@@ -50,6 +53,8 @@ export default function Patients() {
   const [newPatient, setNewPatient] = useState<Partial<Patient>>({
     name: '', cpf: '', birthDate: '', gender: '', occupation: '', phone: '', notes: ''
   });
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
 
   const patients = useLiveQuery(
     () => db.patients
@@ -84,8 +89,39 @@ export default function Patients() {
       setIsFormOpen(false);
       setEditingPatientId(null);
       setNewPatient({ name: '', cpf: '', birthDate: '', gender: '', occupation: '', phone: '', notes: '' });
+      syncManager.sync();
     } catch (err) {
-      alert("Erro ao salvar paciente.");
+      await customAlert("Erro ao salvar paciente.");
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!editingPatientId) return;
+    if (deleteConfirmationText !== 'DELETAR') {
+      await customAlert("A palavra não confere. Exclusão cancelada.");
+      return;
+    }
+    try {
+      await db.patients.delete(editingPatientId);
+      
+      const exams = await db.audiometries.where('patientId').equals(editingPatientId).toArray();
+      for (const exam of exams) {
+        await db.audiometries.delete(exam.id);
+      }
+      
+      if (isConfigured && supabase) {
+        await supabase.from('patients').delete().eq('id', editingPatientId);
+        await supabase.from('audiometries').delete().eq('patientId', editingPatientId);
+      }
+      
+      setIsDeleteDialogOpen(false);
+      setDeleteConfirmationText('');
+      setIsFormOpen(false);
+      setEditingPatientId(null);
+      setNewPatient({ name: '', cpf: '', birthDate: '', gender: '', occupation: '', phone: '', notes: '' });
+      syncManager.sync();
+    } catch (err) {
+      await customAlert("Erro ao excluir paciente.");
     }
   };
 
@@ -162,9 +198,18 @@ export default function Patients() {
                   <Input value={newPatient.occupation} onChange={e => setNewPatient({...newPatient, occupation: e.target.value})} />
                 </div>
               </div>
-              <div className="flex justify-end gap-2 mt-4">
-                <Button type="button" variant="outline" onClick={() => { setIsFormOpen(false); setEditingPatientId(null); }}>Cancelar</Button>
-                <Button type="submit">{editingPatientId ? 'Salvar Alterações' : 'Salvar Paciente'}</Button>
+              <div className="flex justify-between items-center mt-4">
+                <div>
+                  {editingPatientId && (
+                    <Button type="button" variant="destructive" onClick={() => setIsDeleteDialogOpen(true)} className="gap-2">
+                      <Trash2 className="w-4 h-4" /> Excluir
+                    </Button>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" onClick={() => { setIsFormOpen(false); setEditingPatientId(null); }}>Cancelar</Button>
+                  <Button type="submit">{editingPatientId ? 'Salvar Alterações' : 'Salvar Paciente'}</Button>
+                </div>
               </div>
             </form>
           </CardContent>
@@ -211,17 +256,17 @@ export default function Patients() {
                     >
                       <Edit className="h-4 w-4" /> Editar
                     </Button>
-                    <Link to={`/evolution/${p.id}`}>
+                    <Link to={`/evolucao/${p.id}`}>
                       <Button variant="outline" size="sm" className="gap-2 bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 hover:text-amber-800">
                         <Activity className="h-4 w-4" /> PCA
                       </Button>
                     </Link>
-                    <Link to={`/anamnesis/new/${p.id}`}>
+                    <Link to={`/anamnese/novo/${p.id}`}>
                       <Button variant="outline" size="sm" className="gap-2 bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 hover:text-emerald-800">
                         <FileText className="h-4 w-4" /> Nova Anamnese
                       </Button>
                     </Link>
-                    <Link to={`/exam/new/${p.id}`}>
+                    <Link to={`/exame/novo/${p.id}`}>
                       <Button variant="outline" size="sm" className="gap-2 bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 hover:text-indigo-800">
                         <Plus className="h-4 w-4" /> Novo Exame
                       </Button>
@@ -239,7 +284,7 @@ export default function Patients() {
                       {patientAnamneses.map(anam => (
                         <Link 
                           key={anam.id} 
-                          to={`/anamnesis/${anam.id}`}
+                          to={`/anamnese/${anam.id}`}
                           className="bg-white border border-slate-200 hover:border-emerald-300 hover:shadow-sm transition-all p-3 rounded-lg flex items-center justify-between group"
                         >
                           <span className="text-sm font-medium text-slate-700 group-hover:text-emerald-700 transition-colors">
@@ -261,7 +306,7 @@ export default function Patients() {
                         <FileText className="w-4 h-4 text-slate-400" /> Laudos Registrados ({patientExams.length})
                       </h4>
                       {selectedForComparison.length === 2 && (
-                        <Link to={`/compare/${selectedForComparison[0]}/${selectedForComparison[1]}`}>
+                        <Link to={`/comparar/${selectedForComparison[0]}/${selectedForComparison[1]}`}>
                           <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 h-8 text-xs px-3">Comparar Selecionados</Button>
                         </Link>
                       )}
@@ -277,7 +322,7 @@ export default function Patients() {
                             title="Selecionar para comparação"
                           />
                           <Link 
-                            to={`/exam/${exam.id}`}
+                            to={`/exame/${exam.id}`}
                             className="flex-1 bg-white border border-slate-200 hover:border-indigo-300 hover:shadow-sm transition-all p-3 rounded-lg flex items-center justify-between group"
                           >
                             <span className="text-sm font-medium text-slate-700 group-hover:text-indigo-700 transition-colors">
@@ -301,6 +346,55 @@ export default function Patients() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Modal de Exclusão */}
+      {isDeleteDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 text-red-600 mb-4">
+              <div className="bg-red-100 p-2 rounded-full">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <h2 className="text-xl font-bold">Excluir Paciente Permanentemente</h2>
+            </div>
+            
+            <p className="text-slate-600 mb-4 font-medium">
+              ATENÇÃO: Ao excluir o paciente, <strong className="text-slate-900">TODOS</strong> os dados, laudos e exames vinculados a ele também serão deletados permanentemente e não poderão ser recuperados.
+            </p>
+            
+            <div className="space-y-2 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <label className="text-sm font-semibold text-slate-700 block">
+                Para confirmar, digite a palavra <span className="font-mono bg-white px-1 border rounded text-red-600">DELETAR</span> abaixo:
+              </label>
+              <Input 
+                value={deleteConfirmationText} 
+                onChange={(e) => setDeleteConfirmationText(e.target.value.toUpperCase())}
+                placeholder="DELETAR"
+                className="font-mono text-center tracking-widest uppercase border-red-200 focus-visible:ring-red-500"
+                autoFocus
+              />
+            </div>
+            
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
+              <Button type="button" variant="outline" onClick={() => {
+                setIsDeleteDialogOpen(false);
+                setDeleteConfirmationText('');
+              }}>
+                Desistir de deletar
+              </Button>
+              <Button 
+                type="button" 
+                variant="destructive" 
+                onClick={handleDelete}
+                disabled={deleteConfirmationText !== 'DELETAR'}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Sim, excluir tudo
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
