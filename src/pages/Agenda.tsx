@@ -6,7 +6,6 @@ import {
   Clock,
   Plus,
   User,
-  FileText,
   CheckCircle2,
   XCircle,
   ChevronLeft,
@@ -14,12 +13,9 @@ import {
   LayoutGrid,
   LayoutList,
   Trash2,
-  Link2,
-  Wifi,
 } from 'lucide-react';
 import {
   format,
-  parseISO,
   startOfWeek,
   endOfWeek,
   eachDayOfInterval,
@@ -34,13 +30,12 @@ import {
   isSameMonth,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import CalendarSync, { CalendarConnections } from '@/components/CalendarSync';
+import CalendarSync from '@/components/CalendarSync';
 import { getAppointmentColor } from '@/lib/calendarIntegration';
 import {
   syncAppointmentCreated,
   syncAppointmentUpdated,
   syncAppointmentDeleted,
-  hasAnyCalendarConnected,
 } from '@/lib/calendarSyncService';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -174,10 +169,7 @@ function DayTimelineView({
   onStatusChange: (id: string, status: 'scheduled' | 'completed' | 'canceled') => void;
   onDelete: (id: string) => void;
 }) {
-  const getHourPosition = (time: string) => {
-    const [h, m] = time.split(':').map(Number);
-    return h - 7 + m / 60; // Offset from 7:00
-  };
+
 
   return (
     <div className="relative bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -333,14 +325,12 @@ function WeekView({
   selectedDate,
   onSelectDate,
   onStatusChange,
-  onDelete,
 }: {
   weekStart: Date;
   allAppointments: Appointment[];
   selectedDate: Date;
   onSelectDate: (d: Date) => void;
   onStatusChange: (id: string, status: 'scheduled' | 'completed' | 'canceled') => void;
-  onDelete: (id: string) => void;
 }) {
   const days = eachDayOfInterval({
     start: weekStart,
@@ -491,7 +481,6 @@ export default function Agenda() {
     notes: '',
   });
   const [showDropdown, setShowDropdown] = useState(false);
-  const [showConnections, setShowConnections] = useState(false);
   const [syncToast, setSyncToast] = useState<string | null>(null);
 
   const patients = useLiveQuery(() => db.patients.toArray(), []);
@@ -801,7 +790,6 @@ export default function Agenda() {
               selectedDate={selectedDate}
               onSelectDate={setSelectedDate}
               onStatusChange={updateStatus}
-              onDelete={deleteAppointment}
             />
           )}
         </div>

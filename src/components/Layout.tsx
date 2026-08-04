@@ -11,7 +11,6 @@ import {
   LayoutDashboard,
   LogOut,
   PlusCircle, 
-  Search, 
   ChevronRight,
   FileText
 } from 'lucide-react';

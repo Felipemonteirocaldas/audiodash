@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/db';
-import { Users, Activity, Plus, FileText, ChevronRight, Clock, Calendar as CalendarIcon, Cloud, Sun, CloudRain } from 'lucide-react';
+import { Users, Activity, FileText, ChevronRight, Clock, Calendar as CalendarIcon, Cloud, Sun, CloudRain } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Dashboard() {
