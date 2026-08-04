@@ -253,9 +253,14 @@ export default function Dashboard() {
         {/* 5. AGENDA / HOJE (Col: 6) */}
         <div className="lg:col-span-6 md:col-span-4 row-span-2 bg-white rounded-3xl border border-slate-200/80 p-6 shadow-sm flex flex-col relative overflow-hidden">
           <CalendarIcon className="absolute -bottom-4 -right-4 w-32 h-32 text-slate-50" />
-          <h3 className="font-bold text-slate-800 text-lg mb-6 flex items-center gap-2 relative z-10">
-             <CalendarIcon className="w-5 h-5 text-indigo-500" /> Agenda de Hoje
-          </h3>
+          <div className="flex items-center justify-between mb-6 relative z-10">
+            <Link to="/agenda" className="font-bold text-slate-800 hover:text-indigo-600 transition-colors text-lg flex items-center gap-2">
+               <CalendarIcon className="w-5 h-5 text-indigo-500" /> Agenda de Hoje
+            </Link>
+            <Link to="/agenda" className="text-sm bg-indigo-600 text-white hover:bg-indigo-700 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm">
+              Novo Agendamento
+            </Link>
+          </div>
           <div className="space-y-4 relative z-10 flex-1 flex flex-col">
              {todayAppointments && todayAppointments.length > 0 ? (
                todayAppointments.map(app => (

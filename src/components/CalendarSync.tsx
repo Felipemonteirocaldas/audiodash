@@ -143,8 +143,9 @@ export default function CalendarSync({
   return (
     <div className="relative" ref={menuRef}>
       {compact ? (
-        <button onClick={() => setIsOpen(!isOpen)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all duration-200" title="Enviar ao calendário">
+        <button onClick={() => setIsOpen(!isOpen)} className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all duration-200" title="Enviar ao calendário">
           <Share2 className="w-4 h-4" />
+          <span>Exportar</span>
         </button>
       ) : (
         <button onClick={() => setIsOpen(!isOpen)} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-xl hover:border-indigo-300 hover:text-indigo-600 hover:shadow-sm transition-all duration-200">

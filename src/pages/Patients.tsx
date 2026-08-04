@@ -4,7 +4,7 @@ import { db, Patient } from '@/db/db';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Plus, FileText, Activity, Edit, Trash2 } from 'lucide-react';
+import { Search, Plus, FileText, Activity, Edit, Trash2, Calendar, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase, isConfigured } from '@/lib/supabase';
 import { customAlert } from '@/lib/dialogs';
@@ -57,6 +57,7 @@ export default function Patients() {
   });
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
+  const [viewingAppointmentsFor, setViewingAppointmentsFor] = useState<Patient | null>(null);
 
   const patients = useLiveQuery(
     () => db.patients
@@ -68,6 +69,7 @@ export default function Patients() {
 
   const allExams = useLiveQuery(() => db.audiometries.toArray(), []);
   const allAnamneses = useLiveQuery(() => db.anamneses.toArray(), []);
+  const allAppointments = useLiveQuery(() => db.appointments.toArray(), []);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -259,6 +261,14 @@ export default function Patients() {
                     >
                       <Edit className="h-4 w-4" /> Editar
                     </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="gap-2 text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                      onClick={() => setViewingAppointmentsFor(p)}
+                    >
+                      <Calendar className="h-4 w-4" /> Agendamentos
+                    </Button>
                     <Link to={`/evolucao/${p.id}`}>
                       <Button variant="outline" size="sm" className="gap-2 bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 hover:text-amber-800">
                         <Activity className="h-4 w-4" /> PCA
@@ -393,6 +403,72 @@ export default function Patients() {
                 className="bg-red-600 hover:bg-red-700"
               >
                 Sim, excluir tudo
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Agendamentos */}
+      {viewingAppointmentsFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-100 p-2 rounded-xl text-blue-600">
+                  <Calendar className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-800">Agendamentos</h2>
+                  <p className="text-xs text-slate-500">{viewingAppointmentsFor.name}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setViewingAppointmentsFor(null)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 max-h-[60vh] overflow-y-auto">
+              {(() => {
+                const patientAppointments = allAppointments?.filter(a => a.patientId === viewingAppointmentsFor.id || (a.patientName && a.patientName === viewingAppointmentsFor.name))
+                  .sort((a, b) => new Date(`${b.date}T${b.time}`).getTime() - new Date(`${a.date}T${a.time}`).getTime());
+
+                if (!patientAppointments || patientAppointments.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-slate-500">
+                      <Calendar className="w-12 h-12 mx-auto mb-3 opacity-20 text-slate-400" />
+                      <p>Nenhum agendamento encontrado para este paciente.</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-3">
+                    {patientAppointments.map(app => (
+                      <div key={app.id} className="p-3 border border-slate-100 rounded-xl bg-slate-50 hover:bg-white hover:border-blue-200 transition-colors flex flex-col gap-1">
+                        <div className="flex items-center justify-between">
+                          <div className="font-semibold text-slate-800">
+                            {app.date.split('-').reverse().join('/')} às {app.time}
+                          </div>
+                          <div>
+                            {app.status === 'completed' && <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full uppercase tracking-wider">Concluído</span>}
+                            {app.status === 'canceled' && <span className="text-[10px] font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded-full uppercase tracking-wider">Cancelado</span>}
+                            {app.status === 'scheduled' && <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full uppercase tracking-wider">Agendado</span>}
+                          </div>
+                        </div>
+                        <div className="text-sm text-slate-500 font-medium">{app.type}</div>
+                        {app.notes && <div className="text-xs text-slate-400 mt-1 italic">{app.notes}</div>}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+              <Button variant="outline" onClick={() => setViewingAppointmentsFor(null)}>
+                Fechar
               </Button>
             </div>
           </div>

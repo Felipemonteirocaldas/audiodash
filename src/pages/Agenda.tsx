@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, Appointment } from '@/db/db';
 import {
@@ -279,32 +280,32 @@ function DayTimelineView({
                       </div>
 
                       {/* Actions */}
-                      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover/card:opacity-100 transition-opacity duration-200">
+                      <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-100/50">
                         <CalendarSync appointment={app} compact />
                         {!isCompleted && (
                           <button
                             onClick={() => onStatusChange(app.id, 'completed')}
-                            className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                            title="Concluir"
+                            className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                           >
                             <CheckCircle2 className="w-4 h-4" />
+                            <span>Concluir</span>
                           </button>
                         )}
                         {!isCanceled && (
                           <button
                             onClick={() => onStatusChange(app.id, 'canceled')}
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Cancelar"
+                            className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           >
                             <XCircle className="w-4 h-4" />
+                            <span>Cancelar</span>
                           </button>
                         )}
                         <button
                           onClick={() => onDelete(app.id)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Excluir"
+                          className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
+                          <span>Excluir</span>
                         </button>
                       </div>
                     </div>
@@ -485,6 +486,19 @@ export default function Agenda() {
   });
   const [showDropdown, setShowDropdown] = useState(false);
   const [syncToast, setSyncToast] = useState<string | null>(null);
+
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.state?.prefillPatient) {
+      const { id, name } = location.state.prefillPatient;
+      setFormData(prev => ({ ...prev, patientId: id, patientName: name }));
+      setShowModal(true);
+      
+      // Limpar o state para não reabrir o modal
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const patients = useLiveQuery(() => db.patients.toArray(), []);
 
