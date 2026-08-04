@@ -253,18 +253,18 @@ export default function Dashboard() {
         {/* 5. AGENDA / HOJE (Col: 6) */}
         <div className="lg:col-span-6 md:col-span-4 row-span-2 bg-white rounded-3xl border border-slate-200/80 p-6 shadow-sm flex flex-col relative overflow-hidden">
           <CalendarIcon className="absolute -bottom-4 -right-4 w-32 h-32 text-slate-50" />
-          <div className="flex items-center justify-between mb-6 relative z-10">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-6 relative z-10">
             <Link to="/agenda" className="font-bold text-slate-800 hover:text-indigo-600 transition-colors text-lg flex items-center gap-2">
                <CalendarIcon className="w-5 h-5 text-indigo-500" /> Agenda de Hoje
             </Link>
-            <Link to="/agenda" className="text-sm bg-indigo-600 text-white hover:bg-indigo-700 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm">
+            <Link to="/agenda" className="text-sm bg-indigo-600 text-white hover:bg-indigo-700 px-3 py-1.5 rounded-lg font-medium transition-colors shadow-sm whitespace-nowrap">
               Novo Agendamento
             </Link>
           </div>
           <div className="space-y-4 relative z-10 flex-1 flex flex-col">
              {todayAppointments && todayAppointments.length > 0 ? (
                todayAppointments.map(app => (
-                 <Link to="/agenda" key={app.id} className="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex justify-between items-center hover:bg-slate-100 transition-colors group cursor-pointer block">
+                 <Link to="/agenda" key={app.id} className="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex justify-between items-center hover:bg-slate-100 transition-colors group cursor-pointer">
                     <div>
                        <div className="font-medium text-slate-800 group-hover:text-indigo-600 transition-colors">{app.patientName}</div>
                        <div className="text-sm text-slate-500">{app.type}</div>

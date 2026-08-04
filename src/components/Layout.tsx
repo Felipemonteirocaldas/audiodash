@@ -16,7 +16,7 @@ export default function Layout() {
         <Header />
 
         {/* Main Content Viewport */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto">
+        <main className="flex-1 p-4 pb-24 sm:p-6 md:pb-8 lg:p-8 max-w-[1600px] w-full mx-auto">
           <Outlet />
         </main>
 
