@@ -12,7 +12,8 @@ import {
   LogOut,
   PlusCircle, 
   ChevronRight,
-  FileText
+  FileText,
+  BookOpen
 } from 'lucide-react';
 import { LogoAD } from './LogoAD';
 import { NotificationsModal } from './NotificationsModal';
@@ -158,8 +159,12 @@ export default function Layout() {
 
         {/* User Card */}
         <div className="mx-4 my-4 p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-3.5">
-          <div className="h-10 w-10 rounded-full bg-blue-100 text-[#0071e3] flex items-center justify-center font-bold text-sm shrink-0">
-            {initials}
+          <div className="h-10 w-10 rounded-full bg-blue-100 text-[#0071e3] flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden">
+            {settings?.logoUrl ? (
+              <img src={settings.logoUrl} alt="Logo" className="w-full h-full object-cover" />
+            ) : (
+              initials
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-slate-900 truncate">{professionalName}</p>
@@ -208,6 +213,16 @@ export default function Layout() {
             {getSyncBadge()}
           </div>
           
+          <a 
+            href="/manual"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors border border-blue-200/80"
+          >
+            <BookOpen className="h-4 w-4" />
+            Manual do Sistema
+          </a>
+
           <button 
             onClick={logout}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:text-red-600 hover:bg-red-50 transition-colors border border-slate-200/80"

@@ -12,6 +12,7 @@ import AnamnesisForm from './pages/AnamnesisForm';
 import EvolutionControl from './pages/EvolutionControl';
 import Agenda from './pages/Agenda';
 import Paywall from './pages/Paywall';
+import Manual from './pages/Manual';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -22,6 +23,7 @@ export default function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/paywall" element={<Paywall />} />
+        <Route path="/manual" element={<Manual />} />
         <Route element={<ProtectedRoute />}>
           <Route element={<Layout />}>
             <Route path="/dashboard" element={<Dashboard />} />
