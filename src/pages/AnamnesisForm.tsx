@@ -9,8 +9,10 @@ import { Save, CheckCircle2, AlertCircle, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { syncManager } from '@/lib/syncManager';
 import { customAlert } from '@/lib/dialogs';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function AnamnesisForm() {
+  const { user } = useAuth();
   const { patientId, anamnesisId } = useParams();
   const navigate = useNavigate();
   
@@ -47,7 +49,8 @@ export default function AnamnesisForm() {
       id: anamnesis.id || crypto.randomUUID(),
       createdAt: anamnesis.createdAt || Date.now(),
       updatedAt: Date.now(),
-      syncStatus: 'pending'
+      syncStatus: 'pending',
+      user_id: user?.id
     } as Anamnesis;
 
     try {

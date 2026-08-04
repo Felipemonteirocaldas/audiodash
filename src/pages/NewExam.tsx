@@ -14,11 +14,13 @@ import { syncManager } from '@/lib/syncManager';
 import AudiogramSVG from '@/components/AudiogramSVG';
 import TympanogramSVG from '@/components/TympanogramSVG';
 import { customAlert, customConfirm } from '@/lib/dialogs';
+import { useAuth } from '@/contexts/AuthContext';
 
 const FREQUENCIES: TonalFrequency[] = ['125', '250', '500', '750', '1000', '1500', '2000', '3000', '4000', '6000', '8000'];
 const REFLEX_FREQS: ReflexFrequency[] = ['500', '1000', '2000', '4000'];
 
 export default function NewExam() {
+  const { user } = useAuth();
   const { patientId, examId } = useParams();
   const navigate = useNavigate();
   
@@ -235,7 +237,8 @@ export default function NewExam() {
       examDate,
       createdAt: exam.createdAt || Date.now(),
       updatedAt: Date.now(),
-      syncStatus: 'pending'
+      syncStatus: 'pending',
+      user_id: user?.id
     } as Audiometry;
   };
 

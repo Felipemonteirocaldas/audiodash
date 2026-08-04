@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import { supabase, isConfigured } from '@/lib/supabase';
 import { customAlert } from '@/lib/dialogs';
 import { syncManager } from '@/lib/syncManager';
+import { useAuth } from '@/contexts/AuthContext';
 
 function calculateAge(birthDate: string) {
   if (!birthDate) return '';
@@ -46,6 +47,7 @@ const formatPhone = (value: string) => {
 };
 
 export default function Patients() {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingPatientId, setEditingPatientId] = useState<string | null>(null);
@@ -83,7 +85,8 @@ export default function Patients() {
           id: crypto.randomUUID(),
           createdAt: now,
           updatedAt: now,
-          syncStatus: 'pending'
+          syncStatus: 'pending',
+          user_id: user?.id
         } as Patient);
       }
       setIsFormOpen(false);

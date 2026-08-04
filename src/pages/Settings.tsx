@@ -75,7 +75,8 @@ export default function Settings() {
       const newSettings = {
         ...settings,
         updatedAt: now,
-        syncStatus: 'pending' as const
+        syncStatus: 'pending' as const,
+        user_id: user?.id
       };
       
       if (savedSettings?.id) {

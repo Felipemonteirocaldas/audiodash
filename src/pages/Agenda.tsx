@@ -38,6 +38,7 @@ import {
   syncAppointmentDeleted,
 } from '@/lib/calendarSyncService';
 import { customConfirm } from '@/lib/dialogs';
+import { useAuth } from '@/contexts/AuthContext';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -471,6 +472,7 @@ function WeekView({
 // ═══════════════════════════════════════════════════════════════════════════
 
 export default function Agenda() {
+  const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('day');
   const [showModal, setShowModal] = useState(false);
@@ -555,9 +557,11 @@ export default function Agenda() {
         createdAt: Date.now(),
         updatedAt: Date.now(),
         syncStatus: 'pending',
+        user_id: user?.id,
       };
 
       await db.appointments.add(newAppointment);
+      syncManager.sync();
 
       // Auto-sync to connected calendars
       const result = await syncAppointmentCreated(newAppointment);
