@@ -12,6 +12,8 @@ import AnamnesisForm from './pages/AnamnesisForm';
 import EvolutionControl from './pages/EvolutionControl';
 import Agenda from './pages/Agenda';
 import Paywall from './pages/Paywall';
+import TermosDeUso from './pages/TermosDeUso';
+import PoliticaDePrivacidade from './pages/PoliticaDePrivacidade';
 import Manual from './pages/Manual';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -26,6 +28,8 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/planos" element={<Paywall />} />
         <Route path="/manual" element={<Manual />} />
+        <Route path="/termos" element={<TermosDeUso />} />
+        <Route path="/privacidade" element={<PoliticaDePrivacidade />} />
         <Route element={<ProtectedRoute />}>
           <Route element={<Layout />}>
             <Route path="/painel" element={<Dashboard />} />

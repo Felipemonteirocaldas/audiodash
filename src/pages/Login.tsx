@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, ArrowRight, ShieldCheck, User } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Mail, Lock, ArrowRight, ArrowLeft, ShieldCheck, User, Check } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { LogoAD } from '@/components/LogoAD';
 
@@ -12,6 +12,7 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmationEmailSent, setConfirmationEmailSent] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   
   const navigate = useNavigate();
   const { login, loginWithGoogle, register, isAuthenticated } = useAuth();
@@ -41,6 +42,9 @@ export default function Login() {
       if (isRegistering) {
         if (!name.trim()) {
           throw new Error('O nome é obrigatório.');
+        }
+        if (!acceptedTerms) {
+          throw new Error('Você precisa aceitar os Termos de Uso e a Política de Privacidade.');
         }
         const { requireEmailConfirmation } = await register(name, email, password);
         if (requireEmailConfirmation) {
@@ -76,6 +80,10 @@ export default function Login() {
           </div>
 
           <div className="relative z-10">
+            <Link to="/" className="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm mb-8 group">
+              <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+              Voltar ao site
+            </Link>
             <div className="flex items-center gap-3 text-white mb-16">
               <LogoAD className="w-16 h-auto" />
               <span className="text-3xl font-bold tracking-tight">AudioDash</span>
@@ -83,7 +91,7 @@ export default function Login() {
             
             <div className="space-y-6">
               <h1 className="text-4xl lg:text-5xl font-bold text-white leading-tight">
-                Gestão audiológica <br/><span className="text-indigo-400">inteligente</span>.
+                Sua clínica no <br/><span className="text-indigo-400">próximo nível</span>.
               </h1>
               <p className="text-slate-400 text-lg max-w-sm">
                 Simplifique seus atendimentos, gerencie laudos e acompanhe a evolução dos seus pacientes em um só lugar.
@@ -140,6 +148,28 @@ export default function Login() {
                     ? 'Preencha os dados abaixo para começar.' 
                     : 'Insira suas credenciais para acessar o painel.'}
                 </p>
+
+                {isRegistering && (
+                  <div className="mt-6 flex items-center gap-0">
+                    {/* Etapa 1 - Ativa */}
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-bold shadow-md shadow-indigo-200">1</div>
+                      <span className="text-sm font-semibold text-indigo-600">Criar conta</span>
+                    </div>
+                    <div className="flex-1 h-px bg-slate-200 mx-3"></div>
+                    {/* Etapa 2 */}
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-400 flex items-center justify-center text-xs font-bold">2</div>
+                      <span className="text-sm font-medium text-slate-400">Escolher plano</span>
+                    </div>
+                    <div className="flex-1 h-px bg-slate-200 mx-3"></div>
+                    {/* Etapa 3 */}
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-400 flex items-center justify-center text-xs font-bold">3</div>
+                      <span className="text-sm font-medium text-slate-400">Acessar</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {error && (
@@ -240,6 +270,29 @@ export default function Login() {
                     />
                   </div>
                 </div>
+
+                {isRegistering && (
+                  <label className="flex items-start gap-3 cursor-pointer group p-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                    <div className="relative mt-0.5">
+                      <input
+                        type="checkbox"
+                        checked={acceptedTerms}
+                        onChange={(e) => setAcceptedTerms(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-5 h-5 rounded-md border-2 border-slate-300 peer-checked:border-indigo-600 peer-checked:bg-indigo-600 transition-all flex items-center justify-center">
+                        {acceptedTerms && <Check className="w-3.5 h-3.5 text-white" />}
+                      </div>
+                    </div>
+                    <span className="text-xs text-slate-600 leading-relaxed">
+                      Li e concordo com os{' '}
+                      <a href="/termos" target="_blank" className="text-indigo-600 hover:text-indigo-500 font-semibold underline underline-offset-2">Termos de Uso</a>
+                      {' '}e a{' '}
+                      <a href="/privacidade" target="_blank" className="text-indigo-600 hover:text-indigo-500 font-semibold underline underline-offset-2">Política de Privacidade</a>
+                      {' '}do AudioDash.
+                    </span>
+                  </label>
+                )}
 
                 <button
                   type="submit"

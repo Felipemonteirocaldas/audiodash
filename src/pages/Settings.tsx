@@ -1,12 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { db, Settings as SettingsType } from '@/db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Save, Download, Upload, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Save, Download, Upload, CheckCircle2, AlertCircle, Trash2, AlertTriangle, ShieldCheck, ExternalLink, Loader2 } from 'lucide-react';
 import { syncManager } from '@/lib/syncManager';
 import { customAlert } from '@/lib/dialogs';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase, isConfigured as isSupabaseConfigured } from '@/lib/supabase';
 
 export default function Settings() {
   const [settings, setSettings] = useState<Partial<SettingsType>>({
@@ -34,9 +37,16 @@ export default function Settings() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [importStatus, setImportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [showDeleteSection, setShowDeleteSection] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteStatus, setDeleteStatus] = useState<'idle' | 'success' | 'error'>('idle');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const { user, logout } = useAuth();
 
   const savedSettings = useLiveQuery(() => db.settings.get('settings_1'));
 
@@ -412,6 +422,185 @@ export default function Settings() {
           )}
         </CardContent>
       </Card>
+
+      {/* LGPD — Exclusão de Dados */}
+      <Card className="rounded-[2rem] border-slate-200/60 shadow-sm overflow-hidden">
+        <CardHeader className="bg-slate-50/50 border-b border-slate-100 pb-6">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-xl flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-emerald-600" />
+              Privacidade e Dados (LGPD)
+            </CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-6 space-y-4">
+          <div className="bg-slate-50 border border-slate-100 rounded-2xl p-5">
+            <p className="text-sm text-slate-700 leading-relaxed">
+              Em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018), você pode solicitar a 
+              exclusão total dos seus dados pessoais e dos pacientes vinculados à sua conta. Após a solicitação, 
+              seus dados serão eliminados em até <strong>30 dias úteis</strong>.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <Link
+              to="/termos"
+              target="_blank"
+              className="inline-flex items-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              <ExternalLink className="w-4 h-4 text-slate-400" />
+              Termos de Uso
+            </Link>
+            <Link
+              to="/privacidade"
+              target="_blank"
+              className="inline-flex items-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              <ExternalLink className="w-4 h-4 text-slate-400" />
+              Política de Privacidade
+            </Link>
+          </div>
+
+          {!showDeleteSection ? (
+            <button
+              onClick={() => setShowDeleteSection(true)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-red-200 text-red-600 rounded-xl text-sm font-semibold hover:bg-red-50 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              Solicitar exclusão dos meus dados
+            </button>
+          ) : (
+            <div className="border border-red-200 bg-red-50/50 rounded-2xl p-5 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-red-900 text-sm">Zona de Perigo</h4>
+                  <p className="text-xs text-red-700 mt-1 leading-relaxed">
+                    Essa ação é <strong>irreversível</strong>. Todos os dados do seu consultório, pacientes, exames 
+                    e laudos serão permanentemente excluídos do nosso sistema. 
+                    Recomendamos exportar um backup antes de prosseguir.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDeleteSection(false)}
+                  className="rounded-xl border-slate-200"
+                >
+                  Cancelar
+                </Button>
+                <button
+                  onClick={() => setShowDeleteModal(true)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Confirmar solicitação de exclusão
+                </button>
+              </div>
+            </div>
+          )}
+
+          {deleteStatus === 'success' && (
+            <div className="flex items-center justify-center text-emerald-600 bg-emerald-50 px-4 py-3 rounded-xl border border-emerald-100">
+              <CheckCircle2 className="w-5 h-5 mr-2" />
+              <span className="font-medium text-sm">Solicitação enviada com sucesso! Seus dados serão excluídos em até 30 dias úteis.</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Modal de confirmação de exclusão */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl relative overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
+            <div className="flex items-start gap-3 mb-5">
+              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Confirmar exclusão de dados</h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  Digite <strong className="text-red-600">EXCLUIR</strong> abaixo para confirmar.
+                </p>
+              </div>
+            </div>
+
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="Digite EXCLUIR"
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all mb-4 text-sm font-mono"
+            />
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setDeleteConfirmText('');
+                }}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 transition-colors text-sm disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  if (deleteConfirmText !== 'EXCLUIR') return;
+                  setIsDeleting(true);
+                  try {
+                    // Clear all local data
+                    await Promise.all([
+                      db.patients.clear(),
+                      db.audiometries.clear(),
+                      db.anamneses.clear(),
+                      db.appointments.clear(),
+                      db.settings.clear()
+                    ]);
+
+                    // If Supabase is configured, delete server-side data
+                    if (isSupabaseConfigured && supabase && user) {
+                      // Delete user data from all tables
+                      await supabase.from('patients').delete().eq('user_id', user.id);
+                      await supabase.from('audiometries').delete().eq('user_id', user.id);
+                      await supabase.from('anamneses').delete().eq('user_id', user.id);
+                      await supabase.from('appointments').delete().eq('user_id', user.id);
+                      await supabase.from('settings').delete().eq('user_id', user.id);
+                    }
+
+                    setDeleteStatus('success');
+                    setShowDeleteModal(false);
+                    setShowDeleteSection(false);
+                    setDeleteConfirmText('');
+
+                    // Log the user out after a brief delay so they can see the success message
+                    setTimeout(() => {
+                      logout(true);
+                    }, 3000);
+                  } catch (err) {
+                    console.error('Data deletion error:', err);
+                    setDeleteStatus('error');
+                  } finally {
+                    setIsDeleting(false);
+                  }
+                }}
+                disabled={deleteConfirmText !== 'EXCLUIR' || isDeleting}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeleting ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Excluindo...</>
+                ) : (
+                  <><Trash2 className="w-4 h-4" /> Excluir tudo</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

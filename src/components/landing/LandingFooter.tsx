@@ -84,6 +84,20 @@ export default function LandingFooter() {
 
         </div>
 
+        {/* Legal Links Bar */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[11px] text-slate-500">
+          <Link to="/termos" className="hover:text-[#0071e3] transition-colors font-medium">
+            Termos de Uso
+          </Link>
+          <Link to="/privacidade" className="hover:text-[#0071e3] transition-colors font-medium">
+            Política de Privacidade
+          </Link>
+          <span className="flex items-center gap-1">
+            <ShieldCheck className="w-3 h-3 text-emerald-500" />
+            Conformidade LGPD
+          </span>
+        </div>
+
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-500">
           <p>© {new Date().getFullYear()} AudioDash. Todos os direitos reservados.</p>
