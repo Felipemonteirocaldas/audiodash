@@ -20,10 +20,14 @@ export default function ProtectedRoute() {
     return <Navigate to="/" replace />;
   }
 
-  // Verifica se o usuário tem uma assinatura ativa
-  // Se for nulo ou diferente de 'active' (e estamos considerando que null = sem plano)
-  // Para testes locais ou se a property ainda não existe, comente as 3 linhas abaixo.
-  if (user && user.subscriptionStatus !== 'active') {
+  // Ignora o paywall APENAS no localhost / desenvolvimento:
+  const isLocalhost = typeof window !== 'undefined' && (
+    window.location.hostname === 'localhost' || 
+    window.location.hostname === '127.0.0.1' ||
+    import.meta.env.DEV
+  );
+
+  if (!isLocalhost && user && user.subscriptionStatus !== 'active') {
     return <Navigate to="/paywall" replace />;
   }
 
