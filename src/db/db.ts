@@ -7,6 +7,7 @@ export interface User {
   passwordHash: string; // Senha (hash ou plain text simples para Dexie local)
   createdAt: number;
   subscriptionStatus?: 'active' | 'inactive' | 'past_due' | 'canceled' | null;
+  subscriptionEndDate?: number | null;
   stripeCustomerId?: string | null;
 }
 
@@ -25,6 +26,7 @@ export interface Patient {
   updatedAt: number;
   syncStatus: 'synced' | 'pending';
   user_id?: string;
+  tenant_id?: string; // Previsão estrutural para o futuro SaaS Multi-Tenant
 }
 
 export interface Appointment {
@@ -40,6 +42,7 @@ export interface Appointment {
   updatedAt: number;
   syncStatus: 'synced' | 'pending';
   user_id?: string;
+  tenant_id?: string; // Previsão estrutural para o futuro SaaS Multi-Tenant
 }
 
 // Header Info
@@ -178,6 +181,7 @@ export interface Anamnesis {
   updatedAt: number;
   syncStatus: 'synced' | 'pending';
   user_id?: string;
+  tenant_id?: string; // Previsão estrutural para o futuro SaaS Multi-Tenant
 }
 
 export interface Audiometry {
@@ -228,22 +232,40 @@ export interface Audiometry {
   updatedAt: number;
   syncStatus: 'synced' | 'pending';
   user_id?: string;
+  tenant_id?: string; // Previsão estrutural para o futuro SaaS Multi-Tenant
 }
 
 export interface Settings {
   id: string;
-  clinicName: string;
+  // Profissional
   professionalName: string;
   crfaNumber: string;
-  phone: string;
-  address: string;
+  cpf?: string;
+  specialty?: string;
+  // Clinica
+  clinicName: string;
+  corporateName?: string;
+  cnpj?: string;
   logoUrl: string;
+  // Contato
+  phone: string;
+  email?: string;
+  website?: string;
+  instagram?: string;
+  // Endereco
+  address: string;
+  zipCode?: string;
+  state?: string;
+  city?: string;
+  neighborhood?: string;
+  
   updatedAt: number;
   syncStatus: 'synced' | 'pending';
   user_id?: string;
+  tenant_id?: string; // Previsão estrutural para o futuro SaaS Multi-Tenant
 }
 
-const db = new Dexie('AudioDashDB_v6') as Dexie & {
+const db = new Dexie('AudioDashDB_v9') as Dexie & {
   users: EntityTable<User, 'id'>;
   patients: EntityTable<Patient, 'id'>;
   audiometries: EntityTable<Audiometry, 'id'>;
@@ -253,13 +275,13 @@ const db = new Dexie('AudioDashDB_v6') as Dexie & {
 };
 
 // Schema declaration
-db.version(7).stores({
+db.version(9).stores({
   users: 'id, email',
-  patients: 'id, user_id, name, cpf, syncStatus',
-  audiometries: 'id, user_id, patientId, examDate, syncStatus',
-  anamneses: 'id, user_id, patientId, examDate, syncStatus',
-  settings: 'id, user_id, syncStatus',
-  appointments: 'id, user_id, date, status, syncStatus'
+  patients: 'id, user_id, tenant_id, name, cpf, syncStatus',
+  audiometries: 'id, user_id, tenant_id, patientId, examDate, syncStatus',
+  anamneses: 'id, user_id, tenant_id, patientId, examDate, syncStatus',
+  settings: 'id, user_id, tenant_id, syncStatus',
+  appointments: 'id, user_id, tenant_id, date, status, syncStatus'
 });
 
 export { db };

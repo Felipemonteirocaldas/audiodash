@@ -19,13 +19,28 @@ serve(async (req) => {
   // Exemplo de como seria se o Dodo Payments enviasse { type: 'payment.success', customer_id: 'cus_123' }
   
   if (payload.type === 'payment.success') {
-    const { customer_id } = payload.data
+    // O payload do Dodo Payments geralmente contém o email do cliente ou o ID
+    const { customer_id, customer_email } = payload.data
     
-    // Atualiza o usuário no banco de dados
-    const { error } = await supabaseAdmin
+    // Tenta atualizar usando o email do cliente (garantido pois enviamos via URL)
+    const thirtyDaysFromNow = new Date()
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30)
+
+    let updateQuery = supabaseAdmin
       .from('users')
-      .update({ subscription_status: 'active' })
-      .eq('dodo_customer_id', customer_id)
+      .update({ 
+        subscription_status: 'active', 
+        dodo_customer_id: customer_id,
+        subscription_end_date: thirtyDaysFromNow.toISOString()
+      })
+      
+    if (customer_email) {
+      updateQuery = updateQuery.eq('email', customer_email)
+    } else {
+      updateQuery = updateQuery.eq('dodo_customer_id', customer_id)
+    }
+    
+    const { error } = await updateQuery
 
     if (error) {
       console.error('Erro ao atualizar usuário:', error)

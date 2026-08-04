@@ -6,11 +6,11 @@ export default function PricingSection() {
   };
 
   return (
-    <section id="precos" className="py-24 bg-white relative">
+    <section id="precos" className="py-14 sm:py-24 bg-white relative">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
         {/* Section Header */}
-        <div className="text-center max-w-5xl mx-auto mb-16 space-y-4">
+        <div className="text-center max-w-5xl mx-auto mb-10 sm:mb-16 space-y-3 sm:space-y-4">
 
           <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight text-balance">
             Um valor acessível para transformar <span className="text-blue-600">o seu consultório</span>

@@ -4,7 +4,7 @@ import { db, Patient } from '@/db/db';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Plus, FileText, Activity } from 'lucide-react';
+import { Search, Plus, FileText, Activity, Edit } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 function calculateAge(birthDate: string) {
@@ -44,7 +44,8 @@ const formatPhone = (value: string) => {
 
 export default function Patients() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingPatientId, setEditingPatientId] = useState<string | null>(null);
   const [selectedForComparison, setSelectedForComparison] = useState<string[]>([]);
   const [newPatient, setNewPatient] = useState<Partial<Patient>>({
     name: '', cpf: '', birthDate: '', gender: '', occupation: '', phone: '', notes: ''
@@ -61,21 +62,30 @@ export default function Patients() {
   const allExams = useLiveQuery(() => db.audiometries.toArray(), []);
   const allAnamneses = useLiveQuery(() => db.anamneses.toArray(), []);
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const now = Date.now();
-      await db.patients.add({ 
-        ...newPatient, 
-        id: crypto.randomUUID(),
-        createdAt: now,
-        updatedAt: now,
-        syncStatus: 'pending'
-      } as Patient);
-      setIsCreating(false);
+      if (editingPatientId) {
+        await db.patients.update(editingPatientId, {
+          ...newPatient,
+          updatedAt: now,
+          syncStatus: 'pending'
+        });
+      } else {
+        await db.patients.add({ 
+          ...newPatient, 
+          id: crypto.randomUUID(),
+          createdAt: now,
+          updatedAt: now,
+          syncStatus: 'pending'
+        } as Patient);
+      }
+      setIsFormOpen(false);
+      setEditingPatientId(null);
       setNewPatient({ name: '', cpf: '', birthDate: '', gender: '', occupation: '', phone: '', notes: '' });
     } catch (err) {
-      alert("Erro ao cadastrar paciente.");
+      alert("Erro ao salvar paciente.");
     }
   };
 
@@ -91,18 +101,27 @@ export default function Patients() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold tracking-tight">Pacientes</h1>
-        <Button onClick={() => setIsCreating(!isCreating)} className="gap-2">
+        <Button 
+          onClick={() => {
+            setIsFormOpen(!isFormOpen);
+            if (!isFormOpen) {
+              setEditingPatientId(null);
+              setNewPatient({ name: '', cpf: '', birthDate: '', gender: '', occupation: '', phone: '', notes: '' });
+            }
+          }} 
+          className="gap-2"
+        >
           <Plus className="h-4 w-4" /> Novo Paciente
         </Button>
       </div>
 
-      {isCreating && (
+      {isFormOpen && (
         <Card>
           <CardHeader>
-            <CardTitle>Cadastrar Novo Paciente</CardTitle>
+            <CardTitle>{editingPatientId ? 'Editar Paciente' : 'Cadastrar Novo Paciente'}</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleCreate} className="space-y-4">
+            <form onSubmit={handleSave} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Nome Completo *</label>
@@ -144,8 +163,8 @@ export default function Patients() {
                 </div>
               </div>
               <div className="flex justify-end gap-2 mt-4">
-                <Button type="button" variant="outline" onClick={() => setIsCreating(false)}>Cancelar</Button>
-                <Button type="submit">Salvar Paciente</Button>
+                <Button type="button" variant="outline" onClick={() => { setIsFormOpen(false); setEditingPatientId(null); }}>Cancelar</Button>
+                <Button type="submit">{editingPatientId ? 'Salvar Alterações' : 'Salvar Paciente'}</Button>
               </div>
             </form>
           </CardContent>
@@ -178,7 +197,20 @@ export default function Patients() {
                       CPF: {p.cpf || 'Não informado'} • Idade: {calculateAge(p.birthDate)} anos
                     </p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap justify-end">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="gap-2 text-slate-600 hover:text-indigo-600"
+                      onClick={() => {
+                        setEditingPatientId(p.id);
+                        setNewPatient({...p});
+                        setIsFormOpen(true);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                    >
+                      <Edit className="h-4 w-4" /> Editar
+                    </Button>
                     <Link to={`/evolution/${p.id}`}>
                       <Button variant="outline" size="sm" className="gap-2 bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 hover:text-amber-800">
                         <Activity className="h-4 w-4" /> PCA

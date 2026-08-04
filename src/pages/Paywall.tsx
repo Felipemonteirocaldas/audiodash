@@ -1,14 +1,16 @@
 import { useAuth } from '../contexts/AuthContext';
-import { CreditCard, CheckCircle2 } from 'lucide-react';
+import { CreditCard, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function Paywall() {
   const { user, logout } = useAuth();
 
   const handleCheckout = () => {
-    // Redireciona para o link de checkout do Dodo Payments
-    // Em um cenário avançado, poderíamos passar o email do usuário na URL (ex: ?email=user.email)
-    // para preencher automaticamente o checkout.
-    window.location.href = 'https://test.checkout.dodopayments.com/buy/pdt_0NkP4tyyh4C0dF9wG6eUW';
+    // Redireciona para o link de checkout do Dodo Payments enviando o email
+    if (user?.email) {
+      window.location.href = `https://test.checkout.dodopayments.com/buy/pdt_0NkP4tyyh4C0dF9wG6eUW?customer_email=${encodeURIComponent(user.email)}`;
+    } else {
+      window.location.href = 'https://test.checkout.dodopayments.com/buy/pdt_0NkP4tyyh4C0dF9wG6eUW';
+    }
   };
 
   return (
@@ -56,6 +58,19 @@ export default function Paywall() {
                   <span className="text-sm text-gray-500">Geração de relatórios</span>
                 </li>
               </ul>
+            </div>
+
+            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4 rounded-md">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <AlertCircle className="h-5 w-5 text-blue-400" aria-hidden="true" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-blue-700">
+                    Atenção: O email <span className="font-semibold">{user?.email}</span> será o responsável pela ativação da conta. Ao assinar, esse será o seu vínculo oficial.
+                  </p>
+                </div>
+              </div>
             </div>
 
             <button

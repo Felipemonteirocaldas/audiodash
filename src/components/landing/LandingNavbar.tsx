@@ -97,7 +97,7 @@ export default function LandingNavbar() {
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           className="md:hidden p-2 rounded-lg text-slate-700 hover:bg-slate-100 focus:outline-none"
-          aria-label="Abrir Menu"
+          aria-label={mobileMenuOpen ? 'Fechar Menu' : 'Abrir Menu'}
         >
           {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </button>

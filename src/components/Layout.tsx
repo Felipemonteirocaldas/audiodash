@@ -8,23 +8,44 @@ import {
   AlertCircle, 
   CheckCircle2, 
   Calendar, 
-  LogOut, 
-  LayoutDashboard, 
+  LayoutDashboard,
+  LogOut,
   PlusCircle, 
   Search, 
-  ChevronRight
+  ChevronRight,
+  FileText
 } from 'lucide-react';
 import { LogoAD } from './LogoAD';
 import { NotificationsModal } from './NotificationsModal';
 import { useState, useEffect } from 'react';
 import { syncManager, type SyncStatus } from '@/lib/syncManager';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '@/db/db';
+import { GlobalSearch } from './GlobalSearch';
 
 export default function Layout() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const location = useLocation();
+
+  const settings = useLiveQuery(() => db.settings.toCollection().first(), []);
+  const professionalName = settings?.professionalName || 'Dra. Fonoaudióloga';
+  const clinicName = settings?.clinicName || 'Clínica Auditiva';
+  
+  // Calcula os dias restantes de assinatura
+  const daysLeft = user?.subscriptionEndDate 
+    ? Math.max(0, Math.ceil((user.subscriptionEndDate - Date.now()) / (1000 * 60 * 60 * 24)))
+    : null;
+
+  // Extract initials for the avatar (e.g. "Dra. Maria" -> "DM")
+  const initials = professionalName
+    .split(' ')
+    .filter(word => word.length > 0)
+    .map(word => word[0].toUpperCase())
+    .slice(0, 2)
+    .join('');
 
   useEffect(() => {
     const handleOnline = () => {
@@ -103,9 +124,10 @@ export default function Layout() {
   };
 
   const navItems = [
-    { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+    { label: 'Dashboard (Início)', path: '/dashboard', icon: LayoutDashboard },
     { label: 'Agenda', path: '/agenda', icon: Calendar },
     { label: 'Pacientes', path: '/patients', icon: Users },
+    { label: 'Exames', path: '/exams', icon: FileText },
     { label: 'Novo Exame', path: '/exam/new', icon: PlusCircle },
     { label: 'Configurações', path: '/settings', icon: Settings },
   ];
@@ -138,11 +160,11 @@ export default function Layout() {
         {/* User Card */}
         <div className="mx-4 my-4 p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-3.5">
           <div className="h-10 w-10 rounded-full bg-blue-100 text-[#0071e3] flex items-center justify-center font-bold text-sm shrink-0">
-            FD
+            {initials}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-slate-900 truncate">Dra. Fonoaudióloga</p>
-            <p className="text-xs text-slate-500 truncate">Clínica Auditiva</p>
+            <p className="text-sm font-semibold text-slate-900 truncate">{professionalName}</p>
+            <p className="text-xs text-slate-500 truncate">{clinicName}</p>
           </div>
         </div>
 
@@ -174,6 +196,14 @@ export default function Layout() {
 
         {/* Sidebar Footer */}
         <div className="p-4 border-t border-slate-100 space-y-3.5">
+          {daysLeft !== null && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-600 font-medium">Assinatura</span>
+              <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${daysLeft > 5 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                {daysLeft} {daysLeft === 1 ? 'dia' : 'dias'} restante{daysLeft === 1 ? '' : 's'}
+              </span>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <span className="text-xs text-slate-600 font-medium">Status da Conexão</span>
             {getSyncBadge()}
@@ -196,13 +226,8 @@ export default function Layout() {
         <header className="hidden md:flex h-16 border-b border-slate-200/80 bg-white/90 backdrop-blur-md px-6 items-center justify-between sticky top-0 z-30">
           
           {/* Left: Quick Search */}
-          <div className="relative w-80">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Buscar paciente, exame..." 
-              className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-100/80 border-0 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0071e3]/30 transition-all"
-            />
+          <div className="flex-1 max-w-md">
+            <GlobalSearch />
           </div>
 
           {/* Right Actions */}

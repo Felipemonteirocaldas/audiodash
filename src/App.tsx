@@ -4,6 +4,7 @@ import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Patients from './pages/Patients';
+import Exams from './pages/Exams';
 import NewExam from './pages/NewExam';
 import Settings from './pages/Settings';
 import CompareExams from './pages/CompareExams';
@@ -26,6 +27,7 @@ export default function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/agenda" element={<Agenda />} />
             <Route path="/patients" element={<Patients />} />
+            <Route path="/exams" element={<Exams />} />
             <Route path="/exam/new/:patientId?" element={<NewExam />} />
             <Route path="/exam/:examId" element={<NewExam />} />
             <Route path="/compare/:examId1/:examId2" element={<CompareExams />} />

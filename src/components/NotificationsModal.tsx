@@ -26,7 +26,21 @@ export interface NotificationItem {
 
 export function NotificationsModal() {
   const [isOpen, setIsOpen] = useState(false);
-  const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [readIds, setReadIds] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem('audiodash_read_notifications');
+    if (saved) {
+      try {
+        return new Set(JSON.parse(saved));
+      } catch (e) {
+        return new Set();
+      }
+    }
+    return new Set();
+  });
+
+  useEffect(() => {
+    localStorage.setItem('audiodash_read_notifications', JSON.stringify(Array.from(readIds)));
+  }, [readIds]);
   const popoverRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 

@@ -6,7 +6,17 @@ import PricingSection from '../components/landing/PricingSection';
 import FAQSection from '../components/landing/FAQSection';
 import LandingFooter from '../components/landing/LandingFooter';
 
+import { useAuth } from '@/contexts/AuthContext';
+import { Navigate } from 'react-router-dom';
+
 export default function LandingPage() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  // If user is already authenticated (e.g. returning from Google OAuth), go to dashboard
+  if (!isLoading && isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return (
     <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] selection:bg-[#0071e3] selection:text-white font-['Inter',sans-serif]">
       {/* Top Floating Glass Navigation */}

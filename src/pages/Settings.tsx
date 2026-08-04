@@ -5,16 +5,30 @@ import { Button } from '@/components/ui/button';
 import { db, Settings as SettingsType } from '@/db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Save, Download, Upload, CheckCircle2, AlertCircle } from 'lucide-react';
+import { syncManager } from '@/lib/syncManager';
 
 export default function Settings() {
   const [settings, setSettings] = useState<Partial<SettingsType>>({
     clinicName: '',
+    corporateName: '',
+    cnpj: '',
     professionalName: '',
     crfaNumber: '',
+    cpf: '',
+    specialty: '',
     phone: '',
+    email: '',
+    website: '',
+    instagram: '',
     address: '',
+    zipCode: '',
+    state: '',
+    city: '',
+    neighborhood: '',
     logoUrl: ''
   });
+
+  const [activeTab, setActiveTab] = useState<'profissional' | 'clinica' | 'contato' | 'endereco'>('profissional');
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -56,10 +70,18 @@ export default function Settings() {
       if (savedSettings?.id) {
         await db.settings.update('settings_1', newSettings);
       } else {
-        await db.settings.add({ ...newSettings, id: 'settings_1', createdAt: now } as SettingsType & { createdAt: number });
+        await db.settings.add({ ...newSettings, id: 'settings_1' } as SettingsType);
       }
-      setSaveStatus('success');
-      setTimeout(() => setSaveStatus('idle'), 3000);
+      // Trigger cloud sync immediately and check for errors
+      await syncManager.sync();
+      
+      if (syncManager.status === 'error') {
+        alert("Erro detalhado do Supabase: " + syncManager.lastError);
+        setSaveStatus('error');
+      } else {
+        setSaveStatus('success');
+        setTimeout(() => setSaveStatus('idle'), 3000);
+      }
     } catch (e) {
       setSaveStatus('error');
     } finally {
@@ -129,12 +151,84 @@ export default function Settings() {
         <p className="text-slate-500 mt-1">Gerencie os dados da clínica e o armazenamento do sistema.</p>
       </div>
       
+      {/* Navigation Tabs */}
+      <div className="flex overflow-x-auto space-x-2 pb-2 mb-4 scrollbar-hide">
+        <button 
+          onClick={() => setActiveTab('profissional')}
+          className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${activeTab === 'profissional' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'}`}
+        >
+          Profissional
+        </button>
+        <button 
+          onClick={() => setActiveTab('clinica')}
+          className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${activeTab === 'clinica' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'}`}
+        >
+          Clínica
+        </button>
+        <button 
+          onClick={() => setActiveTab('contato')}
+          className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${activeTab === 'contato' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'}`}
+        >
+          Contato & Redes
+        </button>
+        <button 
+          onClick={() => setActiveTab('endereco')}
+          className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${activeTab === 'endereco' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'}`}
+        >
+          Endereço
+        </button>
+      </div>
+
       <Card className="rounded-[2rem] border-slate-200/60 shadow-sm overflow-hidden">
         <CardHeader className="bg-slate-50/50 border-b border-slate-100 pb-6">
-          <CardTitle className="text-xl">Dados do Profissional e Clínica</CardTitle>
+          <CardTitle className="text-xl">
+            {activeTab === 'profissional' && 'Dados do Profissional'}
+            {activeTab === 'clinica' && 'Dados da Clínica'}
+            {activeTab === 'contato' && 'Contato e Redes Sociais'}
+            {activeTab === 'endereco' && 'Endereço Completo'}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
-          <div className="space-y-3 pb-2 border-b border-slate-100 mb-4">
+          
+          {activeTab === 'profissional' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Nome do Profissional</label>
+                <Input value={settings.professionalName || ''} onChange={e => setSettings({...settings, professionalName: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Especialidade</label>
+                <Input placeholder="Ex: Fonoaudiólogo(a) Clínico(a)" value={settings.specialty || ''} onChange={e => setSettings({...settings, specialty: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Nº CRFa</label>
+                <Input value={settings.crfaNumber || ''} onChange={e => setSettings({...settings, crfaNumber: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">CPF do Profissional</label>
+                <Input placeholder="000.000.000-00" value={settings.cpf || ''} onChange={e => setSettings({...settings, cpf: e.target.value})} />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'clinica' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Nome Fantasia (Clínica)</label>
+                  <Input value={settings.clinicName || ''} onChange={e => setSettings({...settings, clinicName: e.target.value})} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Razão Social</label>
+                  <Input value={settings.corporateName || ''} onChange={e => setSettings({...settings, corporateName: e.target.value})} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">CNPJ</label>
+                  <Input placeholder="00.000.000/0001-00" value={settings.cnpj || ''} onChange={e => setSettings({...settings, cnpj: e.target.value})} />
+                </div>
+              </div>
+              
+              <div className="space-y-3 pb-2 border-t border-slate-100 pt-6">
             <label className="text-sm font-medium">Logo da Empresa</label>
             <div className="flex items-center gap-5">
               <div className="w-24 h-24 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden bg-slate-50">
@@ -175,45 +269,62 @@ export default function Settings() {
                 </div>
                 <p className="text-xs text-slate-500">Recomendado: PNG ou JPG com fundo transparente.</p>
               </div>
+              </div>
             </div>
-          </div>
+            </div>
+          )}
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Nome da Clínica</label>
-            <Input 
-              value={settings.clinicName} 
-              onChange={e => setSettings({...settings, clinicName: e.target.value})} 
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Nome do Profissional</label>
-            <Input 
-              value={settings.professionalName} 
-              onChange={e => setSettings({...settings, professionalName: e.target.value})} 
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Nº CRFa</label>
-            <Input 
-              value={settings.crfaNumber} 
-              onChange={e => setSettings({...settings, crfaNumber: e.target.value})} 
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Telefone</label>
-            <Input 
-              value={settings.phone} 
-              onChange={e => setSettings({...settings, phone: e.target.value})} 
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Endereço Completo</label>
-            <Input 
-              value={settings.address} 
-              onChange={e => setSettings({...settings, address: e.target.value})} 
-            />
-          </div>
-          <div className="pt-4 flex items-center justify-between">
+          {activeTab === 'contato' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Telefone / WhatsApp</label>
+                <Input placeholder="(00) 00000-0000" value={settings.phone || ''} onChange={e => setSettings({...settings, phone: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">E-mail Comercial</label>
+                <Input placeholder="contato@clinica.com.br" value={settings.email || ''} onChange={e => setSettings({...settings, email: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Website</label>
+                <Input placeholder="www.clinica.com.br" value={settings.website || ''} onChange={e => setSettings({...settings, website: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Instagram</label>
+                <Input placeholder="@suaclinica" value={settings.instagram || ''} onChange={e => setSettings({...settings, instagram: e.target.value})} />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'endereco' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div className="space-y-2 sm:col-span-1">
+                  <label className="text-sm font-medium">CEP</label>
+                  <Input placeholder="00000-000" value={settings.zipCode || ''} onChange={e => setSettings({...settings, zipCode: e.target.value})} />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <label className="text-sm font-medium">Endereço (Rua, Número, Complemento)</label>
+                  <Input value={settings.address || ''} onChange={e => setSettings({...settings, address: e.target.value})} />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Bairro</label>
+                  <Input value={settings.neighborhood || ''} onChange={e => setSettings({...settings, neighborhood: e.target.value})} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Cidade</label>
+                  <Input value={settings.city || ''} onChange={e => setSettings({...settings, city: e.target.value})} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Estado (UF)</label>
+                  <Input placeholder="SP" value={settings.state || ''} onChange={e => setSettings({...settings, state: e.target.value})} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="pt-8 mt-4 border-t border-slate-100 flex items-center justify-between">
             <Button 
               onClick={handleSave} 
               disabled={isSaving}
@@ -246,8 +357,7 @@ export default function Settings() {
         <CardContent className="pt-6">
           <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5 mb-6">
             <p className="text-sm font-medium text-indigo-900/80 leading-relaxed">
-              Como o AudioDash é 100% offline, todos os seus pacientes e laudos ficam salvos apenas na memória <b>deste navegador</b>. 
-              Para não perder seus dados, recomendamos que você exporte um Backup JSON regularmente e guarde na nuvem (Google Drive, iCloud, etc).
+              O AudioDash sincroniza automaticamente seus dados com a nuvem (Supabase) para mantê-los seguros. No entanto, por segurança extra ou para uso <b>offline</b>, você também pode exportar e importar arquivos de backup manuais (.json) contendo todos os seus pacientes e laudos.
             </p>
           </div>
           

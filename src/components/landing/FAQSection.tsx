@@ -34,11 +34,11 @@ export default function FAQSection() {
   ];
 
   return (
-    <section id="faq" className="py-24 bg-[#f5f5f7] relative border-t border-slate-200">
+    <section id="faq" className="py-14 sm:py-24 bg-[#f5f5f7] relative border-t border-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Section Header */}
-        <div className="text-center space-y-4 mb-16">
+        <div className="text-center space-y-3 sm:space-y-4 mb-10 sm:mb-16">
 
           <h2 className="text-3xl sm:text-5xl font-extrabold text-[#1d1d1f] tracking-tight">
             Perguntas Frequentes

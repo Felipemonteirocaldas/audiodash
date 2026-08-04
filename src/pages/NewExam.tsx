@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { db, Audiometry, TonalFrequency, ReflexFrequency } from '@/db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button';
 import { exportToDocx } from '@/lib/exportWord';
 import { exportToExcelJs } from '@/lib/exportExcel';
 import { exportToPdf } from '@/lib/exportPdf';
-import { FileText, FileSpreadsheet, File, Save, CheckCircle2, AlertCircle } from 'lucide-react';
+import { FileText, FileSpreadsheet, File, Save, CheckCircle2, AlertCircle, ArrowLeft } from 'lucide-react';
+import { syncManager } from '@/lib/syncManager';
 import AudiogramSVG from '@/components/AudiogramSVG';
 import TympanogramSVG from '@/components/TympanogramSVG';
 
@@ -258,10 +259,15 @@ export default function NewExam() {
     setSaveStatus('saving');
     try {
       await db.audiometries.put(examData);
+      syncManager.sync(); // Trigger cloud sync immediately
+      
       setSaveStatus('success');
       setTimeout(() => {
         setSaveStatus('idle');
-        navigate('/');
+        if (!examId) {
+          // If it was a new exam, update URL so we don't create duplicates on next save
+          navigate(`/exam/${examData.id}`, { replace: true });
+        }
       }, 1500);
     } catch (e) {
       console.error(e);
@@ -300,7 +306,14 @@ export default function NewExam() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center flex-wrap gap-4">
-        <h1 className="text-3xl font-bold tracking-tight">Novo Exame</h1>
+        <div className="flex items-center gap-4">
+          <Link to="/exams">
+            <Button variant="outline" size="sm" className="gap-2 h-9">
+              <ArrowLeft className="w-4 h-4" /> Exames
+            </Button>
+          </Link>
+          <h1 className="text-3xl font-bold tracking-tight">Novo Exame</h1>
+        </div>
         <ActionButtons />
       </div>
 

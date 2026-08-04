@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Save, CheckCircle2, AlertCircle, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { syncManager } from '@/lib/syncManager';
 
 export default function AnamnesisForm() {
   const { patientId, anamnesisId } = useParams();
@@ -46,10 +47,14 @@ export default function AnamnesisForm() {
 
     try {
       await db.anamneses.put(dataToSave);
+      syncManager.sync(); // Trigger cloud sync immediately
+      
       setSaveStatus('success');
       setTimeout(() => {
         setSaveStatus('idle');
-        navigate('/patients');
+        if (!anamnesisId) {
+          navigate(`/anamnesis/${dataToSave.id}`, { replace: true });
+        }
       }, 1500);
     } catch (e) {
       console.error(e);

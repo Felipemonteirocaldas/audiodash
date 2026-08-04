@@ -112,7 +112,7 @@ class SyncManager {
     console.log('[SyncManager] Iniciando sincronização...');
 
     try {
-      const tables = ['patients', 'audiometries', 'settings', 'appointments'] as const;
+      const tables = ['patients', 'audiometries', 'settings', 'appointments', 'anamneses'] as const;
       let totalSynced = 0;
       let hadErrors = false;
 
@@ -167,7 +167,7 @@ class SyncManager {
     
     this.setStatus('syncing');
     try {
-      const tables = ['patients', 'audiometries', 'settings', 'appointments'] as const;
+      const tables = ['patients', 'audiometries', 'settings', 'appointments', 'anamneses'] as const;
       
       for (const table of tables) {
         const { data, error } = await supabase.from(table).select('*').eq('user_id', userId);

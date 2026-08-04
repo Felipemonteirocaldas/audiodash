@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { db, User } from '@/db/db';
+import { AlertTriangle, Cloud, X, Loader2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase, isConfigured as isSupabaseConfigured } from '@/lib/supabase';
 import { syncManager } from '@/lib/syncManager';
@@ -21,6 +22,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authProvider, setAuthProvider] = useState<'supabase' | 'local' | null>(null);
+  const [logoutWarning, setLogoutWarning] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -33,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // Fetch subscription status from public.users table
             const { data: userData } = await supabase
               .from('users')
-              .select('subscription_status, dodo_customer_id')
+              .select('subscription_status, dodo_customer_id, subscription_end_date')
               .eq('id', session.user.id)
               .single();
 
@@ -44,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               passwordHash: '', // Not needed for supabase user session
               createdAt: new Date(session.user.created_at).getTime(),
               subscriptionStatus: userData?.subscription_status || null,
+              subscriptionEndDate: userData?.subscription_end_date ? new Date(userData.subscription_end_date).getTime() : null,
               stripeCustomerId: userData?.dodo_customer_id || null // reusing field for Dodo id locally
             });
             setAuthProvider('supabase');
@@ -56,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               if (session?.user && supabase) {
                 const { data: userData } = await supabase
                   .from('users')
-                  .select('subscription_status, dodo_customer_id')
+                  .select('subscription_status, dodo_customer_id, subscription_end_date')
                   .eq('id', session.user.id)
                   .single();
 
@@ -67,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   passwordHash: '',
                   createdAt: new Date(session.user.created_at).getTime(),
                   subscriptionStatus: userData?.subscription_status || null,
+                  subscriptionEndDate: userData?.subscription_end_date ? new Date(userData.subscription_end_date).getTime() : null,
                   stripeCustomerId: userData?.dodo_customer_id || null
                 });
                 setAuthProvider('supabase');
@@ -143,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: window.location.origin,
+            redirectTo: `${window.location.origin}/dashboard`,
           }
         });
         if (error) {
@@ -208,30 +213,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = async () => {
+  const logout = async (force = false) => {
     try {
-      // Check for unsynced data before allowing logout
-      const pendingCounts = await Promise.all([
-        db.patients.where('syncStatus').equals('pending').count(),
-        db.audiometries.where('syncStatus').equals('pending').count(),
-        db.anamneses.where('syncStatus').equals('pending').count(),
-        db.appointments.where('syncStatus').equals('pending').count(),
-        db.settings.where('syncStatus').equals('pending').count()
-      ]);
-      
-      const hasUnsyncedData = pendingCounts.some(count => count > 0);
-      
-      if (hasUnsyncedData) {
-        alert('Atenção: Você tem dados offline que ainda não foram enviados para a nuvem. Conecte-se à internet e aguarde a sincronização antes de sair para não perder seus dados.');
-        return; // Abort logout
+      if (!force) {
+        setLogoutWarning(true);
+        return; // Abort logout without running cleanup, show modal instead
       }
 
       if (isSupabaseConfigured && supabase) {
         await supabase.auth.signOut();
       }
-    } catch (error) {
-      console.error('Logout error', error);
-    } finally {
+
+      // Cleanup on successful logout
       await Promise.all([
         db.patients.clear(),
         db.audiometries.clear(),
@@ -242,7 +235,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setAuthProvider(null);
       localStorage.removeItem('audiodash_user_id');
+      setLogoutWarning(false);
+      setIsLoggingOut(false);
+    } catch (error) {
+      console.error('Logout error', error);
+      setIsLoggingOut(false);
     }
+  };
+
+  const handleSaveAndLogout = async () => {
+    setIsLoggingOut(true);
+    await syncManager.sync();
+    await logout(true);
   };
 
   return (
@@ -257,6 +261,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       authProvider
     }}>
       {children}
+      
+      {/* Modal de Aviso de Logout */}
+      {logoutWarning && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl relative overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-start mb-5">
+              <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-6 h-6 text-amber-600" />
+              </div>
+              <button 
+                onClick={() => !isLoggingOut && setLogoutWarning(false)} 
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+                disabled={isLoggingOut}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Deseja sair do sistema?</h3>
+            <p className="text-slate-500 mb-6 text-sm leading-relaxed">
+              Você está prestes a sair. Se você tiver dados offline não sincronizados, <strong>eles serão perdidos</strong> se não forem salvos. Recomendamos sincronizar antes de sair.
+            </p>
+
+            <div className="flex gap-3 w-full mb-4">
+              <button 
+                onClick={() => setLogoutWarning(false)}
+                disabled={isLoggingOut}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 transition-colors text-sm disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleSaveAndLogout}
+                disabled={isLoggingOut}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-[#0071e3] text-white font-semibold hover:bg-blue-600 transition-colors flex items-center justify-center gap-2 text-sm shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {isLoggingOut ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Salvando...</>
+                ) : (
+                  <><Cloud className="w-4 h-4" /> Salvar & Sair</>
+                )}
+              </button>
+            </div>
+            
+            <div className="text-center">
+               <button 
+                 onClick={() => logout(true)} 
+                 disabled={isLoggingOut}
+                 className="text-xs text-red-500 hover:text-red-600 hover:underline font-medium p-1 disabled:opacity-50"
+               >
+                 Apenas sair (ignorar pendências)
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AuthContext.Provider>
   );
 }
