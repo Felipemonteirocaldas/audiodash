@@ -1,8 +1,20 @@
+import { useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { CreditCard, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export default function Paywall() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const adminEmails = ['blckdogbrasil@gmail.com'];
+    const isAdmin = user?.email && adminEmails.includes(user.email.toLowerCase());
+    
+    if (user && (user.subscriptionStatus === 'active' || isAdmin)) {
+      navigate('/painel', { replace: true });
+    }
+  }, [user, navigate]);
 
   const handleCheckout = () => {
     // Redireciona para o link de checkout do Dodo Payments enviando o email

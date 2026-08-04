@@ -27,7 +27,10 @@ export default function ProtectedRoute() {
     import.meta.env.DEV
   );
 
-  if (!isLocalhost && user && user.subscriptionStatus !== 'active') {
+  const adminEmails = ['blckdogbrasil@gmail.com'];
+  const isAdmin = user?.email && adminEmails.includes(user.email.toLowerCase());
+
+  if (!isLocalhost && !isAdmin && user && user.subscriptionStatus !== 'active') {
     return <Navigate to="/planos" replace />;
   }
 
