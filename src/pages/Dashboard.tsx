@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/db';
 import { Users, Activity, FileText, ChevronRight, Clock, Calendar as CalendarIcon, Cloud, Sun, CloudRain } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { format } from 'date-fns';
 
 export default function Dashboard() {
   const patientCount = useLiveQuery(() => db.patients.count(), []) ?? 0;
@@ -19,7 +20,7 @@ export default function Dashboard() {
     return examsWithPatients;
   }, []);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = format(new Date(), 'yyyy-MM-dd');
   const todayAppointments = useLiveQuery(async () => {
     return await db.appointments
       .where('date')

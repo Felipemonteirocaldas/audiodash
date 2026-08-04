@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { db, Settings as SettingsType } from '@/db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Save, Download, Upload, CheckCircle2, AlertCircle, Trash2, AlertTriangle, ShieldCheck, ExternalLink, Loader2 } from 'lucide-react';
+import { Save, Download, Upload, CheckCircle2, AlertCircle, Trash2, AlertTriangle, ShieldCheck, ExternalLink, Loader2, CreditCard, RefreshCw } from 'lucide-react';
 import { syncManager } from '@/lib/syncManager';
 import { customAlert } from '@/lib/dialogs';
 import { useAuth } from '@/contexts/AuthContext';
@@ -32,7 +32,7 @@ export default function Settings() {
     logoUrl: ''
   });
 
-  const [activeTab, setActiveTab] = useState<'profissional' | 'clinica' | 'contato' | 'endereco'>('profissional');
+  const [activeTab, setActiveTab] = useState<'profissional' | 'clinica' | 'contato' | 'endereco' | 'assinatura'>('profissional');
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -106,7 +106,9 @@ export default function Settings() {
       const data = {
         patients: await db.patients.toArray(),
         audiometries: await db.audiometries.toArray(),
-        settings: await db.settings.toArray()
+        settings: await db.settings.toArray(),
+        appointments: await db.appointments.toArray(),
+        anamneses: await db.anamneses.toArray()
       };
       const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -133,14 +135,18 @@ export default function Settings() {
         throw new Error("Arquivo de backup inválido.");
       }
 
-      await db.transaction('rw', db.patients, db.audiometries, db.settings, async () => {
+      await db.transaction('rw', db.patients, db.audiometries, db.settings, db.appointments, db.anamneses, async () => {
         await db.patients.clear();
         await db.audiometries.clear();
         await db.settings.clear();
+        await db.appointments.clear();
+        await db.anamneses.clear();
 
-        if (data.patients.length > 0) await db.patients.bulkAdd(data.patients);
-        if (data.audiometries.length > 0) await db.audiometries.bulkAdd(data.audiometries);
-        if (data.settings.length > 0) await db.settings.bulkAdd(data.settings);
+        if (data.patients && data.patients.length > 0) await db.patients.bulkAdd(data.patients);
+        if (data.audiometries && data.audiometries.length > 0) await db.audiometries.bulkAdd(data.audiometries);
+        if (data.settings && data.settings.length > 0) await db.settings.bulkAdd(data.settings);
+        if (data.appointments && data.appointments.length > 0) await db.appointments.bulkAdd(data.appointments);
+        if (data.anamneses && data.anamneses.length > 0) await db.anamneses.bulkAdd(data.anamneses);
       });
 
       setImportStatus('success');
@@ -189,6 +195,12 @@ export default function Settings() {
         >
           Endereço
         </button>
+        <button 
+          onClick={() => setActiveTab('assinatura')}
+          className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${activeTab === 'assinatura' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'}`}
+        >
+          Assinatura
+        </button>
       </div>
 
       <Card className="rounded-[2rem] border-slate-200/60 shadow-sm overflow-hidden">
@@ -198,6 +210,7 @@ export default function Settings() {
             {activeTab === 'clinica' && 'Dados da Clínica'}
             {activeTab === 'contato' && 'Contato e Redes Sociais'}
             {activeTab === 'endereco' && 'Endereço Completo'}
+            {activeTab === 'assinatura' && 'Gestão de Assinatura'}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
@@ -336,9 +349,50 @@ export default function Settings() {
             </div>
           )}
 
-          <div className="pt-8 mt-4 border-t border-slate-100 flex items-center justify-between">
-            <Button 
-              onClick={handleSave} 
+          {activeTab === 'assinatura' && (
+            <div className="space-y-6">
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white shadow-md relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-10">
+                  <CreditCard className="w-32 h-32" />
+                </div>
+                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 text-white text-xs font-semibold mb-3 backdrop-blur-sm">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Assinatura Ativa
+                    </div>
+                    <h3 className="text-2xl font-bold">AudioDash Pro</h3>
+                    <p className="text-blue-100 mt-1">Acesso ilimitado a todos os recursos da plataforma.</p>
+                  </div>
+                  <div className="text-left md:text-right">
+                    <div className="text-3xl font-bold">R$ 50,00<span className="text-lg font-normal text-blue-200">/mês</span></div>
+                    <p className="text-sm text-blue-100 mt-1">Próxima cobrança: {new Date(new Date().setMonth(new Date().getMonth() + 1)).toLocaleDateString('pt-BR')}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border border-slate-200 rounded-2xl p-6 bg-slate-50 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                <div>
+                  <h4 className="font-semibold text-slate-900">Portal do Cliente</h4>
+                  <p className="text-sm text-slate-500 mt-1 max-w-md">
+                    Acesse o portal seguro do Dodo Payments para alterar seu plano, atualizar a forma de pagamento, visualizar o histórico de faturas ou cancelar sua assinatura.
+                  </p>
+                </div>
+                <Button 
+                  onClick={() => customAlert("Na versão final, este botão redirecionará para o Customer Portal gerado pela API do Dodo Payments.")}
+                  className="w-full md:w-auto bg-slate-900 text-white hover:bg-slate-800 rounded-xl px-6"
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Gerenciar Assinatura
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {activeTab !== 'assinatura' && (
+            <div className="pt-8 mt-4 border-t border-slate-100 flex items-center justify-between">
+              <Button 
+                onClick={handleSave} 
               disabled={isSaving}
               className="bg-slate-900 text-white hover:bg-slate-800 rounded-xl px-8 py-6 h-auto text-base"
             >
@@ -359,6 +413,7 @@ export default function Settings() {
               </div>
             )}
           </div>
+          )}
         </CardContent>
       </Card>
 
@@ -602,6 +657,8 @@ export default function Settings() {
           </div>
         </div>
       )}
+
+
     </div>
   );
 }

@@ -280,6 +280,14 @@ db.version(9).stores({
   patients: 'id, user_id, tenant_id, name, cpf, syncStatus',
   audiometries: 'id, user_id, tenant_id, patientId, examDate, syncStatus',
   anamneses: 'id, user_id, tenant_id, patientId, examDate, syncStatus',
+  settings: 'id, user_id, tenant_id, syncStatus'
+});
+
+db.version(10).stores({
+  users: 'id, email',
+  patients: 'id, user_id, tenant_id, name, cpf, syncStatus',
+  audiometries: 'id, user_id, tenant_id, patientId, examDate, syncStatus',
+  anamneses: 'id, user_id, tenant_id, patientId, examDate, syncStatus',
   settings: 'id, user_id, tenant_id, syncStatus',
   appointments: 'id, user_id, tenant_id, date, status, syncStatus'
 });
