@@ -33,7 +33,7 @@ export default function CompareExams() {
     return (
       <div className="w-full mt-8">
         <h3 className="font-bold text-lg mb-3">{title}</h3>
-        <div className="overflow-x-auto">
+        <div>
           <table className="w-full text-sm text-left border rounded-lg overflow-hidden">
             <thead>
               <tr className="bg-slate-100 text-slate-700">
@@ -173,7 +173,7 @@ export default function CompareExams() {
               <p className="text-sm text-slate-500 mt-1">As curvas do exame referencial são exibidas em tons mais claros.</p>
             </CardHeader>
             <CardContent className="p-4 sm:p-8 flex flex-col items-center bg-slate-50/50">
-              <div className="w-full max-w-[800px] bg-white rounded-2xl shadow-sm border border-slate-200/60 p-4 overflow-x-auto">
+              <div className="w-full max-w-[800px] bg-white rounded-2xl shadow-sm border border-slate-200/60 p-4">
                 {/* @ts-ignore */}
                 <AudiogramSVG 
                   rightData={current.tonalData?.right || {}} 

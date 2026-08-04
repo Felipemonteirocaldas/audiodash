@@ -173,8 +173,8 @@ export default function Dashboard() {
           
           <div className="flex flex-col md:flex-row gap-8 flex-1 items-center justify-center">
             {/* Tabela */}
-            <div className="flex-1 w-full text-sm overflow-x-auto">
-              <table className="w-full min-w-[300px]">
+            <div className="flex-1 w-full text-sm">
+              <table className="w-full">
                 <thead>
                   <tr className="text-slate-400 border-b border-slate-100">
                     <th className="text-left pb-2 font-medium">Situação</th>

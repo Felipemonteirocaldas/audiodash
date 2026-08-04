@@ -391,8 +391,8 @@ export default function NewExam() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="lg:col-span-2 overflow-hidden">
           <CardHeader><CardTitle>Audiometria Tonal</CardTitle></CardHeader>
-          <CardContent className="overflow-x-auto pb-4">
-            <table className="w-full text-sm text-left min-w-[600px]">
+          <CardContent className="pb-4">
+            <table className="w-full text-sm text-left">
               <thead>
                 <tr>
                   <th className="p-2 border-b">Frequência (Hz)</th>
@@ -437,9 +437,9 @@ export default function NewExam() {
 
         {/* Audiogram View */}
         <Card className="lg:col-span-2 overflow-hidden">
-          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-2 gap-4">
+          <CardHeader className="flex flex-col items-start justify-between pb-2 gap-4">
             <CardTitle>Audiograma Interativo</CardTitle>
-            <div className="flex gap-2 sm:gap-4 overflow-x-auto w-full pb-2 scrollbar-hide">
+            <div className="flex flex-wrap gap-2 sm:gap-4 w-full pb-2">
               <div className="flex flex-col gap-1 items-center shrink-0">
                 <Button size="sm" variant={activeTool === 'OD_VA' ? 'default' : 'outline'} onClick={() => setActiveTool('OD_VA')} className="bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 border-red-200">VA Dir</Button>
                 <Button variant="ghost" size="sm" className="h-4 text-[10px] px-1 text-red-500" onClick={() => clearAudiogram('right', 'va')}>Limpar</Button>
@@ -456,13 +456,13 @@ export default function NewExam() {
                 <Button size="sm" variant={activeTool === 'OE_VO' ? 'default' : 'outline'} onClick={() => setActiveTool('OE_VO')} className="bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border-blue-200">VO Esq</Button>
                 <Button variant="ghost" size="sm" className="h-4 text-[10px] px-1 text-blue-500" onClick={() => clearAudiogram('left', 'vo')}>Limpar</Button>
               </div>
-              <div className="w-px h-8 bg-border mx-1 self-start mt-1 shrink-0"></div>
+              <div className="w-px h-8 bg-border mx-1 self-start mt-1 shrink-0 hidden sm:block"></div>
               <div className="flex flex-col gap-1 items-center shrink-0">
                 <Button size="sm" variant={activeTool === 'FREE_FIELD' ? 'default' : 'outline'} onClick={() => setActiveTool('FREE_FIELD')} className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 border-emerald-200">Campo Livre</Button>
                 <Button variant="ghost" size="sm" className="h-4 text-[10px] px-1 text-emerald-500" onClick={() => clearAudiogram('freeField')}>Limpar</Button>
               </div>
-              <div className="w-px h-8 bg-border mx-1 self-start mt-1 shrink-0"></div>
-              <div className="flex gap-2 items-start shrink-0">
+              <div className="w-px h-8 bg-border mx-1 self-start mt-1 shrink-0 hidden sm:block"></div>
+              <div className="flex flex-wrap gap-2 items-start shrink-0">
                 <Button size="sm" variant={isMasked ? 'default' : 'outline'} onClick={() => setIsMasked(!isMasked)} className={isMasked ? "bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-300" : ""}>
                   Mascarado
                 </Button>
@@ -472,8 +472,8 @@ export default function NewExam() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="flex justify-start sm:justify-center items-center p-6 overflow-x-auto">
-            <div className="w-full min-w-[500px] max-w-[600px]">
+          <CardContent className="flex justify-center items-center p-2 sm:p-6 w-full">
+            <div className="w-full max-w-[600px]">
               {/* @ts-ignore */}
               <AudiogramSVG rightData={exam.tonalData?.right || {}} leftData={exam.tonalData?.left || {}} freeFieldData={exam.freeField || {}} onPointClick={handleAudiogramClick} />
             </div>
@@ -484,8 +484,8 @@ export default function NewExam() {
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="overflow-hidden">
           <CardHeader><CardTitle>Mascaramento Geral</CardTitle></CardHeader>
-          <CardContent className="overflow-x-auto pb-4">
-             <table className="w-full text-sm text-left min-w-[500px]">
+          <CardContent className="pb-4">
+             <table className="w-full text-sm text-left">
               <thead>
                 <tr>
                   <th></th>
@@ -528,11 +528,13 @@ export default function NewExam() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex justify-center border p-4 bg-white rounded-md overflow-x-auto">
-              <TympanogramSVG rightData={exam.tympanometry?.right} leftData={exam.tympanometry?.left} onPointClick={handleTympanogramClick} />
+            <div className="flex justify-center items-center border p-2 sm:p-4 bg-white rounded-md w-full">
+              <div className="w-full max-w-[600px]">
+                <TympanogramSVG rightData={exam.tympanometry?.right} leftData={exam.tympanometry?.left} onPointClick={handleTympanogramClick} />
+              </div>
             </div>
-            <div className="overflow-x-auto pb-4">
-              <table className="w-full text-sm text-left min-w-[400px]">
+            <div className="pb-4">
+              <table className="w-full text-sm text-left">
                 <thead>
                 <tr>
                   <th></th>
@@ -567,12 +569,12 @@ export default function NewExam() {
         {/* Logoaudiometria */}
         <Card className="lg:col-span-2 overflow-hidden">
           <CardHeader><CardTitle>Logoaudiometria</CardTitle></CardHeader>
-          <CardContent className="space-y-6 overflow-x-auto pb-4">
+          <CardContent className="space-y-6 pb-4">
             
             {/* SRT */}
-            <div className="overflow-x-auto">
+            <div>
               <h3 className="font-bold mb-2">SRT</h3>
-              <table className="w-full text-sm text-left border min-w-[400px]">
+              <table className="w-full text-sm text-left border">
                 <thead>
                   <tr className="bg-muted">
                     <th className="p-2 border">Ouvido</th>
@@ -599,9 +601,9 @@ export default function NewExam() {
             </div>
 
             {/* Índice de Reconhecimento de Fala */}
-            <div className="overflow-x-auto mt-6">
+            <div className="mt-6">
               <h3 className="font-bold mb-2">Índice de Reconhecimento de Fala</h3>
-              <table className="w-full text-sm text-left border min-w-[500px]">
+              <table className="w-full text-sm text-left border">
                 <thead>
                   <tr className="bg-muted">
                     <th className="p-2 border" colSpan={2}>Ouvido / Sílaba</th>
@@ -656,9 +658,9 @@ export default function NewExam() {
             </div>
 
             {/* Detecção de Voz */}
-            <div className="overflow-x-auto mt-6">
+            <div className="mt-6">
               <h3 className="font-bold mb-2">Detecção de Voz</h3>
-              <table className="w-full text-sm text-left border min-w-[400px]">
+              <table className="w-full text-sm text-left border">
                 <thead>
                   <tr className="bg-muted">
                     <th className="p-2 border">Ouvido</th>
@@ -690,8 +692,8 @@ export default function NewExam() {
         {/* Reflexo Estapediano */}
         <Card className="lg:col-span-2 overflow-hidden">
           <CardHeader><CardTitle>Reflexo Estapediano</CardTitle></CardHeader>
-          <CardContent className="overflow-x-auto pb-4">
-             <table className="w-full text-sm text-left border min-w-[800px]">
+          <CardContent className="pb-4">
+             <table className="w-full text-sm text-left border">
               <thead>
                 <tr className="bg-muted">
                   <th className="p-2 border" rowSpan={2}>Hz</th>

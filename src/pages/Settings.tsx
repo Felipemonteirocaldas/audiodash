@@ -170,7 +170,7 @@ export default function Settings() {
       </div>
       
       {/* Navigation Tabs */}
-      <div className="flex overflow-x-auto space-x-2 pb-2 mb-4 scrollbar-hide">
+      <div className="flex flex-wrap gap-2 mb-4">
         <button 
           onClick={() => setActiveTab('profissional')}
           className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${activeTab === 'profissional' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'}`}

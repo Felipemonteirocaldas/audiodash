@@ -124,7 +124,7 @@ export default function HeroSection() {
                 </div>
 
                 {/* Tab Switchers */}
-                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto">
+                <div className="flex flex-wrap items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
                   <button
                     onClick={() => setActiveTab('tonal')}
                     className={`px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-medium rounded-lg transition-all whitespace-nowrap ${

@@ -47,14 +47,14 @@ export default function EvolutionControl() {
           <p className="text-slate-500 mt-1">Este paciente ainda não possui laudos registrados.</p>
         </div>
       ) : (
-        <Card className="overflow-x-auto">
+        <Card>
           <CardHeader className="bg-slate-50/50 border-b border-slate-100">
             <CardTitle className="text-lg flex items-center gap-2">
               <Activity className="w-5 h-5 text-indigo-600" /> Comparativo de Limiares (VA)
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <table className="w-full text-sm text-center border-collapse min-w-[800px]">
+            <table className="w-full text-sm text-center border-collapse">
               <thead>
                 <tr className="bg-slate-100 text-slate-700">
                   <th className="p-3 border-r border-b font-semibold bg-white w-40 text-left sticky left-0 z-10 shadow-[1px_0_0_rgba(0,0,0,0.1)]">Exame / Frequência</th>
