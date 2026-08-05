@@ -11,7 +11,13 @@ export default function Paywall() {
     const adminEmails = ['blckdogbrasil@gmail.com'];
     const isAdmin = user?.email && adminEmails.includes(user.email.toLowerCase());
     
-    if (user && (user.subscriptionStatus === 'active' || isAdmin)) {
+    // Check if subscription is active AND not expired, or if user is admin
+    const isActive = user?.subscriptionStatus === 'active';
+    const isCanceled = user?.subscriptionStatus === 'canceled'; // Canceled but might still have time
+    const hasValidDate = user?.subscriptionEndDate ? Date.now() < user.subscriptionEndDate : false;
+    const hasAccess = (isActive || isCanceled) && hasValidDate;
+
+    if (user && (hasAccess || isAdmin)) {
       navigate('/painel', { replace: true });
     }
   }, [user, navigate]);

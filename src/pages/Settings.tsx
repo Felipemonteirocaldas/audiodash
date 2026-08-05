@@ -351,22 +351,38 @@ export default function Settings() {
 
           {activeTab === 'assinatura' && (
             <div className="space-y-6">
-              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white shadow-md relative overflow-hidden">
+              <div className={`rounded-2xl p-6 text-white shadow-md relative overflow-hidden ${
+                user?.subscriptionStatus === 'active' ? 'bg-gradient-to-r from-emerald-600 to-teal-600' :
+                user?.subscriptionStatus === 'canceled' ? 'bg-gradient-to-r from-amber-500 to-yellow-600' :
+                user?.subscriptionStatus === 'past_due' ? 'bg-gradient-to-r from-red-600 to-rose-600' :
+                'bg-gradient-to-r from-slate-600 to-slate-800'
+              }`}>
                 <div className="absolute top-0 right-0 p-4 opacity-10">
                   <CreditCard className="w-32 h-32" />
                 </div>
                 <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
                   <div>
                     <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 text-white text-xs font-semibold mb-3 backdrop-blur-sm">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Assinatura Ativa
+                      {user?.subscriptionStatus === 'active' ? <><CheckCircle2 className="w-3.5 h-3.5" /> Assinatura Ativa</> :
+                       user?.subscriptionStatus === 'canceled' ? <><AlertTriangle className="w-3.5 h-3.5" /> Assinatura Cancelada</> :
+                       user?.subscriptionStatus === 'past_due' ? <><AlertCircle className="w-3.5 h-3.5" /> Pagamento Atrasado</> :
+                       <><AlertCircle className="w-3.5 h-3.5" /> Sem Assinatura</>}
                     </div>
                     <h3 className="text-2xl font-bold">AudioDash Pro</h3>
-                    <p className="text-blue-100 mt-1">Acesso ilimitado a todos os recursos da plataforma.</p>
+                    <p className="text-white/80 mt-1">
+                      {user?.subscriptionStatus === 'active' ? 'Acesso ilimitado a todos os recursos da plataforma.' :
+                       user?.subscriptionStatus === 'canceled' ? 'Sua assinatura foi cancelada, mas você ainda tem acesso até o fim do período.' :
+                       user?.subscriptionStatus === 'past_due' ? 'Há um problema com seu último pagamento. Regularize para não perder o acesso.' :
+                       'Assine para liberar os recursos da plataforma.'}
+                    </p>
                   </div>
                   <div className="text-left md:text-right">
-                    <div className="text-3xl font-bold">R$ 50,00<span className="text-lg font-normal text-blue-200">/mês</span></div>
-                    <p className="text-sm text-blue-100 mt-1">Próxima cobrança: {new Date(new Date().setMonth(new Date().getMonth() + 1)).toLocaleDateString('pt-BR')}</p>
+                    <div className="text-3xl font-bold">R$ 50,00<span className="text-lg font-normal text-white/70">/mês</span></div>
+                    <p className="text-sm text-white/80 mt-1">
+                      {user?.subscriptionEndDate 
+                        ? `Válida até: ${new Date(user.subscriptionEndDate).toLocaleDateString('pt-BR')}` 
+                        : 'Não informada'}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -375,11 +391,11 @@ export default function Settings() {
                 <div>
                   <h4 className="font-semibold text-slate-900">Portal do Cliente</h4>
                   <p className="text-sm text-slate-500 mt-1 max-w-md">
-                    Acesse o portal seguro do Dodo Payments para alterar seu plano, atualizar a forma de pagamento, visualizar o histórico de faturas ou cancelar sua assinatura.
+                    Acesse o portal do Dodo Payments para alterar seu plano, atualizar a forma de pagamento, visualizar o histórico de faturas ou cancelar sua assinatura.
                   </p>
                 </div>
                 <Button 
-                  onClick={() => customAlert("Na versão final, este botão redirecionará para o Customer Portal gerado pela API do Dodo Payments.")}
+                  onClick={() => customAlert("Na versão final, este botão redirecionará para o Customer Portal gerado pela API do Dodo Payments. Se você tiver um link público do portal, entre em contato para atualizarmos.")}
                   className="w-full md:w-auto bg-slate-900 text-white hover:bg-slate-800 rounded-xl px-6"
                 >
                   <ExternalLink className="w-4 h-4 mr-2" />

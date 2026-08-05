@@ -30,7 +30,12 @@ export default function ProtectedRoute() {
   const adminEmails = ['blckdogbrasil@gmail.com'];
   const isAdmin = user?.email && adminEmails.includes(user.email.toLowerCase());
 
-  if (!isLocalhost && !isAdmin && user && user.subscriptionStatus !== 'active') {
+  const isActive = user?.subscriptionStatus === 'active';
+  const isCanceled = user?.subscriptionStatus === 'canceled'; 
+  const hasValidDate = user?.subscriptionEndDate ? Date.now() < user.subscriptionEndDate : false;
+  const hasAccess = (isActive || isCanceled) && hasValidDate;
+
+  if (!isLocalhost && !isAdmin && user && !hasAccess) {
     return <Navigate to="/planos" replace />;
   }
 
