@@ -1,54 +1,80 @@
-// @ts-nocheck
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { db, Audiometry, TonalFrequency, ReflexFrequency } from '@/db/db';
+import { db, Audiometry, TonalFrequency } from '@/db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { exportToDocx } from '@/lib/exportWord';
 import { exportToExcelJs } from '@/lib/exportExcel';
-import { exportToPdf } from '@/lib/exportPdf';
-import { FileText, FileSpreadsheet, File, Save, CheckCircle2, AlertCircle, ArrowLeft } from 'lucide-react';
+import {
+  FileText,
+  FileSpreadsheet,
+  Save,
+  CheckCircle2,
+  AlertCircle,
+  ArrowLeft,
+  Eye,
+  Activity,
+  MessageSquare,
+  Sparkles,
+  Zap,
+  Layers,
+  ClipboardList
+} from 'lucide-react';
 import { syncManager } from '@/lib/syncManager';
-import AudiogramSVG from '@/components/AudiogramSVG';
-import TympanogramSVG from '@/components/TympanogramSVG';
 import { customAlert, customConfirm } from '@/lib/dialogs';
 import { useAuth } from '@/contexts/AuthContext';
 
-const FREQUENCIES: TonalFrequency[] = ['125', '250', '500', '750', '1000', '1500', '2000', '3000', '4000', '6000', '8000'];
-const REFLEX_FREQS: ReflexFrequency[] = ['500', '1000', '2000', '4000'];
+// Importação dos Componentes Modulares Especializados de Exame
+import MeatoscopyExam from '@/components/exams/MeatoscopyExam';
+import TonalAudiometryExam from '@/components/exams/TonalAudiometryExam';
+import LogoAudiometryExam from '@/components/exams/LogoAudiometryExam';
+import TympanometryExam from '@/components/exams/TympanometryExam';
+import StapedialReflexExam from '@/components/exams/StapedialReflexExam';
+import ComplementaryTestsExam from '@/components/exams/ComplementaryTestsExam';
+import AudiologicalOpinionSummary from '@/components/exams/AudiologicalOpinionSummary';
+import ExportPdfModal from '@/components/ExportPdfModal';
+import { DegreeStandard } from '@/lib/audiologyCalculations';
 
 export default function NewExam() {
   const { user } = useAuth();
   const { patientId, examId } = useParams();
   const navigate = useNavigate();
-  
+
   const [selectedPatientId, setSelectedPatientId] = useState<string>(patientId || '');
   const patients = useLiveQuery(() => db.patients.toArray(), []);
   const [examDate, setExamDate] = useState(new Date().toISOString().split('T')[0]);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [activeTab, setActiveTab] = useState<'all' | 'meatoscopy' | 'tonal' | 'logo' | 'tymp' | 'reflex' | 'complementary' | 'opinion'>('all');
+  const [standard, setStandard] = useState<DegreeStandard>('OMS_2021');
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+
   const selectedPatient = patients?.find(p => p.id === selectedPatientId);
-  
-  // Calculate age if birthDate is present
-  const patientAge = selectedPatient?.birthDate 
-    ? Math.floor((new Date().getTime() - new Date(selectedPatient.birthDate).getTime()) / 3.15576e+10) 
+
+  // Idade do paciente
+  const patientAge = selectedPatient?.birthDate
+    ? Math.floor((new Date().getTime() - new Date(selectedPatient.birthDate).getTime()) / 3.15576e+10)
     : '';
-  
+
+  // Estado Principal do Exame
   const [exam, setExam] = useState<Partial<Audiometry>>({
     header: { audiometer: '', impedanciometer: '', requestingPhysician: '', speechTherapist: '' },
     tonalData: { right: {}, left: {} },
     tonalMasking: { right: {}, left: {} },
-    logoAudiometry: { 
+    logoAudiometry: {
       right: { srt: {}, irf: { mono: {}, dis: {}, tris: {} }, voiceDetection: {} },
-      left: { srt: {}, irf: { mono: {}, dis: {}, tris: {} }, voiceDetection: {} } 
+      left: { srt: {}, irf: { mono: {}, dis: {}, tris: {} }, voiceDetection: {} }
     },
     tympanometry: { right: {}, left: {} },
     reflexes: { right: {}, left: {}, sondaOD: '', sondaOE: '' },
     resultAndConduct: '',
     examPurpose: 'referencial',
     examCategory: 'clinico',
-    freeField: {}
+    freeField: {},
+    meatoscopy: { right: 'normal', left: 'normal', rightDescription: 'Conduto livre, membrana timpânica íntegra.', leftDescription: 'Conduto livre, membrana timpânica íntegra.' },
+    complementary: { weber: '', toneDecay: '' },
+    opinion: {}
   });
 
   useEffect(() => {
@@ -61,169 +87,10 @@ export default function NewExam() {
         }
       });
     } else {
-      // Reset state for new exam
-      setExam({
-        header: { audiometer: '', impedanciometer: '', requestingPhysician: '', speechTherapist: '' },
-        tonalData: { right: {}, left: {} },
-        tonalMasking: { right: {}, left: {} },
-        logoAudiometry: { 
-          right: { srt: {}, irf: { mono: {}, dis: {}, tris: {} }, voiceDetection: {} },
-          left: { srt: {}, irf: { mono: {}, dis: {}, tris: {} }, voiceDetection: {} } 
-        },
-        tympanometry: { right: {}, left: {} },
-        reflexes: { right: {}, left: {}, sondaOD: '', sondaOE: '' },
-        resultAndConduct: '',
-        examPurpose: 'referencial',
-        examCategory: 'clinico',
-        freeField: {},
-        meatoscopy: { right: '', left: '' },
-        complementary: { weber: '', toneDecay: '' },
-        opinion: {}
-      });
       setSelectedPatientId(patientId || '');
       setExamDate(new Date().toISOString().split('T')[0]);
     }
   }, [examId, patientId]);
-
-  type DrawingTool = 'OD_VA' | 'OD_VO' | 'OE_VA' | 'OE_VO' | 'FREE_FIELD' | null;
-  const [activeTool, setActiveTool] = useState<DrawingTool>('OD_VA');
-  const [isMasked, setIsMasked] = useState(false);
-  const [isNR, setIsNR] = useState(false);
-  
-  type TympanogramTool = 'OD' | 'OE' | null;
-  const [activeTympTool, setActiveTympTool] = useState<TympanogramTool>('OD');
-
-  const handleAudiogramClick = (freq: string, db: number) => {
-    if (!activeTool) return;
-
-    if (activeTool === 'FREE_FIELD') {
-      const currentPoint = exam.freeField?.[freq as TonalFrequency];
-      let valToSet: string | number | undefined = isNR ? 'NR' : db;
-      if (currentPoint && currentPoint.va === valToSet) {
-        valToSet = undefined;
-      }
-      setExam(prev => ({
-        ...prev,
-        freeField: {
-          ...(prev.freeField || {}),
-          [freq]: {
-            ...(prev.freeField?.[freq] || {}),
-            va: valToSet === 'NR' ? 'NR' : (valToSet === undefined ? undefined : parseInt(valToSet.toString()))
-          }
-        }
-      }));
-      return;
-    }
-
-    const isRight = activeTool.startsWith('OD');
-    const isVA = activeTool.endsWith('VA');
-    const ear = isRight ? 'right' : 'left';
-    
-    const currentPoint = exam.tonalData?.[ear]?.[freq as TonalFrequency];
-    let valToSet: string | number | undefined = isNR ? 'NR' : db;
-    let maskedToSet = isMasked;
-
-    if (currentPoint) {
-       const fieldToCheck = isVA ? currentPoint.va : currentPoint.vo;
-       const maskField = isVA ? currentPoint.maskedVa : currentPoint.maskedVo;
-       if (fieldToCheck === valToSet && maskField === maskedToSet) {
-          valToSet = undefined;
-          maskedToSet = false;
-       }
-    }
-
-    handleTonalChange(ear, freq as TonalFrequency, isVA ? 'va' : 'vo', valToSet !== undefined ? valToSet.toString() : '');
-    handleTonalMaskingPoint(ear, freq as TonalFrequency, isVA ? 'maskedVa' : 'maskedVo', maskedToSet);
-  };
-
-  const handleTympanogramClick = (pressure: number, compliance: number) => {
-    if (!activeTympTool) return;
-    const ear = activeTympTool === 'OD' ? 'right' : 'left';
-    
-    setExam(prev => ({
-      ...prev,
-      tympanometry: {
-        ...(prev.tympanometry || {}),
-        [ear]: {
-          ...(prev.tympanometry?.[ear] || {}),
-          peak: pressure.toString(),
-          compliance200: compliance.toString()
-        }
-      }
-    }));
-  };
-
-  const clearTymp = (ear: 'right' | 'left') => {
-    setExam(prev => ({
-      ...prev,
-      tympanometry: {
-        ...(prev.tympanometry || {}),
-        [ear]: {
-          ...(prev.tympanometry?.[ear] || {}),
-          peak: '',
-          compliance200: ''
-        }
-      }
-    }));
-  };
-
-  const clearAudiogram = (ear: 'right' | 'left' | 'freeField', field?: 'va' | 'vo') => {
-    if (ear === 'freeField') {
-      setExam(prev => ({ ...prev, freeField: {} }));
-      return;
-    }
-    setExam(prev => {
-      const earData = { ...prev.tonalData?.[ear] };
-      FREQUENCIES.forEach(freq => {
-        if (earData[freq as TonalFrequency] && field) {
-          earData[freq as TonalFrequency] = { 
-            ...earData[freq as TonalFrequency], 
-            [field]: undefined, 
-            [field === 'va' ? 'maskedVa' : 'maskedVo']: false 
-          };
-        }
-      });
-      return {
-        ...prev,
-        tonalData: {
-          ...(prev.tonalData || {}),
-          [ear]: earData
-        }
-      };
-    });
-  };
-
-  const handleTonalChange = (ear: 'right' | 'left', freq: TonalFrequency, field: 'va' | 'vo', value: string) => {
-    setExam(prev => ({
-      ...prev,
-      tonalData: {
-        ...(prev.tonalData || { right: {}, left: {} }),
-        [ear]: {
-          ...(prev.tonalData?.[ear] || {}),
-          [freq]: {
-            ...(prev.tonalData?.[ear]?.[freq] || {}),
-            [field]: value === 'NR' ? 'NR' : (value === '' ? undefined : parseInt(value))
-          }
-        }
-      }
-    }));
-  };
-
-  const handleTonalMaskingPoint = (ear: 'right' | 'left', freq: TonalFrequency, field: 'maskedVa' | 'maskedVo', value: boolean) => {
-    setExam(prev => ({
-      ...prev,
-      tonalData: {
-        ...(prev.tonalData || { right: {}, left: {} }),
-        [ear]: {
-          ...(prev.tonalData?.[ear] || {}),
-          [freq]: {
-            ...(prev.tonalData?.[ear]?.[freq] || {}),
-            [field]: value
-          }
-        }
-      }
-    }));
-  };
 
   const getExamData = (): Audiometry | null => {
     if (!selectedPatientId) {
@@ -252,9 +119,11 @@ export default function NewExam() {
         }
       }
     }
-    
+
     if (missingSBFa) {
-      const proceed = await customConfirm('Atenção: O Guia de Orientações da SBFa recomenda testar as frequências de 500, 1000, 2000 e 4000Hz em ambas as orelhas. Faltam alguns dados. Deseja salvar mesmo assim?');
+      const proceed = await customConfirm(
+        'Atenção: O Guia de Orientações da SBFa recomenda registrar os limiares de 500, 1000, 2000 e 4000Hz em ambas as orelhas. Faltam alguns dados. Deseja salvar mesmo assim?'
+      );
       if (!proceed) return;
     }
 
@@ -263,13 +132,12 @@ export default function NewExam() {
     setSaveStatus('saving');
     try {
       await db.audiometries.put(examData);
-      syncManager.sync(); // Trigger cloud sync immediately
-      
+      syncManager.sync(); // Cloud sync
+
       setSaveStatus('success');
       setTimeout(() => {
         setSaveStatus('idle');
         if (!examId) {
-          // If it was a new exam, update URL so we don't create duplicates on next save
           navigate(`/exame/${examData.id}`, { replace: true });
         }
       }, 1500);
@@ -286,592 +154,425 @@ export default function NewExam() {
       await customAlert('Selecione um paciente antes de exportar.');
       return;
     }
-    if (type === 'pdf') await exportToPdf(examData, selectedPatient);
-    else if (type === 'docx') await exportToDocx(examData, selectedPatient);
-    else if (type === 'xlsx') await exportToExcelJs(examData, selectedPatient);
+    if (type === 'pdf') {
+      setIsPdfModalOpen(true);
+    } else if (type === 'docx') {
+      await exportToDocx(examData, selectedPatient);
+    } else if (type === 'xlsx') {
+      await exportToExcelJs(examData, selectedPatient);
+    }
   };
 
   const ActionButtons = () => (
     <div className="flex gap-2 items-center flex-wrap">
       {saveStatus === 'success' && (
-        <span className="text-emerald-600 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5">
-          <CheckCircle2 className="w-4 h-4" /> Salvo!
+        <span className="text-emerald-600 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Salvo com sucesso!
         </span>
       )}
       {saveStatus === 'error' && (
-        <span className="text-red-600 bg-red-50 border border-red-100 px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5">
-          <AlertCircle className="w-4 h-4" /> Erro ao salvar
+        <span className="text-red-600 bg-red-50 border border-red-100 px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm">
+          <AlertCircle className="w-4 h-4 text-red-600" /> Erro ao salvar
         </span>
       )}
-      <Button onClick={handleSave} disabled={saveStatus === 'saving'} className="gap-2">
+      <Button
+        onClick={handleSave}
+        disabled={saveStatus === 'saving'}
+        className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm h-10 px-5 font-bold"
+      >
         <Save className="w-4 h-4" /> {saveStatus === 'saving' ? 'Salvando...' : 'Salvar Exame'}
       </Button>
-      <Button variant="outline" onClick={() => handleExport('pdf')} className="gap-2"><FileText className="w-4 h-4 text-red-500" /> PDF</Button>
+      <Button
+        variant="outline"
+        onClick={() => handleExport('pdf')}
+        className="gap-2 rounded-xl border-slate-200 hover:bg-slate-50 h-10 font-semibold"
+      >
+        <FileText className="w-4 h-4 text-red-500" /> PDF Oficial
+      </Button>
+      <Button
+        variant="outline"
+        onClick={() => handleExport('xlsx')}
+        className="gap-2 rounded-xl border-slate-200 hover:bg-slate-50 h-10 font-semibold"
+      >
+        <FileSpreadsheet className="w-4 h-4 text-emerald-600" /> Excel
+      </Button>
     </div>
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center flex-wrap gap-4">
-        <div className="flex items-center gap-4">
+    <div className="space-y-6 pb-16">
+      {/* Cabeçalho Superior */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex items-center gap-3">
           <Link to="/exames">
-            <Button variant="outline" size="sm" className="gap-2 h-9">
+            <Button variant="outline" size="sm" className="gap-2 h-9 rounded-xl border-slate-200">
               <ArrowLeft className="w-4 h-4" /> Exames
             </Button>
           </Link>
-          <h1 className="text-3xl font-bold tracking-tight">Novo Exame</h1>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-800">
+              {examId ? 'Editar Exame Audiológico' : 'Novo Exame Audiológico'}
+            </h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Protocolo completo de audiologia clínica e ocupacional conforme diretrizes CFFa/SBFa.
+            </p>
+          </div>
         </div>
         <ActionButtons />
       </div>
 
+      {/* Dados Básicos, Paciente e Equipamentos */}
       <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle>Dados Básicos</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Paciente</label>
-              <select 
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        <Card className="border-slate-200 shadow-sm overflow-hidden">
+          <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-3">
+            <CardTitle className="text-sm font-bold text-slate-800">Identificação e Protocolo</CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 space-y-3">
+            <div>
+              <label className="text-xs font-semibold text-slate-700 block mb-1">Paciente *</label>
+              <select
+                className="flex h-9 w-full rounded-lg border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 value={selectedPatientId}
                 onChange={e => setSelectedPatientId(e.target.value)}
               >
-                <option value="">Selecione o paciente...</option>
-                {patients?.map(p => <option key={p.id} value={p.id}>{p.name} ({p.cpf})</option>)}
+                <option value="">-- Selecione o paciente cadastrado --</option>
+                {patients?.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} {p.cpf ? `(${p.cpf})` : ''}
+                  </option>
+                ))}
               </select>
               {selectedPatient && (
-                <div className="text-xs text-muted-foreground mt-1 flex gap-4">
-                  {patientAge !== '' && <span>Idade: {patientAge} anos</span>}
+                <div className="text-[11px] text-slate-500 mt-1.5 flex gap-4 font-medium">
+                  {patientAge !== '' && <span>Idade: <strong>{patientAge} anos</strong></span>}
+                  {selectedPatient.gender && <span>Sexo: <strong>{selectedPatient.gender}</strong></span>}
                   {selectedPatient.rg && <span>RG: {selectedPatient.rg} {selectedPatient.ssp}</span>}
                 </div>
               )}
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Data do Exame</label>
-              <Input type="date" value={examDate} onChange={e => setExamDate(e.target.value)} />
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Propósito do Exame</label>
-              <select 
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={exam.examPurpose || 'referencial'}
-                onChange={e => setExam({...exam, examPurpose: e.target.value as any})}
-              >
-                <option value="referencial">Referencial (Admissional/Inicial)</option>
-                <option value="sequencial">Sequencial (Periódico/Demissional)</option>
-                <option value="outro">Outro</option>
-              </select>
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Categoria</label>
-              <select 
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={exam.examCategory || 'clinico'}
-                onChange={e => setExam({...exam, examCategory: e.target.value as any})}
-              >
-                <option value="clinico">Clínico</option>
-                <option value="ocupacional">Ocupacional (ASO)</option>
-              </select>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Data do Exame</label>
+                <Input
+                  type="date"
+                  className="h-8 text-xs bg-white"
+                  value={examDate}
+                  onChange={e => setExamDate(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Propósito</label>
+                <select
+                  className="flex h-8 w-full rounded-lg border border-slate-300 bg-white px-2 py-0 text-xs font-medium text-slate-800"
+                  value={exam.examPurpose || 'referencial'}
+                  onChange={e => setExam({ ...exam, examPurpose: e.target.value as any })}
+                >
+                  <option value="referencial">Referencial</option>
+                  <option value="sequencial">Sequencial</option>
+                  <option value="admissional">Admissional</option>
+                  <option value="demissional">Demissional</option>
+                  <option value="periodico">Periódico</option>
+                  <option value="outro">Outro</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Categoria</label>
+                <select
+                  className="flex h-8 w-full rounded-lg border border-slate-300 bg-white px-2 py-0 text-xs font-medium text-slate-800"
+                  value={exam.examCategory || 'clinico'}
+                  onChange={e => setExam({ ...exam, examCategory: e.target.value as any })}
+                >
+                  <option value="clinico">Clínico</option>
+                  <option value="ocupacional">Ocupacional (NR-7)</option>
+                </select>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader><CardTitle>Equipamentos e Profissionais</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <Input placeholder="Audiômetro" value={exam.header?.audiometer || ''} onChange={e => setExam({...exam, header: {...exam.header, audiometer: e.target.value}})} />
-            <Input placeholder="Impedanciômetro" value={exam.header?.impedanciometer || ''} onChange={e => setExam({...exam, header: {...exam.header, impedanciometer: e.target.value}})} />
-            <Input placeholder="Médico Solicitante" value={exam.header?.requestingPhysician || ''} onChange={e => setExam({...exam, header: {...exam.header, requestingPhysician: e.target.value}})} />
-            <Input placeholder="Fonoaudiólogo(a)" value={exam.header?.speechTherapist || ''} onChange={e => setExam({...exam, header: {...exam.header, speechTherapist: e.target.value}})} />
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="lg:col-span-2 overflow-hidden">
-          <CardHeader><CardTitle>Audiometria Tonal</CardTitle></CardHeader>
-          <CardContent className="pb-4">
-            <table className="w-full text-sm text-left">
-              <thead>
-                <tr>
-                  <th className="p-2 border-b">Frequência (Hz)</th>
-                  <th className="p-2 border-b text-red-500 font-bold" colSpan={4}>OD (Direita)</th>
-                  <th className="p-2 border-b text-blue-500 font-bold" colSpan={4}>OE (Esquerda)</th>
-                </tr>
-                <tr>
-                  <th className="p-2 border-b"></th>
-                  <th className="p-2 border-b text-xs" title="Via Aérea">VA</th>
-                  <th className="p-2 border-b text-xs" title="VA com Mascaramento">M-VA</th>
-                  <th className="p-2 border-b text-xs" title="Via Óssea">VO</th>
-                  <th className="p-2 border-b text-xs" title="VO com Mascaramento">M-VO</th>
-                  
-                  <th className="p-2 border-b text-xs" title="Via Aérea">VA</th>
-                  <th className="p-2 border-b text-xs" title="VA com Mascaramento">M-VA</th>
-                  <th className="p-2 border-b text-xs" title="Via Óssea">VO</th>
-                  <th className="p-2 border-b text-xs" title="VO com Mascaramento">M-VO</th>
-                </tr>
-              </thead>
-              <tbody>
-                {FREQUENCIES.map(freq => (
-                  <tr key={freq}>
-                    <td className="p-2 border-b font-medium">{freq}</td>
-                    
-                    {/* Right Ear */}
-                    <td className="p-1 border-b"><Input className="w-16 h-8 text-xs p-1" placeholder="dB" onChange={e => handleTonalChange('right', freq, 'va', e.target.value)} /></td>
-                    <td className="p-1 border-b text-center"><input type="checkbox" onChange={e => handleTonalMaskingPoint('right', freq, 'maskedVa', e.target.checked)} /></td>
-                    <td className="p-1 border-b"><Input className="w-16 h-8 text-xs p-1" placeholder="dB" onChange={e => handleTonalChange('right', freq, 'vo', e.target.value)} /></td>
-                    <td className="p-1 border-b text-center"><input type="checkbox" onChange={e => handleTonalMaskingPoint('right', freq, 'maskedVo', e.target.checked)} /></td>
-                    
-                    {/* Left Ear */}
-                    <td className="p-1 border-b"><Input className="w-16 h-8 text-xs p-1" placeholder="dB" onChange={e => handleTonalChange('left', freq, 'va', e.target.value)} /></td>
-                    <td className="p-1 border-b text-center"><input type="checkbox" onChange={e => handleTonalMaskingPoint('left', freq, 'maskedVa', e.target.checked)} /></td>
-                    <td className="p-1 border-b"><Input className="w-16 h-8 text-xs p-1" placeholder="dB" onChange={e => handleTonalChange('left', freq, 'vo', e.target.value)} /></td>
-                    <td className="p-1 border-b text-center"><input type="checkbox" onChange={e => handleTonalMaskingPoint('left', freq, 'maskedVo', e.target.checked)} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-
-        {/* Audiogram View */}
-        <Card className="lg:col-span-2 overflow-hidden">
-          <CardHeader className="flex flex-col items-start justify-between pb-2 gap-4">
-            <CardTitle>Audiograma Interativo</CardTitle>
-            <div className="flex flex-wrap gap-2 sm:gap-4 w-full pb-2">
-              <div className="flex flex-col gap-1 items-center shrink-0">
-                <Button size="sm" variant={activeTool === 'OD_VA' ? 'default' : 'outline'} onClick={() => setActiveTool('OD_VA')} className="bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 border-red-200">VA Dir</Button>
-                <Button variant="ghost" size="sm" className="h-4 text-[10px] px-1 text-red-500" onClick={() => clearAudiogram('right', 'va')}>Limpar</Button>
-              </div>
-              <div className="flex flex-col gap-1 items-center shrink-0">
-                <Button size="sm" variant={activeTool === 'OD_VO' ? 'default' : 'outline'} onClick={() => setActiveTool('OD_VO')} className="bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 border-red-200">VO Dir</Button>
-                <Button variant="ghost" size="sm" className="h-4 text-[10px] px-1 text-red-500" onClick={() => clearAudiogram('right', 'vo')}>Limpar</Button>
-              </div>
-              <div className="flex flex-col gap-1 items-center shrink-0">
-                <Button size="sm" variant={activeTool === 'OE_VA' ? 'default' : 'outline'} onClick={() => setActiveTool('OE_VA')} className="bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border-blue-200">VA Esq</Button>
-                <Button variant="ghost" size="sm" className="h-4 text-[10px] px-1 text-blue-500" onClick={() => clearAudiogram('left', 'va')}>Limpar</Button>
-              </div>
-              <div className="flex flex-col gap-1 items-center shrink-0">
-                <Button size="sm" variant={activeTool === 'OE_VO' ? 'default' : 'outline'} onClick={() => setActiveTool('OE_VO')} className="bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border-blue-200">VO Esq</Button>
-                <Button variant="ghost" size="sm" className="h-4 text-[10px] px-1 text-blue-500" onClick={() => clearAudiogram('left', 'vo')}>Limpar</Button>
-              </div>
-              <div className="w-px h-8 bg-border mx-1 self-start mt-1 shrink-0 hidden sm:block"></div>
-              <div className="flex flex-col gap-1 items-center shrink-0">
-                <Button size="sm" variant={activeTool === 'FREE_FIELD' ? 'default' : 'outline'} onClick={() => setActiveTool('FREE_FIELD')} className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 border-emerald-200">Campo Livre</Button>
-                <Button variant="ghost" size="sm" className="h-4 text-[10px] px-1 text-emerald-500" onClick={() => clearAudiogram('freeField')}>Limpar</Button>
-              </div>
-              <div className="w-px h-8 bg-border mx-1 self-start mt-1 shrink-0 hidden sm:block"></div>
-              <div className="flex flex-wrap gap-2 items-start shrink-0">
-                <Button size="sm" variant={isMasked ? 'default' : 'outline'} onClick={() => setIsMasked(!isMasked)} className={isMasked ? "bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-300" : ""}>
-                  Mascarado
-                </Button>
-                <Button size="sm" variant={isNR ? 'default' : 'outline'} onClick={() => setIsNR(!isNR)} className={isNR ? "bg-slate-700 text-white hover:bg-slate-800" : ""}>
-                  Sem Resposta
-                </Button>
-              </div>
-            </div>
+        <Card className="border-slate-200 shadow-sm overflow-hidden">
+          <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-3">
+            <CardTitle className="text-sm font-bold text-slate-800">Equipamentos e Profissionais</CardTitle>
           </CardHeader>
-          <CardContent className="flex justify-center items-center p-2 sm:p-6 w-full">
-            <div className="w-full max-w-[600px]">
-              {/* @ts-ignore */}
-              <AudiogramSVG rightData={exam.tonalData?.right || {}} leftData={exam.tonalData?.left || {}} freeFieldData={exam.freeField || {}} onPointClick={handleAudiogramClick} />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card className="overflow-hidden">
-          <CardHeader><CardTitle>Mascaramento Geral</CardTitle></CardHeader>
-          <CardContent className="pb-4">
-             <table className="w-full text-sm text-left">
-              <thead>
-                <tr>
-                  <th></th>
-                  <th className="p-2 border-b" colSpan={2}>VA</th>
-                  <th className="p-2 border-b" colSpan={2}>VO</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td className="p-2 border-b font-medium text-red-500">OD</td>
-                  <td className="p-1 border-b"><Input className="h-8 text-xs p-1" placeholder="Ex: 100 dBNB" value={exam.tonalMasking?.right?.va1 || ''} onChange={e => setExam({...exam, tonalMasking: {...exam.tonalMasking, right: {...exam.tonalMasking?.right, va1: e.target.value}}})} /></td>
-                  <td className="p-1 border-b"><Input className="h-8 text-xs p-1" value={exam.tonalMasking?.right?.va2 || ''} onChange={e => setExam({...exam, tonalMasking: {...exam.tonalMasking, right: {...exam.tonalMasking?.right, va2: e.target.value}}})} /></td>
-                  <td className="p-1 border-b"><Input className="h-8 text-xs p-1" placeholder="Ex: 100 dBNB" value={exam.tonalMasking?.right?.vo1 || ''} onChange={e => setExam({...exam, tonalMasking: {...exam.tonalMasking, right: {...exam.tonalMasking?.right, vo1: e.target.value}}})} /></td>
-                  <td className="p-1 border-b"><Input className="h-8 text-xs p-1" value={exam.tonalMasking?.right?.vo2 || ''} onChange={e => setExam({...exam, tonalMasking: {...exam.tonalMasking, right: {...exam.tonalMasking?.right, vo2: e.target.value}}})} /></td>
-                </tr>
-                <tr>
-                  <td className="p-2 border-b font-medium text-blue-500">OE</td>
-                  <td className="p-1 border-b"><Input className="h-8 text-xs p-1" placeholder="Ex: 85 dBNB" value={exam.tonalMasking?.left?.va1 || ''} onChange={e => setExam({...exam, tonalMasking: {...exam.tonalMasking, left: {...exam.tonalMasking?.left, va1: e.target.value}}})} /></td>
-                  <td className="p-1 border-b"><Input className="h-8 text-xs p-1" value={exam.tonalMasking?.left?.va2 || ''} onChange={e => setExam({...exam, tonalMasking: {...exam.tonalMasking, left: {...exam.tonalMasking?.left, va2: e.target.value}}})} /></td>
-                  <td className="p-1 border-b"><Input className="h-8 text-xs p-1" placeholder="Ex: 85 dBNB" value={exam.tonalMasking?.left?.vo1 || ''} onChange={e => setExam({...exam, tonalMasking: {...exam.tonalMasking, left: {...exam.tonalMasking?.left, vo1: e.target.value}}})} /></td>
-                  <td className="p-1 border-b"><Input className="h-8 text-xs p-1" value={exam.tonalMasking?.left?.vo2 || ''} onChange={e => setExam({...exam, tonalMasking: {...exam.tonalMasking, left: {...exam.tonalMasking?.left, vo2: e.target.value}}})} /></td>
-                </tr>
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle>Timpanograma</CardTitle>
-            <div className="flex gap-4">
-              <div className="flex flex-col gap-1 items-center">
-                <Button size="sm" variant={activeTympTool === 'OD' ? 'default' : 'outline'} onClick={() => setActiveTympTool('OD')} className="bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 border-red-200 w-12">OD</Button>
-                <Button variant="ghost" size="sm" className="h-4 text-[10px] px-1 text-red-500" onClick={() => clearTymp('right')}>Limpar</Button>
+          <CardContent className="p-4 space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Audiômetro</label>
+                <Input
+                  className="h-8 text-xs bg-white"
+                  placeholder="Ex: Interacoustics AD629 / AC40"
+                  value={exam.header?.audiometer || ''}
+                  onChange={e => setExam({ ...exam, header: { ...exam.header, audiometer: e.target.value } })}
+                />
               </div>
-              <div className="flex flex-col gap-1 items-center">
-                <Button size="sm" variant={activeTympTool === 'OE' ? 'default' : 'outline'} onClick={() => setActiveTympTool('OE')} className="bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border-blue-200 w-12">OE</Button>
-                <Button variant="ghost" size="sm" className="h-4 text-[10px] px-1 text-blue-500" onClick={() => clearTymp('left')}>Limpar</Button>
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Impedanciômetro</label>
+                <Input
+                  className="h-8 text-xs bg-white"
+                  placeholder="Ex: Interacoustics AT235"
+                  value={exam.header?.impedanciometer || ''}
+                  onChange={e => setExam({ ...exam, header: { ...exam.header, impedanciometer: e.target.value } })}
+                />
               </div>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex justify-center items-center border p-2 sm:p-4 bg-white rounded-md w-full">
-              <div className="w-full max-w-[600px]">
-                <TympanogramSVG rightData={exam.tympanometry?.right} leftData={exam.tympanometry?.left} onPointClick={handleTympanogramClick} />
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Médico Solicitante</label>
+                <Input
+                  className="h-8 text-xs bg-white"
+                  placeholder="Ex: Dr. Carlos Eduardo (CRM 12345)"
+                  value={exam.header?.requestingPhysician || ''}
+                  onChange={e => setExam({ ...exam, header: { ...exam.header, requestingPhysician: e.target.value } })}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Fonoaudiólogo(a)</label>
+                <Input
+                  className="h-8 text-xs bg-white"
+                  placeholder="Ex: Dra. Mariana Costa (CRFa 2-9876)"
+                  value={exam.header?.speechTherapist || ''}
+                  onChange={e => setExam({ ...exam, header: { ...exam.header, speechTherapist: e.target.value } })}
+                />
               </div>
             </div>
-            <div className="pb-4">
-              <table className="w-full text-sm text-left">
-                <thead>
-                <tr>
-                  <th></th>
-                  <th className="p-2 border-b text-red-500">OD</th>
-                  <th className="p-2 border-b text-blue-500">OE</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td className="p-2 border-b font-medium">Pressão do Pico (daPa)</td>
-                  <td className="p-1 border-b"><Input className="h-8 text-xs p-1" value={exam.tympanometry?.right?.peak || ''} onChange={e => setExam({...exam, tympanometry: {...exam.tympanometry, right: {...exam.tympanometry?.right, peak: e.target.value}}})} /></td>
-                  <td className="p-1 border-b"><Input className="h-8 text-xs p-1" value={exam.tympanometry?.left?.peak || ''} onChange={e => setExam({...exam, tympanometry: {...exam.tympanometry, left: {...exam.tympanometry?.left, peak: e.target.value}}})} /></td>
-                </tr>
-                <tr>
-                  <td className="p-2 border-b font-medium">Complacência (ml)</td>
-                  <td className="p-1 border-b"><Input className="h-8 text-xs p-1" value={exam.tympanometry?.right?.compliance200 || ''} onChange={e => setExam({...exam, tympanometry: {...exam.tympanometry, right: {...exam.tympanometry?.right, compliance200: e.target.value}}})} /></td>
-                  <td className="p-1 border-b"><Input className="h-8 text-xs p-1" value={exam.tympanometry?.left?.compliance200 || ''} onChange={e => setExam({...exam, tympanometry: {...exam.tympanometry, left: {...exam.tympanometry?.left, compliance200: e.target.value}}})} /></td>
-                </tr>
-                <tr>
-                  <td className="p-2 border-b font-medium">Volume Equivalente (ml)</td>
-                  <td className="p-1 border-b"><Input className="h-8 text-xs p-1" value={exam.tympanometry?.right?.volume || ''} onChange={e => setExam({...exam, tympanometry: {...exam.tympanometry, right: {...exam.tympanometry?.right, volume: e.target.value}}})} /></td>
-                  <td className="p-1 border-b"><Input className="h-8 text-xs p-1" value={exam.tympanometry?.left?.volume || ''} onChange={e => setExam({...exam, tympanometry: {...exam.tympanometry, left: {...exam.tympanometry?.left, volume: e.target.value}}})} /></td>
-                </tr>
-              </tbody>
-            </table>
-            </div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Logoaudiometria */}
-        <Card className="lg:col-span-2 overflow-hidden">
-          <CardHeader><CardTitle>Logoaudiometria</CardTitle></CardHeader>
-          <CardContent className="space-y-6 pb-4">
-            
-            {/* SRT */}
-            <div>
-              <h3 className="font-bold mb-2">SRT</h3>
-              <table className="w-full text-sm text-left border">
-                <thead>
-                  <tr className="bg-muted">
-                    <th className="p-2 border">Ouvido</th>
-                    <th className="p-2 border">dB</th>
-                    <th className="p-2 border">Mascaramento</th>
-                    <th className="p-2 border">Unid.</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="p-2 border font-medium text-red-500">OD</td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.right?.srt?.db || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, right: {...exam.logoAudiometry?.right, srt: {...exam.logoAudiometry?.right?.srt, db: e.target.value}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.right?.srt?.masking || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, right: {...exam.logoAudiometry?.right, srt: {...exam.logoAudiometry?.right?.srt, masking: e.target.value}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.right?.srt?.unit || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, right: {...exam.logoAudiometry?.right, srt: {...exam.logoAudiometry?.right?.srt, unit: e.target.value}}}})} /></td>
-                  </tr>
-                  <tr>
-                    <td className="p-2 border font-medium text-blue-500">OE</td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.left?.srt?.db || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, left: {...exam.logoAudiometry?.left, srt: {...exam.logoAudiometry?.left?.srt, db: e.target.value}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.left?.srt?.masking || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, left: {...exam.logoAudiometry?.left, srt: {...exam.logoAudiometry?.left?.srt, masking: e.target.value}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.left?.srt?.unit || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, left: {...exam.logoAudiometry?.left, srt: {...exam.logoAudiometry?.left?.srt, unit: e.target.value}}}})} /></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {/* Índice de Reconhecimento de Fala */}
-            <div className="mt-6">
-              <h3 className="font-bold mb-2">Índice de Reconhecimento de Fala</h3>
-              <table className="w-full text-sm text-left border">
-                <thead>
-                  <tr className="bg-muted">
-                    <th className="p-2 border" colSpan={2}>Ouvido / Sílaba</th>
-                    <th className="p-2 border">dB</th>
-                    <th className="p-2 border">%</th>
-                    <th className="p-2 border">Mascaramento</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* OD */}
-                  <tr>
-                    <td className="p-2 border font-medium text-red-500" rowSpan={3}>OD</td>
-                    <td className="p-2 border">Mono</td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.right?.irf?.mono?.db || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, right: {...exam.logoAudiometry?.right, irf: {...exam.logoAudiometry?.right?.irf, mono: {...exam.logoAudiometry?.right?.irf?.mono, db: e.target.value}}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.right?.irf?.mono?.percentage || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, right: {...exam.logoAudiometry?.right, irf: {...exam.logoAudiometry?.right?.irf, mono: {...exam.logoAudiometry?.right?.irf?.mono, percentage: e.target.value}}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.right?.irf?.mono?.masking || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, right: {...exam.logoAudiometry?.right, irf: {...exam.logoAudiometry?.right?.irf, mono: {...exam.logoAudiometry?.right?.irf?.mono, masking: e.target.value}}}}})} /></td>
-                  </tr>
-                  <tr>
-                    <td className="p-2 border">Dis</td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.right?.irf?.dis?.db || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, right: {...exam.logoAudiometry?.right, irf: {...exam.logoAudiometry?.right?.irf, dis: {...exam.logoAudiometry?.right?.irf?.dis, db: e.target.value}}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.right?.irf?.dis?.percentage || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, right: {...exam.logoAudiometry?.right, irf: {...exam.logoAudiometry?.right?.irf, dis: {...exam.logoAudiometry?.right?.irf?.dis, percentage: e.target.value}}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.right?.irf?.dis?.masking || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, right: {...exam.logoAudiometry?.right, irf: {...exam.logoAudiometry?.right?.irf, dis: {...exam.logoAudiometry?.right?.irf?.dis, masking: e.target.value}}}}})} /></td>
-                  </tr>
-                  <tr>
-                    <td className="p-2 border">Tris</td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.right?.irf?.tris?.db || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, right: {...exam.logoAudiometry?.right, irf: {...exam.logoAudiometry?.right?.irf, tris: {...exam.logoAudiometry?.right?.irf?.tris, db: e.target.value}}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.right?.irf?.tris?.percentage || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, right: {...exam.logoAudiometry?.right, irf: {...exam.logoAudiometry?.right?.irf, tris: {...exam.logoAudiometry?.right?.irf?.tris, percentage: e.target.value}}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.right?.irf?.tris?.masking || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, right: {...exam.logoAudiometry?.right, irf: {...exam.logoAudiometry?.right?.irf, tris: {...exam.logoAudiometry?.right?.irf?.tris, masking: e.target.value}}}}})} /></td>
-                  </tr>
-                  {/* OE */}
-                  <tr>
-                    <td className="p-2 border font-medium text-blue-500" rowSpan={3}>OE</td>
-                    <td className="p-2 border">Mono</td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.left?.irf?.mono?.db || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, left: {...exam.logoAudiometry?.left, irf: {...exam.logoAudiometry?.left?.irf, mono: {...exam.logoAudiometry?.left?.irf?.mono, db: e.target.value}}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.left?.irf?.mono?.percentage || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, left: {...exam.logoAudiometry?.left, irf: {...exam.logoAudiometry?.left?.irf, mono: {...exam.logoAudiometry?.left?.irf?.mono, percentage: e.target.value}}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.left?.irf?.mono?.masking || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, left: {...exam.logoAudiometry?.left, irf: {...exam.logoAudiometry?.left?.irf, mono: {...exam.logoAudiometry?.left?.irf?.mono, masking: e.target.value}}}}})} /></td>
-                  </tr>
-                  <tr>
-                    <td className="p-2 border">Dis</td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.left?.irf?.dis?.db || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, left: {...exam.logoAudiometry?.left, irf: {...exam.logoAudiometry?.left?.irf, dis: {...exam.logoAudiometry?.left?.irf?.dis, db: e.target.value}}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.left?.irf?.dis?.percentage || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, left: {...exam.logoAudiometry?.left, irf: {...exam.logoAudiometry?.left?.irf, dis: {...exam.logoAudiometry?.left?.irf?.dis, percentage: e.target.value}}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.left?.irf?.dis?.masking || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, left: {...exam.logoAudiometry?.left, irf: {...exam.logoAudiometry?.left?.irf, dis: {...exam.logoAudiometry?.left?.irf?.dis, masking: e.target.value}}}}})} /></td>
-                  </tr>
-                  <tr>
-                    <td className="p-2 border">Tris</td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.left?.irf?.tris?.db || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, left: {...exam.logoAudiometry?.left, irf: {...exam.logoAudiometry?.left?.irf, tris: {...exam.logoAudiometry?.left?.irf?.tris, db: e.target.value}}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.left?.irf?.tris?.percentage || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, left: {...exam.logoAudiometry?.left, irf: {...exam.logoAudiometry?.left?.irf, tris: {...exam.logoAudiometry?.left?.irf?.tris, percentage: e.target.value}}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.left?.irf?.tris?.masking || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, left: {...exam.logoAudiometry?.left, irf: {...exam.logoAudiometry?.left?.irf, tris: {...exam.logoAudiometry?.left?.irf?.tris, masking: e.target.value}}}}})} /></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {/* Detecção de Voz */}
-            <div className="mt-6">
-              <h3 className="font-bold mb-2">Detecção de Voz</h3>
-              <table className="w-full text-sm text-left border">
-                <thead>
-                  <tr className="bg-muted">
-                    <th className="p-2 border">Ouvido</th>
-                    <th className="p-2 border">dB</th>
-                    <th className="p-2 border">Mascaramento</th>
-                    <th className="p-2 border">Unid.</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="p-2 border font-medium text-red-500">OD</td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.right?.voiceDetection?.db || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, right: {...exam.logoAudiometry?.right, voiceDetection: {...exam.logoAudiometry?.right?.voiceDetection, db: e.target.value}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.right?.voiceDetection?.masking || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, right: {...exam.logoAudiometry?.right, voiceDetection: {...exam.logoAudiometry?.right?.voiceDetection, masking: e.target.value}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.right?.voiceDetection?.unit || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, right: {...exam.logoAudiometry?.right, voiceDetection: {...exam.logoAudiometry?.right?.voiceDetection, unit: e.target.value}}}})} /></td>
-                  </tr>
-                  <tr>
-                    <td className="p-2 border font-medium text-blue-500">OE</td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.left?.voiceDetection?.db || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, left: {...exam.logoAudiometry?.left, voiceDetection: {...exam.logoAudiometry?.left?.voiceDetection, db: e.target.value}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.left?.voiceDetection?.masking || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, left: {...exam.logoAudiometry?.left, voiceDetection: {...exam.logoAudiometry?.left?.voiceDetection, masking: e.target.value}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1" value={exam.logoAudiometry?.left?.voiceDetection?.unit || ''} onChange={e => setExam({...exam, logoAudiometry: {...exam.logoAudiometry, left: {...exam.logoAudiometry?.left, voiceDetection: {...exam.logoAudiometry?.left?.voiceDetection, unit: e.target.value}}}})} /></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-          </CardContent>
-        </Card>
-
-        {/* Reflexo Estapediano */}
-        <Card className="lg:col-span-2 overflow-hidden">
-          <CardHeader><CardTitle>Reflexo Estapediano</CardTitle></CardHeader>
-          <CardContent className="pb-4">
-             <table className="w-full text-sm text-left border">
-              <thead>
-                <tr className="bg-muted">
-                  <th className="p-2 border" rowSpan={2}>Hz</th>
-                  <th className="p-2 border text-red-500 font-bold text-center" colSpan={5}>Ouvido Direito</th>
-                  <th className="p-2 border text-blue-500 font-bold text-center" colSpan={5}>Ouvido Esquerdo</th>
-                </tr>
-                <tr className="bg-muted">
-                  <th className="p-2 border text-xs">Limiar</th>
-                  <th className="p-2 border text-xs">Ref. Contra</th>
-                  <th className="p-2 border text-xs">Dif</th>
-                  <th className="p-2 border text-xs">Ref. Ipsi</th>
-                  <th className="p-2 border text-xs">Decay</th>
-                  
-                  <th className="p-2 border text-xs">Limiar</th>
-                  <th className="p-2 border text-xs">Ref. Contra</th>
-                  <th className="p-2 border text-xs">Dif</th>
-                  <th className="p-2 border text-xs">Ref. Ipsi</th>
-                  <th className="p-2 border text-xs">Decay</th>
-                </tr>
-              </thead>
-              <tbody>
-                {REFLEX_FREQS.map(freq => (
-                  <tr key={`reflex-${freq}`}>
-                    <td className="p-2 border font-medium">{freq}</td>
-                    
-                    {/* OD */}
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1 w-16" value={exam.reflexes?.right?.[freq]?.limiar || ''} onChange={e => setExam({...exam, reflexes: {...exam.reflexes, right: {...exam.reflexes?.right, [freq]: {...exam.reflexes?.right?.[freq], limiar: e.target.value}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1 w-20" value={exam.reflexes?.right?.[freq]?.contra || ''} onChange={e => setExam({...exam, reflexes: {...exam.reflexes, right: {...exam.reflexes?.right, [freq]: {...exam.reflexes?.right?.[freq], contra: e.target.value}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1 w-12" value={exam.reflexes?.right?.[freq]?.dif || ''} onChange={e => setExam({...exam, reflexes: {...exam.reflexes, right: {...exam.reflexes?.right, [freq]: {...exam.reflexes?.right?.[freq], dif: e.target.value}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1 w-20" value={exam.reflexes?.right?.[freq]?.ipsi || ''} onChange={e => setExam({...exam, reflexes: {...exam.reflexes, right: {...exam.reflexes?.right, [freq]: {...exam.reflexes?.right?.[freq], ipsi: e.target.value}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1 w-16" value={exam.reflexes?.right?.[freq]?.decay || ''} onChange={e => setExam({...exam, reflexes: {...exam.reflexes, right: {...exam.reflexes?.right, [freq]: {...exam.reflexes?.right?.[freq], decay: e.target.value}}}})} /></td>
-                    
-                    {/* OE */}
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1 w-16" value={exam.reflexes?.left?.[freq]?.limiar || ''} onChange={e => setExam({...exam, reflexes: {...exam.reflexes, left: {...exam.reflexes?.left, [freq]: {...exam.reflexes?.left?.[freq], limiar: e.target.value}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1 w-20" value={exam.reflexes?.left?.[freq]?.contra || ''} onChange={e => setExam({...exam, reflexes: {...exam.reflexes, left: {...exam.reflexes?.left, [freq]: {...exam.reflexes?.left?.[freq], contra: e.target.value}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1 w-12" value={exam.reflexes?.left?.[freq]?.dif || ''} onChange={e => setExam({...exam, reflexes: {...exam.reflexes, left: {...exam.reflexes?.left, [freq]: {...exam.reflexes?.left?.[freq], dif: e.target.value}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1 w-20" value={exam.reflexes?.left?.[freq]?.ipsi || ''} onChange={e => setExam({...exam, reflexes: {...exam.reflexes, left: {...exam.reflexes?.left, [freq]: {...exam.reflexes?.left?.[freq], ipsi: e.target.value}}}})} /></td>
-                    <td className="p-1 border"><Input className="h-8 text-xs p-1 w-16" value={exam.reflexes?.left?.[freq]?.decay || ''} onChange={e => setExam({...exam, reflexes: {...exam.reflexes, left: {...exam.reflexes?.left, [freq]: {...exam.reflexes?.left?.[freq], decay: e.target.value}}}})} /></td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td colSpan={6} className="p-2 border">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-xs">Sonda no Esquerdo:</span>
-                      <Input className="h-8 text-xs flex-1" value={exam.reflexes?.sondaOE || ''} onChange={e => setExam({...exam, reflexes: {...exam.reflexes, sondaOE: e.target.value}})} />
-                    </div>
-                  </td>
-                  <td colSpan={5} className="p-2 border">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-xs">Sonda no Direito:</span>
-                      <Input className="h-8 text-xs flex-1" value={exam.reflexes?.sondaOD || ''} onChange={e => setExam({...exam, reflexes: {...exam.reflexes, sondaOD: e.target.value}})} />
-                    </div>
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </CardContent>
-        </Card>
+      {/* Navegação de Abas Rápidas */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-200">
+        <button
+          type="button"
+          onClick={() => setActiveTab('all')}
+          className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+            activeTab === 'all'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          Visão Completa (Todos)
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('meatoscopy')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+            activeTab === 'meatoscopy'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Eye className="w-3.5 h-3.5" /> 1. Meatoscopia
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('tonal')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+            activeTab === 'tonal'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Activity className="w-3.5 h-3.5" /> 2. Audiometria Tonal
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('logo')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+            activeTab === 'logo'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <MessageSquare className="w-3.5 h-3.5" /> 3. Logoaudiometria
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('tymp')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+            activeTab === 'tymp'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5" /> 4. Timpanometria
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('reflex')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+            activeTab === 'reflex'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Zap className="w-3.5 h-3.5" /> 5. Reflexos Estapedianos
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('complementary')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+            activeTab === 'complementary'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Layers className="w-3.5 h-3.5" /> 6. Testes Especiais
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('opinion')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+            activeTab === 'opinion'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <ClipboardList className="w-3.5 h-3.5" /> 7. Parecer e Laudo
+        </button>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle>Inspeção do Conduto Auditivo</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-red-500">Orelha Direita (OD)</label>
-              <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={exam.meatoscopy?.right || ''}
-                onChange={e => setExam({...exam, meatoscopy: {...exam.meatoscopy, right: e.target.value as any}})}>
-                <option value="">Selecione...</option>
-                <option value="normal">Normal</option>
-                <option value="cerumen">Presença de Cerúmen</option>
-                <option value="foreign_body">Corpo Estranho</option>
-                <option value="perforation">Perfuração</option>
-                <option value="other">Outro</option>
-              </select>
-              <Input placeholder="Descrição adicional (OD)" value={exam.meatoscopy?.rightDescription || ''} onChange={e => setExam({...exam, meatoscopy: {...exam.meatoscopy, rightDescription: e.target.value}})} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-blue-500">Orelha Esquerda (OE)</label>
-              <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={exam.meatoscopy?.left || ''}
-                onChange={e => setExam({...exam, meatoscopy: {...exam.meatoscopy, left: e.target.value as any}})}>
-                <option value="">Selecione...</option>
-                <option value="normal">Normal</option>
-                <option value="cerumen">Presença de Cerúmen</option>
-                <option value="foreign_body">Corpo Estranho</option>
-                <option value="perforation">Perfuração</option>
-                <option value="other">Outro</option>
-              </select>
-              <Input placeholder="Descrição adicional (OE)" value={exam.meatoscopy?.leftDescription || ''} onChange={e => setExam({...exam, meatoscopy: {...exam.meatoscopy, leftDescription: e.target.value}})} />
-            </div>
-            <div className="flex items-center gap-2 mt-4">
-              <input type="checkbox" id="referENT" checked={exam.meatoscopy?.referToENT || false} onChange={e => setExam({...exam, meatoscopy: {...exam.meatoscopy, referToENT: e.target.checked}})} className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
-              <label htmlFor="referENT" className="text-sm font-medium cursor-pointer">Encaminhar para Otorrinolaringologista</label>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader><CardTitle>Testes Complementares</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Weber</label>
-              <Input placeholder="Ex: Indiferente, Lateralizado para direita..." value={exam.complementary?.weber || ''} onChange={e => setExam({...exam, complementary: {...exam.complementary, weber: e.target.value}})} />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Tone Decay</label>
-              <Input placeholder="Ex: Negativo" value={exam.complementary?.toneDecay || ''} onChange={e => setExam({...exam, complementary: {...exam.complementary, toneDecay: e.target.value}})} />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6">
-        <Card>
-          <CardHeader><CardTitle>Parecer Audiológico (Classificação)</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-4 border border-slate-200 p-4 rounded-md">
-                   <h4 className="font-bold text-red-500">Orelha Direita</h4>
-                   <div className="space-y-2">
-                     <label className="text-xs font-medium">Tipo de Perda</label>
-                     <Input placeholder="Ex: Neurossensorial" value={exam.opinion?.lossTypeRight || ''} onChange={e => setExam({...exam, opinion: {...exam.opinion, lossTypeRight: e.target.value}})} />
-                   </div>
-                   <div className="space-y-2">
-                     <label className="text-xs font-medium">Grau de Perda</label>
-                     <Input placeholder="Ex: Leve" value={exam.opinion?.lossDegreeRight || ''} onChange={e => setExam({...exam, opinion: {...exam.opinion, lossDegreeRight: e.target.value}})} />
-                   </div>
-                   <div className="space-y-2">
-                     <label className="text-xs font-medium">Configuração</label>
-                     <Input placeholder="Ex: Descendente" value={exam.opinion?.configurationRight || ''} onChange={e => setExam({...exam, opinion: {...exam.opinion, configurationRight: e.target.value}})} />
-                   </div>
-                </div>
-                <div className="space-y-4 border border-slate-200 p-4 rounded-md">
-                   <h4 className="font-bold text-blue-500">Orelha Esquerda</h4>
-                   <div className="space-y-2">
-                     <label className="text-xs font-medium">Tipo de Perda</label>
-                     <Input placeholder="Ex: Condutiva" value={exam.opinion?.lossTypeLeft || ''} onChange={e => setExam({...exam, opinion: {...exam.opinion, lossTypeLeft: e.target.value}})} />
-                   </div>
-                   <div className="space-y-2">
-                     <label className="text-xs font-medium">Grau de Perda</label>
-                     <Input placeholder="Ex: Moderado" value={exam.opinion?.lossDegreeLeft || ''} onChange={e => setExam({...exam, opinion: {...exam.opinion, lossDegreeLeft: e.target.value}})} />
-                   </div>
-                   <div className="space-y-2">
-                     <label className="text-xs font-medium">Configuração</label>
-                     <Input placeholder="Ex: Plana" value={exam.opinion?.configurationLeft || ''} onChange={e => setExam({...exam, opinion: {...exam.opinion, configurationLeft: e.target.value}})} />
-                   </div>
-                </div>
-             </div>
-             <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
-               <label className="text-sm font-medium">Classificação Clínica Geral</label>
-               <Input placeholder="Ex: Audição dentro dos padrões de normalidade" value={exam.opinion?.clinical || ''} onChange={e => setExam({...exam, opinion: {...exam.opinion, clinical: e.target.value}})} />
-             </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6">
-        <Card>
-          <CardHeader><CardTitle>Resultado / Conduta</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <textarea 
-              className="flex min-h-[150px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              placeholder="Digite o parecer final aqui..."
-              value={exam.resultAndConduct || ''}
-              onChange={e => setExam({...exam, resultAndConduct: e.target.value})}
+      {/* Componentes Modulares de Exame */}
+      <div className="space-y-8">
+        {/* 1. Meatoscopia */}
+        {(activeTab === 'all' || activeTab === 'meatoscopy') && (
+          <section id="sec-meatoscopy">
+            <MeatoscopyExam
+              meatoscopy={exam.meatoscopy}
+              onChange={data => setExam({ ...exam, meatoscopy: data })}
             />
-          </CardContent>
-        </Card>
+          </section>
+        )}
+
+        {/* 2. Audiometria Tonal Liminar */}
+        {(activeTab === 'all' || activeTab === 'tonal') && (
+          <section id="sec-tonal">
+            <TonalAudiometryExam
+              tonalData={exam.tonalData || { right: {}, left: {} }}
+              tonalMasking={exam.tonalMasking}
+              freeField={exam.freeField}
+              category={exam.examCategory}
+              standard={standard}
+              onChangeTonal={data => setExam({ ...exam, tonalData: data })}
+              onChangeMasking={data => setExam({ ...exam, tonalMasking: data })}
+              onChangeFreeField={data => setExam({ ...exam, freeField: data })}
+            />
+          </section>
+        )}
+
+        {/* 3. Logoaudiometria */}
+        {(activeTab === 'all' || activeTab === 'logo') && (
+          <section id="sec-logo">
+            <LogoAudiometryExam
+              logoData={
+                exam.logoAudiometry || {
+                  right: { srt: {}, irf: { mono: {}, dis: {}, tris: {} }, voiceDetection: {} },
+                  left: { srt: {}, irf: { mono: {}, dis: {}, tris: {} }, voiceDetection: {} }
+                }
+              }
+              tonalData={exam.tonalData}
+              onChange={data => setExam({ ...exam, logoAudiometry: data })}
+            />
+          </section>
+        )}
+
+        {/* 4. Timpanometria */}
+        {(activeTab === 'all' || activeTab === 'tymp') && (
+          <section id="sec-tymp">
+            <TympanometryExam
+              tympanometry={exam.tympanometry || { right: {}, left: {} }}
+              onChange={data => setExam({ ...exam, tympanometry: data })}
+            />
+          </section>
+        )}
+
+        {/* 5. Reflexos Estapedianos */}
+        {(activeTab === 'all' || activeTab === 'reflex') && (
+          <section id="sec-reflex">
+            <StapedialReflexExam
+              reflexes={exam.reflexes || { right: {}, left: {}, sondaOD: '', sondaOE: '' }}
+              tonalData={exam.tonalData}
+              onChange={data => setExam({ ...exam, reflexes: data })}
+            />
+          </section>
+        )}
+
+        {/* 6. Testes Complementares */}
+        {(activeTab === 'all' || activeTab === 'complementary') && (
+          <section id="sec-complementary">
+            <ComplementaryTestsExam
+              complementary={exam.complementary}
+              tonalData={exam.tonalData}
+              onChange={data => setExam({ ...exam, complementary: data })}
+            />
+          </section>
+        )}
+
+        {/* 7. Parecer Fonoaudiológico & Laudo */}
+        {(activeTab === 'all' || activeTab === 'opinion') && (
+          <section id="sec-opinion">
+            <AudiologicalOpinionSummary
+              opinion={exam.opinion}
+              resultAndConduct={exam.resultAndConduct || ''}
+              standard={standard}
+              onStandardChange={std => setStandard(std)}
+              onChangeOpinion={op => setExam({ ...exam, opinion: op })}
+              onChangeConduct={text => setExam({ ...exam, resultAndConduct: text })}
+              examData={{
+                tonalData: exam.tonalData || { right: {}, left: {} },
+                logoAudiometry: exam.logoAudiometry || {
+                  right: { srt: {}, irf: { mono: {}, dis: {}, tris: {} }, voiceDetection: {} },
+                  left: { srt: {}, irf: { mono: {}, dis: {}, tris: {} }, voiceDetection: {} }
+                },
+                tympanometry: exam.tympanometry || { right: {}, left: {} },
+                meatoscopy: exam.meatoscopy,
+                complementary: exam.complementary,
+                examCategory: exam.examCategory
+              }}
+            />
+          </section>
+        )}
       </div>
 
-      <div className="flex justify-end pt-4 pb-8">
+      {/* Botões de Ação Inferiores (Desktop) */}
+      <div className="hidden lg:flex justify-end pt-4 border-t border-slate-200">
         <ActionButtons />
       </div>
 
+      {/* Barra Flutuante de Ação no Mobile */}
+      <div className="fixed bottom-0 left-0 right-0 p-3 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-lg z-30 flex lg:hidden items-center justify-between gap-2">
+        <Link to="/exames" className="shrink-0">
+          <Button variant="outline" size="sm" className="h-10 px-3 rounded-xl border-slate-300">
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+        </Link>
+        <Button
+          variant="outline"
+          onClick={() => setIsPdfModalOpen(true)}
+          className="flex-1 gap-1.5 rounded-xl border-red-200 bg-red-50/50 text-red-700 font-bold h-10 text-xs shadow-xs"
+        >
+          <FileText className="w-4 h-4 text-red-500" /> PDF Oficial
+        </Button>
+        <Button
+          onClick={handleSave}
+          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 rounded-xl h-10 text-xs shadow-md shadow-emerald-500/20"
+        >
+          <Save className="w-4 h-4" /> Salvar
+        </Button>
+      </div>
+
+      {/* Modal de Personalização e Auto-detecção de Exames para PDF */}
+      {selectedPatient && getExamData() && (
+        <ExportPdfModal
+          isOpen={isPdfModalOpen}
+          onClose={() => setIsPdfModalOpen(false)}
+          exam={getExamData()!}
+          patient={selectedPatient}
+        />
+      )}
     </div>
   );
 }

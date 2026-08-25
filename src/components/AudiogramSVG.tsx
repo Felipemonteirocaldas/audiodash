@@ -49,12 +49,11 @@ const getDbFromY = (y: number): number => {
 };
 
 export default function AudiogramSVG({ rightData, leftData, baselineRightData, baselineLeftData, freeFieldData, onPointClick }: Props) {
-  
-  const handleSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
+  const processCoordinates = (clientX: number, clientY: number, currentTarget: SVGSVGElement) => {
     if (!onPointClick) return;
-    const svgRect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - svgRect.left;
-    const y = e.clientY - svgRect.top;
+    const svgRect = currentTarget.getBoundingClientRect();
+    const x = clientX - svgRect.left;
+    const y = clientY - svgRect.top;
 
     // Scale to viewBox
     const scaleX = WIDTH / svgRect.width;
@@ -64,12 +63,22 @@ export default function AudiogramSVG({ rightData, leftData, baselineRightData, b
     const svgY = y * scaleY;
 
     // Don't click out of bounds
-    if (svgX < MARGIN.left - 20 || svgX > WIDTH - MARGIN.right + 20) return;
-    if (svgY < MARGIN.top - 20 || svgY > HEIGHT - MARGIN.bottom + 20) return;
+    if (svgX < MARGIN.left - 40 || svgX > WIDTH - MARGIN.right + 40) return;
+    if (svgY < MARGIN.top - 40 || svgY > HEIGHT - MARGIN.bottom + 40) return;
 
     const freq = getFreqFromX(svgX);
     const db = getDbFromY(svgY);
     onPointClick(freq, db);
+  };
+
+  const handleSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    processCoordinates(e.clientX, e.clientY, e.currentTarget);
+  };
+
+  const handleSvgTouch = (e: React.TouchEvent<SVGSVGElement>) => {
+    if (e.changedTouches && e.changedTouches[0]) {
+      processCoordinates(e.changedTouches[0].clientX, e.changedTouches[0].clientY, e.currentTarget);
+    }
   };
 
   const renderGrid = () => {
@@ -240,9 +249,13 @@ export default function AudiogramSVG({ rightData, leftData, baselineRightData, b
       id="audiogram-svg" 
       xmlns="http://www.w3.org/2000/svg" 
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`} 
-      className={`w-full max-w-full bg-white border rounded-md ${onPointClick ? 'cursor-crosshair' : ''}`}
+      className={`w-full max-w-full bg-white border rounded-md select-none ${onPointClick ? 'cursor-crosshair' : ''}`}
+      style={{ touchAction: 'manipulation' }}
       onClick={handleSvgClick}
+      onTouchEnd={handleSvgTouch}
     >
+      {/* Background click hitbox */}
+      <rect x="0" y="0" width={WIDTH} height={HEIGHT} fill="#ffffff" />
       <text x={WIDTH / 2} y={MARGIN.top - 25} textAnchor="middle" fontSize="14" fontWeight="bold" style={{ pointerEvents: 'none' }}>Frequência (Hz)</text>
       <text x={15} y={HEIGHT / 2} textAnchor="middle" fontSize="14" fontWeight="bold" transform={`rotate(-90, 15, ${HEIGHT/2})`} style={{ pointerEvents: 'none' }}>Intensidade (dB HL)</text>
       

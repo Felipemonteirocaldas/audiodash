@@ -50,10 +50,10 @@ export const exportToExcelJs = async (exam: Audiometry, patient: Patient) => {
 
   FREQUENCIES.forEach((f, idx) => {
     const row = 10 + idx;
-    sheet.cell(`B${row}`).value(parseVal(exam.tonalData.right[f]?.va));
-    sheet.cell(`C${row}`).value(parseVal(exam.tonalData.right[f]?.vo));
-    sheet.cell(`D${row}`).value(parseVal(exam.tonalData.left[f]?.va));
-    sheet.cell(`E${row}`).value(parseVal(exam.tonalData.left[f]?.vo));
+    sheet.cell(`B${row}`).value(parseVal(exam.tonalData?.right?.[f]?.va));
+    sheet.cell(`C${row}`).value(parseVal(exam.tonalData?.right?.[f]?.vo));
+    sheet.cell(`D${row}`).value(parseVal(exam.tonalData?.left?.[f]?.va));
+    sheet.cell(`E${row}`).value(parseVal(exam.tonalData?.left?.[f]?.vo));
   });
   
   // Center all values in the table

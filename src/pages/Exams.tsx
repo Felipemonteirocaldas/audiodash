@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import Fuse from 'fuse.js';
 import { Search, Plus, FileText, Activity, Users, CheckCircle2, Download } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { exportToPdf } from '@/lib/exportPdf';
+import { Audiometry, Patient } from '@/db/db';
+import ExportPdfModal from '@/components/ExportPdfModal';
 
 export default function Exams() {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ export default function Exams() {
   const [selectedExams, setSelectedExams] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [pdfModalData, setPdfModalData] = useState<{ exam: Audiometry; patient: Patient } | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
 
   const allExams = useLiveQuery(() => db.audiometries.orderBy('examDate').reverse().toArray(), []);
@@ -196,10 +198,10 @@ export default function Exams() {
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        onClick={async () => {
+                        onClick={() => {
                           const patient = allPatients?.find(p => p.id === selectedPatientId);
                           if (patient) {
-                            await exportToPdf(exam, patient);
+                            setPdfModalData({ exam, patient });
                           }
                         }}
                         className="gap-2 bg-white text-red-600 hover:bg-red-50 border-red-200"
@@ -233,6 +235,16 @@ export default function Exams() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Modal de Personalização e Auto-detecção de Exames para PDF */}
+      {pdfModalData && (
+        <ExportPdfModal
+          isOpen={!!pdfModalData}
+          onClose={() => setPdfModalData(null)}
+          exam={pdfModalData.exam}
+          patient={pdfModalData.patient}
+        />
       )}
     </div>
   );

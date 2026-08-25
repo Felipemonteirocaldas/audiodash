@@ -132,7 +132,32 @@ export interface Meatoscopy {
 // Complementary Tests
 export interface ComplementaryTests {
   weber?: string;
+  weberFreqs?: {
+    '500'?: 'indiferente' | 'od' | 'oe' | '';
+    '1000'?: 'indiferente' | 'od' | 'oe' | '';
+    '2000'?: 'indiferente' | 'od' | 'oe' | '';
+    '4000'?: 'indiferente' | 'od' | 'oe' | '';
+  };
   toneDecay?: string;
+  toneDecayDetails?: {
+    right?: string;
+    left?: string;
+  };
+  sisi?: {
+    right?: string;
+    left?: string;
+  };
+  eoa?: {
+    right?: 'presente' | 'ausente' | 'parcial' | '';
+    left?: 'presente' | 'ausente' | 'parcial' | '';
+    type?: 'transiente' | 'distorcao' | '';
+    notes?: string;
+  };
+  bera?: {
+    right?: string;
+    left?: string;
+    notes?: string;
+  };
 }
 
 // Audiological Opinion (Parecer)

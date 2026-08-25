@@ -42,11 +42,11 @@ export default function TympanogramSVG({ rightData, leftData, onPointClick }: Ty
     return Math.max(0, Math.min(1.4, Math.round(c * 10) / 10));
   };
 
-  const handleSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
+  const processCoordinates = (clientX: number, clientY: number, currentTarget: SVGSVGElement) => {
     if (!onPointClick) return;
-    const svgRect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - svgRect.left;
-    const y = e.clientY - svgRect.top;
+    const svgRect = currentTarget.getBoundingClientRect();
+    const x = clientX - svgRect.left;
+    const y = clientY - svgRect.top;
 
     // Scale to viewBox (500x350)
     const scaleX = 500 / svgRect.width;
@@ -68,17 +68,32 @@ export default function TympanogramSVG({ rightData, leftData, onPointClick }: Ty
     onPointClick(pressure, compliance);
   };
 
+  const handleSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    processCoordinates(e.clientX, e.clientY, e.currentTarget);
+  };
+
+  const handleSvgTouch = (e: React.TouchEvent<SVGSVGElement>) => {
+    if (e.changedTouches && e.changedTouches[0]) {
+      processCoordinates(e.changedTouches[0].clientX, e.changedTouches[0].clientY, e.currentTarget);
+    }
+  };
+
   const renderPeak = (data: TympanometryData | undefined, color: string, isRight: boolean) => {
     if (!data) return null;
     
+    // Se ambos peak e compliance estiverem vazios ou indefinidos, não renderiza
+    if ((data.peak === undefined || data.peak === '') && (data.compliance200 === undefined || data.compliance200 === '')) {
+      return null;
+    }
+    
     // Convert comma to dot for Brazilian inputs
-    const pStr = String(data.peak || '0').replace(',', '.');
-    const cStr = String(data.compliance200 || '0').replace(',', '.');
+    const pStr = String(data.peak ?? '0').replace(',', '.');
+    const cStr = String(data.compliance200 ?? '0').replace(',', '.');
     
     const pressure = parseFloat(pStr);
     const compliance = parseFloat(cStr);
     
-    if (isNaN(pressure) || isNaN(compliance) || (data.peak === undefined && data.compliance200 === undefined)) return null;
+    if (isNaN(pressure) || isNaN(compliance)) return null;
 
     const x = getX(pressure);
     const y = getY(compliance);
@@ -93,15 +108,15 @@ export default function TympanogramSVG({ rightData, leftData, onPointClick }: Ty
         <path 
           d={`M ${startX} ${baseY} C ${(startX + x) / 2} ${baseY}, ${(startX + x) / 2} ${y}, ${x} ${y} C ${(x + endX) / 2} ${y}, ${(x + endX) / 2} ${baseY}, ${endX} ${baseY}`} 
           stroke={color} 
-          strokeWidth="2" 
+          strokeWidth="2.5" 
           fill="none" 
-          opacity="0.8" 
+          opacity="0.85" 
           strokeDasharray={isRight ? "" : "5,5"} 
         />
         {isRight ? (
-          <circle cx={x} cy={y} r="4" fill="none" stroke={color} strokeWidth="2" />
+          <circle cx={x} cy={y} r="5" fill="none" stroke={color} strokeWidth="2.5" />
         ) : (
-          <path d={`M ${x-4} ${y-4} L ${x+4} ${y+4} M ${x+4} ${y-4} L ${x-4} ${y+4}`} stroke={color} strokeWidth="2" fill="none" />
+          <path d={`M ${x-5} ${y-5} L ${x+5} ${y+5} M ${x+5} ${y-5} L ${x-5} ${y+5}`} stroke={color} strokeWidth="2.5" fill="none" />
         )}
       </g>
     );
@@ -110,9 +125,10 @@ export default function TympanogramSVG({ rightData, leftData, onPointClick }: Ty
   return (
     <svg 
       viewBox="0 0 500 350" 
-      className={`w-full max-w-[400px] ${onPointClick ? 'cursor-crosshair' : ''}`} 
-      style={{ backgroundColor: 'white' }}
+      className={`w-full max-w-[400px] select-none ${onPointClick ? 'cursor-crosshair' : ''}`} 
+      style={{ backgroundColor: 'white', touchAction: 'manipulation' }}
       onClick={handleSvgClick}
+      onTouchEnd={handleSvgTouch}
     >
       {/* Title */}
       <text x="230" y="20" textAnchor="middle" fontSize="14" fontWeight="bold" style={{ pointerEvents: 'none' }}>Timpanograma</text>
@@ -128,6 +144,30 @@ export default function TympanogramSVG({ rightData, leftData, onPointClick }: Ty
           const x = (360 / 8) * i;
           return <line key={`v-${i}`} x1={x} y1="0" x2={x} y2="260" stroke="#e5e7eb" strokeWidth="1" />;
         })}
+
+        {/* Shaded Jerger Type A Normal Box */}
+        <rect 
+          x={getX(-100)} 
+          y={getY(1.4)} 
+          width={getX(100) - getX(-100)} 
+          height={getY(0.3) - getY(1.4)} 
+          fill="#10b981" 
+          fillOpacity="0.08" 
+          stroke="#10b981" 
+          strokeWidth="1" 
+          strokeDasharray="2,2" 
+        />
+        <text 
+          x={(getX(-100) + getX(100)) / 2} 
+          y={getY(1.4) + 12} 
+          textAnchor="middle" 
+          fontSize="9" 
+          fill="#059669" 
+          fontWeight="bold" 
+          style={{ pointerEvents: 'none' }}
+        >
+          Zona Normal (Tipo A)
+        </text>
 
         {/* Axes */}
         <line x1="0" y1="260" x2="360" y2="260" stroke="black" strokeWidth="1.5" />
