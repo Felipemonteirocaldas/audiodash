@@ -676,8 +676,8 @@ export default function Agenda() {
     if (proceed) {
       // Sync deletion to external calendars first
       await syncAppointmentDeleted(id);
-      await db.appointments.delete(id);
-      showSyncToast('✓ Removido dos calendários conectados');
+      await syncManager.deleteRecord('appointments', id);
+      showSyncToast('✓ Agendamento excluído');
     }
   };
 

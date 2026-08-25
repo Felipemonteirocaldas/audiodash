@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search, Plus, FileText, Activity, Edit, Trash2, Calendar, X, MessageCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { supabase, isConfigured } from '@/lib/supabase';
 import { customAlert } from '@/lib/dialogs';
 import { syncManager } from '@/lib/syncManager';
 import { useAuth } from '@/contexts/AuthContext';
@@ -151,24 +150,29 @@ export default function Patients() {
       return;
     }
     try {
-      await db.patients.delete(editingPatientId);
-      
       const exams = await db.audiometries.where('patientId').equals(editingPatientId).toArray();
       for (const exam of exams) {
-        await db.audiometries.delete(exam.id);
+        await syncManager.deleteRecord('audiometries', exam.id);
       }
       
-      if (isConfigured && supabase) {
-        await supabase.from('patients').delete().eq('id', editingPatientId);
-        await supabase.from('audiometries').delete().eq('patientId', editingPatientId);
+      const anamneses = await db.anamneses.where('patientId').equals(editingPatientId).toArray();
+      for (const anam of anamneses) {
+        await syncManager.deleteRecord('anamneses', anam.id);
       }
+
+      const appointments = await db.appointments.where('patientId').equals(editingPatientId).toArray();
+      for (const app of appointments) {
+        await syncManager.deleteRecord('appointments', app.id);
+      }
+
+      await syncManager.deleteRecord('patients', editingPatientId);
       
       setIsDeleteDialogOpen(false);
       setDeleteConfirmationText('');
       setIsFormOpen(false);
       setEditingPatientId(null);
       setNewPatient({ name: '', cpf: '', birthDate: '', gender: '', occupation: '', phone: '', notes: '' });
-      syncManager.sync();
+      await customAlert("Paciente e todos os seus registros foram excluídos com sucesso.");
     } catch (err) {
       await customAlert("Erro ao excluir paciente.");
     }
