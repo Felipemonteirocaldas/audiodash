@@ -528,9 +528,12 @@ export default function NewExam() {
                   left: { srt: {}, irf: { mono: {}, dis: {}, tris: {} }, voiceDetection: {} }
                 },
                 tympanometry: exam.tympanometry || { right: {}, left: {} },
+                reflexes: exam.reflexes || { right: {}, left: {} },
                 meatoscopy: exam.meatoscopy,
                 complementary: exam.complementary,
-                examCategory: exam.examCategory
+                examCategory: exam.examCategory,
+                patientName: selectedPatient?.name,
+                patientAge: patientAge
               }}
             />
           </section>
