@@ -33,6 +33,7 @@ export interface Appointment {
   id: string;
   patientName: string;
   patientId?: string; // Optional link to a registered patient
+  phone?: string; // WhatsApp / Phone for direct reminders
   date: string; // YYYY-MM-DD
   time: string; // HH:mm
   type: string; // Type of exam/consultation

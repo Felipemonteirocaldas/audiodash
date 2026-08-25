@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, Patient } from '@/db/db';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Plus, FileText, Activity, Edit, Trash2, Calendar, X } from 'lucide-react';
+import { Search, Plus, FileText, Activity, Edit, Trash2, Calendar, X, MessageCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase, isConfigured } from '@/lib/supabase';
 import { customAlert } from '@/lib/dialogs';
@@ -58,18 +58,62 @@ export default function Patients() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
   const [viewingAppointmentsFor, setViewingAppointmentsFor] = useState<Patient | null>(null);
+  const [patientFilter, setPatientFilter] = useState<'all' | 'with_exams' | 'no_exams'>('all');
 
   const patients = useLiveQuery(
-    () => db.patients
-            .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.cpf.includes(searchTerm))
-            .reverse()
-            .toArray(),
+    () =>
+      db.patients
+        .filter((p) => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.cpf.includes(searchTerm))
+        .reverse()
+        .toArray(),
     [searchTerm]
   );
 
   const allExams = useLiveQuery(() => db.audiometries.toArray(), []);
   const allAnamneses = useLiveQuery(() => db.anamneses.toArray(), []);
   const allAppointments = useLiveQuery(() => db.appointments.toArray(), []);
+
+  const filteredPatients = useMemo(() => {
+    if (!patients) return [];
+    if (patientFilter === 'with_exams') {
+      return patients.filter((p) => allExams?.some((e) => e.patientId === p.id));
+    }
+    if (patientFilter === 'no_exams') {
+      return patients.filter((p) => !allExams?.some((e) => e.patientId === p.id));
+    }
+    return patients;
+  }, [patients, patientFilter, allExams]);
+
+  const getPatientStatusBadge = (exams: any[]) => {
+    if (!exams || exams.length === 0) {
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+          Sem Exames
+        </span>
+      );
+    }
+    const latest = exams[0];
+    const clinical = (latest.opinion?.clinical || '').toLowerCase();
+    if (clinical.includes('normal')) {
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+          ● Audição Normal
+        </span>
+      );
+    }
+    if (clinical.includes('ocupacional') || clinical.includes('pair') || latest.examCategory === 'ocupacional') {
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+          ● PAIR / Ocupacional
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
+        ● Alterado / Perda
+      </span>
+    );
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,8 +239,8 @@ export default function Patients() {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Telefone</label>
-                  <Input maxLength={15} type="tel" value={newPatient.phone} onChange={e => setNewPatient({...newPatient, phone: formatPhone(e.target.value)})} />
+                  <label className="text-sm font-medium">Telefone / WhatsApp (com DDD)</label>
+                  <Input maxLength={15} type="tel" placeholder="(00) 00000-0000" value={newPatient.phone} onChange={e => setNewPatient({...newPatient, phone: formatPhone(e.target.value)})} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Profissão</label>
@@ -222,7 +266,41 @@ export default function Patients() {
       )}
 
       <Card>
-        <CardHeader>
+        <CardHeader className="space-y-3">
+          {/* Quick Filter Pills */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <button
+              onClick={() => setPatientFilter('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                patientFilter === 'all'
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              Todos ({patients?.length || 0})
+            </button>
+            <button
+              onClick={() => setPatientFilter('with_exams')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                patientFilter === 'with_exams'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              Com Exames
+            </button>
+            <button
+              onClick={() => setPatientFilter('no_exams')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                patientFilter === 'no_exams'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              Sem Exames Cadastrados
+            </button>
+          </div>
+
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input 
@@ -234,18 +312,46 @@ export default function Patients() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="divide-y">
-            {patients?.map(p => {
+          <div className="divide-y divide-slate-100">
+            {filteredPatients?.map((p: Patient) => {
               const patientExams = allExams?.filter(e => e.patientId === p.id).sort((a, b) => new Date(b.examDate).getTime() - new Date(a.examDate).getTime()) || [];
               const patientAnamneses = allAnamneses?.filter(a => a.patientId === p.id).sort((a, b) => new Date(b.examDate).getTime() - new Date(a.examDate).getTime()) || [];
               return (
               <div key={p.id} className="py-4 flex flex-col gap-2">
                 <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
                   <div>
-                    <h3 className="font-semibold text-lg">{p.name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      CPF: {p.cpf || 'Não informado'} • Idade: {calculateAge(p.birthDate)} anos
-                    </p>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h3 className="font-semibold text-lg text-slate-900">{p.name}</h3>
+                      {getPatientStatusBadge(patientExams)}
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap">
+                      <span>CPF: <strong className="text-slate-700">{p.cpf || 'Não informado'}</strong></span>
+                      <span>•</span>
+                      <span>Idade: <strong className="text-slate-700">{calculateAge(p.birthDate)} anos</strong></span>
+                      {p.phone && (
+                        <>
+                          <span>•</span>
+                          <a
+                            href={`https://wa.me/55${p.phone.replace(/\D/g, '')}?text=${encodeURIComponent(
+                              `Olá ${p.name}! Entramos em contato a respeito do seu atendimento na clínica.`
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-md font-semibold transition border border-emerald-200/60"
+                            title="Conversar no WhatsApp"
+                          >
+                            <MessageCircle className="w-3 h-3 text-emerald-600" />
+                            <span>{p.phone}</span>
+                          </a>
+                        </>
+                      )}
+                      {p.occupation && (
+                        <>
+                          <span>•</span>
+                          <span className="text-slate-400">Função: {p.occupation}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
                   <div className="flex gap-2 flex-wrap justify-end">
                     <Button 

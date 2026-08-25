@@ -15,6 +15,8 @@ import {
   LayoutGrid,
   LayoutList,
   Trash2,
+  MessageCircle,
+  Phone,
 } from 'lucide-react';
 import {
   format,
@@ -168,10 +170,12 @@ function DayTimelineView({
   appointments,
   onStatusChange,
   onDelete,
+  onWhatsAppReminder,
 }: {
   appointments: Appointment[];
   onStatusChange: (id: string, status: 'scheduled' | 'completed' | 'canceled') => void;
   onDelete: (id: string) => void;
+  onWhatsAppReminder?: (app: Appointment) => void;
 }) {
 
 
@@ -282,6 +286,16 @@ function DayTimelineView({
 
                       {/* Actions */}
                       <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-100/50">
+                        {onWhatsAppReminder && (
+                          <button
+                            onClick={() => onWhatsAppReminder(app)}
+                            title="Enviar Lembrete no WhatsApp"
+                            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-200/60 cursor-pointer"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            <span>WhatsApp</span>
+                          </button>
+                        )}
                         <CalendarSync appointment={app} compact />
                         {!isCompleted && (
                           <button
@@ -329,12 +343,14 @@ function WeekView({
   selectedDate,
   onSelectDate,
   onStatusChange,
+  onWhatsAppReminder,
 }: {
   weekStart: Date;
   allAppointments: Appointment[];
   selectedDate: Date;
   onSelectDate: (d: Date) => void;
   onStatusChange: (id: string, status: 'scheduled' | 'completed' | 'canceled') => void;
+  onWhatsAppReminder?: (app: Appointment) => void;
 }) {
   const days = eachDayOfInterval({
     start: weekStart,
@@ -427,6 +443,15 @@ function WeekView({
                           <span className={`text-xs ${color.text}`}>{app.type}</span>
                         </div>
                         <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover/wcard:opacity-100 transition-opacity">
+                          {onWhatsAppReminder && (
+                            <button
+                              onClick={() => onWhatsAppReminder(app)}
+                              title="Enviar Lembrete no WhatsApp"
+                              className="p-1 text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                            </button>
+                          )}
                           <CalendarSync appointment={app} compact />
                           {app.status !== 'completed' && (
                             <button
@@ -473,6 +498,20 @@ function WeekView({
 // ─── MAIN AGENDA COMPONENT ─────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════
 
+const formatPhone = (value: string) => {
+  let v = value.replace(/\D/g, '');
+  if (v.length > 11) v = v.slice(0, 11);
+
+  if (v.length > 10) {
+    return v.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+  } else if (v.length > 6) {
+    return v.replace(/(\d{2})(\d{4})(\d{1,4})/, '($1) $2-$3');
+  } else if (v.length > 2) {
+    return v.replace(/(\d{2})(\d{1,5})/, '($1) $2');
+  }
+  return v;
+};
+
 export default function Agenda() {
   const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -481,6 +520,7 @@ export default function Agenda() {
   const [formData, setFormData] = useState({
     patientName: '',
     patientId: '',
+    phone: '',
     time: '08:00',
     type: 'Audiometria Ocupacional',
     notes: '',
@@ -565,6 +605,7 @@ export default function Agenda() {
         date: selectedDateStr,
         patientName: formData.patientName,
         patientId: formData.patientId || undefined,
+        phone: formData.phone || undefined,
         time: formData.time,
         type: formData.type,
         status: 'scheduled',
@@ -592,6 +633,7 @@ export default function Agenda() {
       setFormData({
         patientName: '',
         patientId: '',
+        phone: '',
         time: '08:00',
         type: 'Audiometria Ocupacional',
         notes: '',
@@ -610,6 +652,22 @@ export default function Agenda() {
       if (result.google === 'synced' || result.microsoft === 'synced') {
         showSyncToast('✓ Status atualizado nos calendários');
       }
+    }
+  };
+
+  const sendWhatsAppReminder = (app: Appointment) => {
+    const patient = patients?.find(
+      (p) => p.id === app.patientId || p.name.toLowerCase() === app.patientName.toLowerCase()
+    );
+    const rawPhone = app.phone || patient?.phone || '';
+    const cleanPhone = rawPhone.replace(/\D/g, '');
+    const msg = encodeURIComponent(
+      `Olá ${app.patientName}! Confirmamos o seu agendamento no AudioDash para o exame (${app.type}) no dia ${app.date.split('-').reverse().join('/')} às ${app.time}. Lembramos que é recomendado repouso auditivo prévio de 14 horas para exames audiológicos. Qualquer dúvida, estamos à disposição!`
+    );
+    if (cleanPhone) {
+      window.open(`https://wa.me/55${cleanPhone}?text=${msg}`, '_blank');
+    } else {
+      window.open(`https://wa.me/?text=${msg}`, '_blank');
     }
   };
 
@@ -801,6 +859,7 @@ export default function Agenda() {
                 appointments={dayAppointments}
                 onStatusChange={updateStatus}
                 onDelete={deleteAppointment}
+                onWhatsAppReminder={sendWhatsAppReminder}
               />
             )
           ) : (
@@ -810,6 +869,7 @@ export default function Agenda() {
               selectedDate={selectedDate}
               onSelectDate={setSelectedDate}
               onStatusChange={updateStatus}
+              onWhatsAppReminder={sendWhatsAppReminder}
             />
           )}
         </div>
@@ -875,6 +935,7 @@ export default function Agenda() {
                                 ...formData,
                                 patientName: patient.name,
                                 patientId: patient.id,
+                                phone: patient.phone || '',
                               });
                               setShowDropdown(false);
                             }}
@@ -882,7 +943,7 @@ export default function Agenda() {
                           >
                             <span className="font-medium text-slate-800">{patient.name}</span>
                             <span className="text-xs text-slate-500">
-                              CPF: {patient.cpf || 'Não informado'}
+                              CPF: {patient.cpf || 'Não informado'} {patient.phone ? `• Tel: ${patient.phone}` : ''}
                             </span>
                           </div>
                         ))
@@ -893,6 +954,24 @@ export default function Agenda() {
                     )}
                   </div>
                 )}
+              </div>
+
+              {/* WhatsApp / Phone field */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Telefone / WhatsApp (para envio de lembretes)
+                </label>
+                <div className="relative">
+                  <Phone className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="tel"
+                    maxLength={15}
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
+                    className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"
+                    placeholder="(00) 00000-0000"
+                  />
+                </div>
               </div>
 
               {/* Time + Type */}

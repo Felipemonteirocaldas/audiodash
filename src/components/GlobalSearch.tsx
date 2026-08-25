@@ -52,6 +52,20 @@ export function GlobalSearch() {
     return fuse.search(searchTerm).slice(0, 8).map(r => r.item);
   }, [searchTerm, fuse]);
 
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        inputRef.current?.focus();
+        setIsOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
@@ -76,8 +90,9 @@ export function GlobalSearch() {
     <div className="relative w-80" ref={searchRef}>
       <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400 pointer-events-none" />
       <input 
+        ref={inputRef}
         type="text" 
-        placeholder="Buscar paciente, exame..." 
+        placeholder="Buscar paciente, exame... (Ctrl+K)" 
         value={searchTerm}
         onChange={e => {
           setSearchTerm(e.target.value);
