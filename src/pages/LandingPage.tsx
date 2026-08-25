@@ -33,7 +33,7 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f5f7] text-[#1d1d1f] selection:bg-[#0071e3] selection:text-white font-['Inter',sans-serif]">
+    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-blue-600 selection:text-white font-sans">
       {/* Top Floating Glass Navigation */}
       <LandingNavbar />
 
@@ -41,8 +41,8 @@ export default function LandingPage() {
         {/* Apple Style Hero with Interactive Audiogram Preview */}
         <HeroSection />
 
-        <Suspense fallback={<div className="h-40 flex items-center justify-center text-slate-500">Carregando...</div>}>
-          {/* Bento Grid Feature Section (Stripe / Apple Style) */}
+        <Suspense fallback={<div className="h-40 flex items-center justify-center text-slate-500">Carregando recursos...</div>}>
+          {/* Bento Grid Feature Section */}
           <BentoGridSection />
 
           {/* Before vs After Productivity Section */}

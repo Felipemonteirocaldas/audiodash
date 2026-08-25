@@ -14,7 +14,7 @@ import {
 
 export default function BentoGridSection() {
   return (
-    <section id="bento" className="py-14 sm:py-24 bg-white relative">
+    <section id="recursos" className="py-14 sm:py-24 bg-white relative">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
         {/* Section Header */}

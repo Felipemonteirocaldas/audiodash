@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom';
-import { Activity, ShieldCheck, Heart } from 'lucide-react';
+import { ShieldCheck, Heart } from 'lucide-react';
+import { LogoAD } from '../LogoAD';
 
 export default function LandingFooter() {
   return (
-    <footer className="bg-white border-t border-slate-200 pt-16 pb-12 text-[#86868b] text-xs">
+    <footer className="bg-white border-t border-slate-200 pt-16 pb-12 text-slate-500 text-xs">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         
         {/* Top Grid */}
@@ -12,11 +13,11 @@ export default function LandingFooter() {
           {/* Brand Info */}
           <div className="md:col-span-2 space-y-4">
             <Link to="/" className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl bg-[#0071e3] flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-                <Activity className="h-5 w-5" />
+              <div className="h-9 w-9 rounded-xl bg-slate-900 flex items-center justify-center p-1.5 shadow-md shadow-slate-900/10">
+                <LogoAD className="w-full h-full" />
               </div>
-              <span className="text-xl font-bold text-[#1d1d1f] tracking-tight">
-                Audio<span className="text-[#0071e3]">Dash</span>
+              <span className="text-xl font-bold text-slate-900 tracking-tight">
+                Audio<span className="text-blue-600">Dash</span>
               </span>
             </Link>
 
@@ -43,18 +44,18 @@ export default function LandingFooter() {
                 </a>
               </li>
               <li>
-                <a href="#bento" className="hover:text-blue-600 transition-colors">
-                  Funcionalidades da Clínica
-                </a>
-              </li>
-              <li>
                 <a href="#comparativo" className="hover:text-blue-600 transition-colors">
                   Sua Rotina
                 </a>
               </li>
               <li>
-                <a href="#precos" className="hover:text-[#0071e3] transition-colors">
+                <a href="#precos" className="hover:text-blue-600 transition-colors">
                   Plano & Preços
+                </a>
+              </li>
+              <li>
+                <a href="#faq" className="hover:text-blue-600 transition-colors">
+                  Perguntas Frequentes
                 </a>
               </li>
             </ul>
@@ -62,22 +63,22 @@ export default function LandingFooter() {
 
           {/* Nav Column 2 */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold text-[#1d1d1f] uppercase tracking-wider">Acesso Rápido</h4>
-            <ul className="space-y-2 text-[#86868b]">
+            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Acesso Rápido</h4>
+            <ul className="space-y-2 text-slate-600">
               <li>
-                <Link to="/login" className="hover:text-[#0071e3] transition-colors">
+                <Link to="/login" className="hover:text-blue-600 transition-colors font-medium">
                   Área do Fonoaudiólogo (Login)
                 </Link>
               </li>
               <li>
-                <a href="#precos" className="hover:text-[#0071e3] transition-colors">
+                <a href="#precos" className="hover:text-blue-600 transition-colors">
                   Assinar Plano Pro (R$ 50/mês)
                 </a>
               </li>
               <li>
-                <a href="#faq" className="hover:text-[#0071e3] transition-colors">
-                  Perguntas Frequentes
-                </a>
+                <Link to="/manual" className="hover:text-blue-600 transition-colors">
+                  Manual de Instruções
+                </Link>
               </li>
             </ul>
           </div>
@@ -85,11 +86,11 @@ export default function LandingFooter() {
         </div>
 
         {/* Legal Links Bar */}
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[11px] text-slate-500">
-          <Link to="/termos" className="hover:text-[#0071e3] transition-colors font-medium">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[11px] text-slate-500 pt-4 border-t border-slate-100">
+          <Link to="/termos" className="hover:text-blue-600 transition-colors font-medium">
             Termos de Uso
           </Link>
-          <Link to="/privacidade" className="hover:text-[#0071e3] transition-colors font-medium">
+          <Link to="/privacidade" className="hover:text-blue-600 transition-colors font-medium">
             Política de Privacidade
           </Link>
           <span className="flex items-center gap-1">
@@ -99,7 +100,7 @@ export default function LandingFooter() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="pt-8 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-500">
+        <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-500">
           <p>© {new Date().getFullYear()} AudioDash. Todos os direitos reservados.</p>
           <div className="flex items-center gap-1 text-slate-500">
             <span>
@@ -108,7 +109,7 @@ export default function LandingFooter() {
                 href="https://www.blackdogbr.com/" 
                 target="_blank" 
                 rel="noopener noreferrer" 
-                className="font-semibold text-slate-700 hover:text-[#0071e3] transition-colors"
+                className="font-semibold text-slate-700 hover:text-blue-600 transition-colors"
               >
                 Black Dog
               </a>

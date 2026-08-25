@@ -20,7 +20,6 @@ export default function FAQSection() {
       answer:
         "Graças à tecnologia de armazenamento local (Dexie / IndexedDB), você pode realizar exames e preencher prontuários normalmente sem conexão. Assim que seu dispositivo reconectar à internet, os dados são sincronizados automaticamente com a nuvem.",
     },
-
     {
       question: "Há limite de exames ou pacientes cadastrados no Plano Pro?",
       answer:
@@ -34,13 +33,12 @@ export default function FAQSection() {
   ];
 
   return (
-    <section id="faq" className="py-14 sm:py-24 bg-[#f5f5f7] relative border-t border-slate-200">
+    <section id="faq" className="py-14 sm:py-24 bg-[#fafafa] relative border-t border-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Section Header */}
         <div className="text-center space-y-3 sm:space-y-4 mb-10 sm:mb-16">
-
-          <h2 className="text-3xl sm:text-5xl font-extrabold text-[#1d1d1f] tracking-tight">
+          <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">
             Perguntas Frequentes
           </h2>
           <p className="text-base text-slate-600">
@@ -49,21 +47,21 @@ export default function FAQSection() {
         </div>
 
         {/* Accordion List */}
-        <div className="space-y-4">
+        <div className="space-y-4 max-w-4xl mx-auto">
           {faqs.map((faq, idx) => {
             const isOpen = openIndex === idx;
             return (
               <div
                 key={idx}
-                className="rounded-2xl bg-white border border-slate-200/90 shadow-sm hover:border-slate-300 transition-colors overflow-hidden"
+                className="rounded-2xl bg-white border border-slate-200/90 shadow-xs hover:border-slate-300 transition-colors overflow-hidden"
               >
                 <button
                   onClick={() => setOpenIndex(isOpen ? null : idx)}
-                  className="w-full p-6 text-left flex items-center justify-between gap-4 font-bold text-base text-[#1d1d1f] focus:outline-none cursor-pointer"
+                  className="w-full p-6 text-left flex items-center justify-between gap-4 font-bold text-base text-slate-900 focus:outline-none cursor-pointer"
                 >
                   <span>{faq.question}</span>
                   <div
-                    className={`w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[#0071e3] transition-transform duration-200 ${
+                    className={`w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-blue-600 transition-transform duration-200 ${
                       isOpen ? 'rotate-180 bg-blue-50' : ''
                     }`}
                   >

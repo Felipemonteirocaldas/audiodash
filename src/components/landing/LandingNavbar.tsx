@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Ear, Menu, X, ArrowRight, Stethoscope } from 'lucide-react';
+import { Menu, X, ArrowRight, Stethoscope } from 'lucide-react';
+import { LogoAD } from '../LogoAD';
 
 export default function LandingNavbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -18,15 +19,15 @@ export default function LandingNavbar() {
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
-          ? 'bg-white/90 backdrop-blur-md border-b border-slate-200/80 py-3.5 shadow-sm'
+          ? 'bg-white/90 backdrop-blur-md border-b border-slate-200/80 py-3 shadow-sm'
           : 'bg-transparent py-5'
       }`}
     >
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
         {/* Brand Logo */}
         <Link to="/" className="flex items-center gap-3 group">
-          <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform duration-200">
-            <Ear className="h-5 w-5" />
+          <div className="h-10 w-10 rounded-xl bg-slate-900 flex items-center justify-center p-1.5 shadow-md shadow-slate-900/10 group-hover:scale-105 transition-transform duration-200">
+            <LogoAD className="w-full h-full" />
           </div>
           <div className="flex flex-col">
             <span className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-1.5">
@@ -45,12 +46,6 @@ export default function LandingNavbar() {
             className="text-sm font-medium text-slate-700 hover:text-blue-600 transition-colors"
           >
             Recursos
-          </a>
-          <a
-            href="#bento"
-            className="text-sm font-medium text-slate-700 hover:text-blue-600 transition-colors"
-          >
-            O Sistema
           </a>
           <a
             href="#comparativo"
@@ -111,14 +106,7 @@ export default function LandingNavbar() {
             onClick={() => setMobileMenuOpen(false)}
             className="block text-base font-medium text-slate-800 hover:text-blue-600 py-1"
           >
-            Recursos
-          </a>
-          <a
-            href="#bento"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block text-base font-medium text-slate-800 hover:text-blue-600 py-1"
-          >
-            O Sistema
+            Recursos do Sistema
           </a>
           <a
             href="#comparativo"
@@ -132,7 +120,7 @@ export default function LandingNavbar() {
             onClick={() => setMobileMenuOpen(false)}
             className="block text-base font-medium text-slate-800 hover:text-blue-600 py-1"
           >
-            Planos
+            Planos & Preços
           </a>
           <a
             href="#faq"
