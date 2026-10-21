@@ -4,6 +4,7 @@ import { AlertTriangle, Cloud, X, Loader2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase, isConfigured as isSupabaseConfigured } from '@/lib/supabase';
 import { syncManager } from '@/lib/syncManager';
+import { hashLocalPassword, isHashedPassword, verifyLocalPassword } from '@/lib/localPassword';
 
 interface AuthContextType {
   user: User | null;
@@ -128,7 +129,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         // Local login
         const foundUser = await db.users.where('email').equalsIgnoreCase(email).first();
-        if (foundUser && foundUser.passwordHash === passwordHash) {
+        if (foundUser && await verifyLocalPassword(passwordHash, foundUser.passwordHash)) {
+          if (!isHashedPassword(foundUser.passwordHash)) {
+            // Migra registros antigos que guardavam a senha em texto.
+            foundUser.passwordHash = await hashLocalPassword(passwordHash);
+            await db.users.put(foundUser);
+          }
           setUser(foundUser);
           setAuthProvider('local');
           localStorage.setItem('audiodash_user_id', foundUser.id);
@@ -195,7 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           id: uuidv4(),
           name,
           email,
-          passwordHash,
+          passwordHash: await hashLocalPassword(passwordHash),
           createdAt: Date.now()
         };
 

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/db';
+import { isReviewCurrent, localDate } from '@/lib/examIntegrity';
 import { 
   Bell, 
   X, 
@@ -59,7 +60,7 @@ export function NotificationsModal() {
     };
   }, [isOpen]);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = localDate();
 
   // 1. Fetch Today's Appointments
   const todayAppointments = useLiveQuery(async () => {
@@ -75,8 +76,8 @@ export function NotificationsModal() {
     const exams = await db.audiometries.orderBy('examDate').reverse().limit(10).toArray();
     const filtered = [];
     for (const exam of exams) {
-      const clinical = exam.opinion?.clinical?.toLowerCase() || '';
-      if (clinical.includes('alterad') || clinical.includes('sever') || clinical.includes('moderad')) {
+      // Usa a decisão estruturada e revisada, não palavras do texto livre ("não alterado" também contém "alterad").
+      if (isReviewCurrent(exam) && exam.opinion?.clinicalStatus === 'altered') {
         const patient = await db.patients.get(exam.patientId);
         filtered.push({ ...exam, patientName: patient?.name || 'Paciente' });
       }
@@ -115,7 +116,7 @@ export function NotificationsModal() {
       id: notifId,
       title: `Alerta de Parecer Clínico`,
       description: `Exame de ${exam.patientName} apresentou laudo com alteração auditiva.`,
-      time: `Exame em ${new Date(exam.examDate).toLocaleDateString('pt-BR')}`,
+      time: `Exame em ${exam.examDate.split('-').reverse().join('/')}`,
       type: 'alert',
       read: readIds.has(notifId),
       link: `/exame/${exam.id}`

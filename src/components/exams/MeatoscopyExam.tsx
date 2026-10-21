@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Meatoscopy } from '@/db/db';
-import { Eye, AlertTriangle, CheckCircle2, Stethoscope, ArrowRight } from 'lucide-react';
+import { Stethoscope, ArrowRight } from 'lucide-react';
 
 interface Props {
   meatoscopy?: Meatoscopy;
@@ -21,58 +21,22 @@ export default function MeatoscopyExam({ meatoscopy, onChange }: Props) {
     onChange({ ...current, ...updates });
   };
 
-  const setPreset = (type: 'normal' | 'cerumen_bilateral') => {
-    if (type === 'normal') {
-      updateField({
-        right: 'normal',
-        left: 'normal',
-        rightDescription: 'Conduto auditivo externo livre e pérvio. Membrana timpânica íntegra, translúcida, com cone luminoso presente.',
-        leftDescription: 'Conduto auditivo externo livre e pérvio. Membrana timpânica íntegra, translúcida, com cone luminoso presente.',
-        referToENT: false
-      });
-    } else if (type === 'cerumen_bilateral') {
-      updateField({
-        right: 'cerumen',
-        left: 'cerumen',
-        rightDescription: 'Presença de cerúmen oclusivo em conduto auditivo externo.',
-        leftDescription: 'Presença de cerúmen oclusivo em conduto auditivo externo.',
-        referToENT: true
-      });
-    }
-  };
-
   const isAbnormalRight = current.right && current.right !== 'normal';
   const isAbnormalLeft = current.left && current.left !== 'normal';
 
   return (
     <Card className="border-slate-200 shadow-sm overflow-hidden">
-      <CardHeader className="bg-gradient-to-r from-slate-50 to-indigo-50/40 border-b border-slate-100 pb-4">
+      <CardHeader className="bg-slate-50 border-b border-slate-100 pb-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <Eye className="w-5 h-5 text-indigo-600" />
               Inspeção do Meato Acústico Externo (Meatoscopia / Otoscopia)
             </CardTitle>
             <CardDescription className="text-xs text-slate-500 mt-0.5">
               Avaliação prévia indispensável das condições anatômicas do meato e integridade da membrana timpânica antes dos testes auditivos.
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => setPreset('normal')}
-              className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors flex items-center gap-1.5"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Normal Bilateral
-            </button>
-            <button
-              type="button"
-              onClick={() => setPreset('cerumen_bilateral')}
-              className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors flex items-center gap-1.5"
-            >
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" /> Cerúmen Bilateral
-            </button>
-          </div>
+
         </div>
       </CardHeader>
 
@@ -94,7 +58,7 @@ export default function MeatoscopyExam({ meatoscopy, onChange }: Props) {
               )}
               {isAbnormalRight && (
                 <span className="text-[11px] font-medium text-red-700 bg-red-100/80 px-2 py-0.5 rounded-full">
-                  Alteração Detectada
+                  Achado registrado
                 </span>
               )}
             </div>
@@ -105,18 +69,7 @@ export default function MeatoscopyExam({ meatoscopy, onChange }: Props) {
                 <select
                   className="flex h-9 w-full rounded-lg border border-slate-300 bg-white px-3 py-1 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
                   value={current.right || ''}
-                  onChange={e => {
-                    const val = e.target.value as any;
-                    let desc = current.rightDescription || '';
-                    if (val === 'normal' && !desc) desc = 'Conduto livre, membrana timpânica íntegra e translúcida com triângulo luminoso presente.';
-                    if (val === 'cerumen' && !desc) desc = 'Presença de rolha de cerúmen oclusivo no terço externo/médio do MAE.';
-                    if (val === 'perforation' && !desc) desc = 'Perfuração de membrana timpânica em pars tensa.';
-                    updateField({ 
-                      right: val, 
-                      rightDescription: desc,
-                      referToENT: val && val !== 'normal' ? true : current.referToENT 
-                    });
-                  }}
+                  onChange={e => updateField({ right: e.target.value as Meatoscopy['right'] })}
                 >
                   <option value="">-- Selecione o estado da OD --</option>
                   <option value="normal">Normal (Conduto livre e MT íntegra/translúcida)</option>
@@ -131,7 +84,7 @@ export default function MeatoscopyExam({ meatoscopy, onChange }: Props) {
                 <label className="text-xs font-medium text-slate-600 block mb-1">Descrição e Detalhes (OD)</label>
                 <Input
                   className="h-8 text-xs bg-white"
-                  placeholder="Ex: Tímpano íntegro, cone de luz preservado..."
+                  placeholder="Descreva somente os achados observados"
                   value={current.rightDescription || ''}
                   onChange={e => updateField({ rightDescription: e.target.value })}
                 />
@@ -155,7 +108,7 @@ export default function MeatoscopyExam({ meatoscopy, onChange }: Props) {
               )}
               {isAbnormalLeft && (
                 <span className="text-[11px] font-medium text-blue-700 bg-blue-100/80 px-2 py-0.5 rounded-full">
-                  Alteração Detectada
+                  Achado registrado
                 </span>
               )}
             </div>
@@ -166,18 +119,7 @@ export default function MeatoscopyExam({ meatoscopy, onChange }: Props) {
                 <select
                   className="flex h-9 w-full rounded-lg border border-slate-300 bg-white px-3 py-1 text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   value={current.left || ''}
-                  onChange={e => {
-                    const val = e.target.value as any;
-                    let desc = current.leftDescription || '';
-                    if (val === 'normal' && !desc) desc = 'Conduto livre, membrana timpânica íntegra e translúcida com triângulo luminoso presente.';
-                    if (val === 'cerumen' && !desc) desc = 'Presença de rolha de cerúmen oclusivo no terço externo/médio do MAE.';
-                    if (val === 'perforation' && !desc) desc = 'Perfuração de membrana timpânica em pars tensa.';
-                    updateField({ 
-                      left: val, 
-                      leftDescription: desc,
-                      referToENT: val && val !== 'normal' ? true : current.referToENT 
-                    });
-                  }}
+                  onChange={e => updateField({ left: e.target.value as Meatoscopy['left'] })}
                 >
                   <option value="">-- Selecione o estado da OE --</option>
                   <option value="normal">Normal (Conduto livre e MT íntegra/translúcida)</option>
@@ -192,7 +134,7 @@ export default function MeatoscopyExam({ meatoscopy, onChange }: Props) {
                 <label className="text-xs font-medium text-slate-600 block mb-1">Descrição e Detalhes (OE)</label>
                 <Input
                   className="h-8 text-xs bg-white"
-                  placeholder="Ex: Tímpano íntegro, cone de luz preservado..."
+                  placeholder="Descreva somente os achados observados"
                   value={current.leftDescription || ''}
                   onChange={e => updateField({ leftDescription: e.target.value })}
                 />

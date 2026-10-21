@@ -10,6 +10,8 @@ import { syncManager } from '@/lib/syncManager';
 import { customAlert } from '@/lib/dialogs';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase, isConfigured as isSupabaseConfigured } from '@/lib/supabase';
+import { downloadFullBackup } from '@/lib/backup';
+import { customConfirm } from '@/lib/dialogs';
 
 export default function Settings() {
   const [settings, setSettings] = useState<Partial<SettingsType>>({
@@ -42,6 +44,10 @@ export default function Settings() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteStatus, setDeleteStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  // Res. CFFa 777/2025, arts. 7º e 8º: a guarda do prontuário é do profissional. Antes de apagar a conta, exige-se
+  // a cópia completa exportada nesta sessão e a declaração de que o profissional mantém a guarda.
+  const [backupExported, setBackupExported] = useState(false);
+  const [custodyAcknowledged, setCustodyAcknowledged] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -103,28 +109,21 @@ export default function Settings() {
 
   const handleExport = async () => {
     try {
-      const data = {
-        patients: await db.patients.toArray(),
-        audiometries: await db.audiometries.toArray(),
-        settings: await db.settings.toArray(),
-        appointments: await db.appointments.toArray(),
-        anamneses: await db.anamneses.toArray()
-      };
-      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `audiodash_backup_${new Date().toISOString().split('T')[0]}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+      await downloadFullBackup();
+      setBackupExported(true);
     } catch(e) {
       console.error("Export error", e);
+      await customAlert('Não foi possível gerar a cópia completa. Tente novamente.');
     }
   };
 
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    if (!await customConfirm('Importar este backup substitui todos os pacientes, exames, anamneses, agenda e configurações deste dispositivo. Os registros importados serão enviados para a nuvem. Continuar?')) {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
 
     setImportStatus('loading');
     try {
@@ -142,14 +141,18 @@ export default function Settings() {
         await db.appointments.clear();
         await db.anamneses.clear();
 
-        if (data.patients && data.patients.length > 0) await db.patients.bulkAdd(data.patients);
-        if (data.audiometries && data.audiometries.length > 0) await db.audiometries.bulkAdd(data.audiometries);
-        if (data.settings && data.settings.length > 0) await db.settings.bulkAdd(data.settings);
-        if (data.appointments && data.appointments.length > 0) await db.appointments.bulkAdd(data.appointments);
-        if (data.anamneses && data.anamneses.length > 0) await db.anamneses.bulkAdd(data.anamneses);
+        // Marca tudo como pendente: registros importados como "synced" seriam apagados na próxima
+        // reconciliação com a nuvem (pullFromSupabase remove locais sincronizados que não existem lá).
+        const pending = (rows: any[] | undefined) => (rows || []).map(row => ({ ...row, syncStatus: 'pending' as const }));
+        if (data.patients?.length) await db.patients.bulkAdd(pending(data.patients));
+        if (data.audiometries?.length) await db.audiometries.bulkAdd(pending(data.audiometries));
+        if (data.settings?.length) await db.settings.bulkAdd(pending(data.settings));
+        if (data.appointments?.length) await db.appointments.bulkAdd(pending(data.appointments));
+        if (data.anamneses?.length) await db.anamneses.bulkAdd(pending(data.anamneses));
       });
 
       setImportStatus('success');
+      syncManager.sync();
       setTimeout(() => setImportStatus('idle'), 3000);
       
       if (fileInputRef.current) {
@@ -395,7 +398,11 @@ export default function Settings() {
                   </p>
                 </div>
                 <Button 
-                  onClick={() => customAlert("Na versão final, este botão redirecionará para o Customer Portal gerado pela API do Dodo Payments. Se você tiver um link público do portal, entre em contato para atualizarmos.")}
+                  onClick={() => {
+                    const portal = import.meta.env.VITE_DODO_CUSTOMER_PORTAL_URL;
+                    if (portal) window.open(portal, '_blank', 'noopener');
+                    else window.location.href = `mailto:contato@audiodash.com.br?subject=${encodeURIComponent('Gerenciar/cancelar assinatura AudioDash')}&body=${encodeURIComponent(`Conta: ${user?.email || ''}`)}`;
+                  }}
                   className="w-full md:w-auto bg-slate-900 text-white hover:bg-slate-800 rounded-xl px-6"
                 >
                   <ExternalLink className="w-4 h-4 mr-2" />
@@ -508,9 +515,9 @@ export default function Settings() {
         <CardContent className="pt-6 space-y-4">
           <div className="bg-slate-50 border border-slate-100 rounded-2xl p-5">
             <p className="text-sm text-slate-700 leading-relaxed">
-              Em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018), você pode solicitar a 
-              exclusão total dos seus dados pessoais e dos pacientes vinculados à sua conta. Após a solicitação, 
-              seus dados serão eliminados em até <strong>30 dias úteis</strong>.
+              Em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018), você pode excluir sua conta e os dados
+              armazenados no AudioDash. Como responsável pelo prontuário, você deve manter a guarda dos registros dos pacientes
+              (Res. CFFa 777/2025, arts. 7º e 8º): por isso, a exclusão exige antes a exportação da cópia completa (backup).
             </p>
           </div>
 
@@ -552,9 +559,19 @@ export default function Settings() {
                   <p className="text-xs text-red-700 mt-1 leading-relaxed">
                     Essa ação é <strong>irreversível</strong>. Todos os dados do seu consultório, pacientes, exames 
                     e laudos serão permanentemente excluídos do nosso sistema. 
-                    Recomendamos exportar um backup antes de prosseguir.
+                    O prontuário fonoaudiológico deve ser guardado pelo profissional (Res. CFFa 777/2025, art. 8º — prontuário eletrônico de guarda permanente, com eliminação possível após 20 anos do último registro). Exporte a cópia completa e guarde-a em local seguro antes de prosseguir.
                   </p>
                 </div>
+              </div>
+
+              <div className="space-y-2 text-xs text-red-900">
+                <Button variant="outline" onClick={handleExport} className="rounded-xl border-red-200 gap-2">
+                  <Download className="w-4 h-4" /> {backupExported ? 'Cópia completa exportada — exportar novamente' : '1. Exportar cópia completa (JSON)'}
+                </Button>
+                <label className="flex items-start gap-2">
+                  <input type="checkbox" checked={custodyAcknowledged} disabled={!backupExported} onChange={e => setCustodyAcknowledged(e.target.checked)} className="mt-0.5" />
+                  <span>2. Declaro que mantenho a guarda da cópia exportada dos prontuários pelo prazo exigido (Res. CFFa 777/2025, art. 8º) e que posso fornecê-la aos pacientes quando solicitado (art. 11).</span>
+                </label>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-2">
@@ -567,10 +584,11 @@ export default function Settings() {
                 </Button>
                 <button
                   onClick={() => setShowDeleteModal(true)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition-colors"
+                  disabled={!backupExported || !custodyAcknowledged}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Trash2 className="w-4 h-4" />
-                  Confirmar solicitação de exclusão
+                  3. Excluir conta e dados
                 </button>
               </div>
             </div>
@@ -579,7 +597,7 @@ export default function Settings() {
           {deleteStatus === 'success' && (
             <div className="flex items-center justify-center text-emerald-600 bg-emerald-50 px-4 py-3 rounded-xl border border-emerald-100">
               <CheckCircle2 className="w-5 h-5 mr-2" />
-              <span className="font-medium text-sm">Solicitação enviada com sucesso! Seus dados serão excluídos em até 30 dias úteis.</span>
+              <span className="font-medium text-sm">Dados excluídos deste dispositivo e da nuvem. Você será desconectado em instantes.</span>
             </div>
           )}
         </CardContent>
@@ -622,7 +640,7 @@ export default function Settings() {
               </button>
               <button
                 onClick={async () => {
-                  if (deleteConfirmText !== 'EXCLUIR') return;
+                  if (deleteConfirmText !== 'EXCLUIR' || !backupExported || !custodyAcknowledged) return;
                   setIsDeleting(true);
                   try {
                     // Clear all local data

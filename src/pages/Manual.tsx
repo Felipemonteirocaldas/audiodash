@@ -15,7 +15,6 @@ import {
   AlertCircle,
   HelpCircle,
   Keyboard,
-  Sparkles,
   Sliders,
   Lock,
   WifiOff,
@@ -25,7 +24,6 @@ import {
   Info,
   Layers,
   FileCheck2,
-  Sparkle,
   MousePointerClick,
   Eye
 } from 'lucide-react';
@@ -73,7 +71,7 @@ export default function Manual() {
       id: 'primeiros-passos',
       title: '1. Primeiros Passos e Configuração da Clínica',
       category: 'inicio',
-      icon: Sparkles,
+      icon: null,
       badge: 'Essencial',
       summary: 'Configuração dos dados da clínica, logotipo nos laudos, registro profissional CRFa e parâmetros padrão.',
       content: (
@@ -91,7 +89,7 @@ export default function Manual() {
               <li>Preencha a <strong>Razão Social / Nome Fantasia da Clínica</strong>, CNPJ/CPF, Telefone, WhatsApp de contato e Endereço completo.</li>
               <li>Insira seu nome profissional completo e o <strong>Registro CRFa</strong> (Conselho Regional de Fonoaudiologia) correspondente à sua jurisdição.</li>
               <li>Faça o upload do <strong>Logotipo da Clínica</strong> (PNG com fundo transparente ou JPG em alta resolução). Esse logotipo é inserido no cabeçalho dos laudos audiométricos.</li>
-              <li>Escolha o <strong>Padrão de Classificação Audiológica Padrão</strong> (ex: OMS 2021, OMS 1997, Lloyd & Kaplan 1978 ou Davis & Silverman 1970).</li>
+              <li>Escolha o <strong>Padrão de Classificação Audiológica Padrão</strong> no exame: as classificações do Guia CFFa (2023) — OMS 2021, Lloyd e Kaplan (1978), Kaplan, Gladstone e Lloyd (1993), Davis (1970), BIAP (1996) e, para crianças, Northern e Downs (2005) ou OMS. Nenhuma é “mais certa”: a escolha é do profissional e deve ser citada no laudo.</li>
             </ol>
           </div>
           <div className="p-4 bg-blue-50/70 rounded-2xl border border-blue-100 flex items-start gap-3">
@@ -287,7 +285,7 @@ export default function Manual() {
       title: '6. Imitanciometria (Timpanometria) & EOA / PEATE',
       category: 'exames',
       icon: Activity,
-      summary: 'Classificação de Jerger (A, As, Ad, B, C), reflexos estapedianos acústicos e testes eletrofisiológicos.',
+      summary: 'Registro da timpanometria (Jerger em 226 Hz; normal/alterada em 1000 Hz), reflexos acústicos e testes eletrofisiológicos.',
       content: (
         <div className="space-y-4 text-slate-600">
           <p>
@@ -296,21 +294,19 @@ export default function Manual() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
             <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
-              <strong className="text-slate-900 text-sm block mb-1">Curvas Timpanométricas (Jerger, 1970):</strong>
+              <strong className="text-slate-900 text-sm block mb-1">Curvas timpanométricas:</strong>
               <ul className="space-y-1 text-slate-600">
-                <li><strong>Tipo A:</strong> Complacência normal (0.3 a 1.6 ml) e pico entre -100 e +100 daPa.</li>
-                <li><strong>Tipo As:</strong> Pico centrado com complacência reduzida (&lt; 0.3 ml, rigidez / otosclerose).</li>
-                <li><strong>Tipo Ad:</strong> Pico com complacência aumentada (&gt; 1.6 ml, desarticulação / flacidez).</li>
-                <li><strong>Tipo B:</strong> Curva plana sem ponto de máxima complacência (otite média secretora / efusão).</li>
-                <li><strong>Tipo C:</strong> Pico com pressão negativa acentuada (&lt; -100 daPa, disfunção tubária).</li>
+                <li><strong>Sonda de 226 Hz:</strong> tipos de Jerger (A, Ar/As, Ad, B, C) para orelhas não operadas (SBFa, 2025).</li>
+                <li><strong>Sonda de 1000 Hz (lactentes):</strong> curva classificada como normal ou alterada.</li>
+                <li>O tipo é registrado pelo profissional com a referência normativa, a unidade (ml ou mmho) e as condições do exame. Os valores de referência variam por idade, sonda e equipamento; o sistema não classifica a curva automaticamente nem infere etiologia.</li>
               </ul>
             </div>
             <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
               <strong className="text-slate-900 text-sm block mb-1">Reflexos Estapedianos Acústicos:</strong>
               <ul className="space-y-1 text-slate-600">
                 <li>Pesquisa de reflexos <strong>Ipsilaterais</strong> e <strong>Contralaterais</strong> em 500, 1.000, 2.000 e 4.000 Hz.</li>
-                <li>Identificação de recrutamento objetivo (Fenômeno de Metz, indicativo de alteração coclear) quando o reflexo ocorre com sensação &lt; 60 dB.</li>
-                <li>Registro rápido de reflexo Presente (com limiar em dB HL), Ausente ou Não Testado.</li>
+                <li>Critério numérico de Metz (SBFa, 2025): diferença entre a VA da orelha estimulada e o reflexo contralateral ≤ 60 dB. Só é calculado quando se informa se as colunas indicam a orelha estimulada ou a da sonda; é um dado para interpretação, não um diagnóstico isolado.</li>
+                <li>Registro dos limiares de reflexo em dB NA e do resultado do decay informado pelo profissional.</li>
               </ul>
             </div>
           </div>
@@ -329,19 +325,19 @@ export default function Manual() {
     },
     {
       id: 'laudos-comparativo',
-      title: '7. Laudo Audiológico Inteligente & Comparador Temporal',
+      title: '7. Resumo para Revisão, Parecer & Comparador Temporal',
       category: 'laudos',
-      icon: Sparkle,
-      badge: 'Automação',
-      summary: 'Classificação de tipo e grau de perda, cálculo automático de médias, PAIR ocupacional e evolução comparativa.',
+      icon: null,
+      badge: 'Revisão profissional',
+      summary: 'Médias, sugestões descritivas de tipo e grau para adultos, critérios da NR-7 (Anexo II) e comparação entre exames.',
       content: (
         <div className="space-y-4 text-slate-600">
           <p>
-            O <strong>Assistente de Laudos do AudioDash</strong> analisa os limiares registrados e sugere automaticamente as conclusões diagnósticas, mantendo total soberania clínica para edição do fonoaudiólogo.
+            O botão <strong>Gerar resumo dos dados</strong> organiza os resultados registrados e, com limiares confiáveis, sugere o grau conforme a referência selecionada (para crianças, só Northern e Downs ou OMS, indicadas pelo Guia) e, para adultos, também o tipo. O parecer, a conduta e a conclusão são do fonoaudiólogo, que responde pelo laudo (Guia CFFa, 2023). Níveis mínimos de resposta (VRA, observação) e exames com confiabilidade limitada não recebem classificação automática.
           </p>
 
           <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
-            <h5 className="font-bold text-slate-900 text-sm">Cálculos e Classificações Automáticas:</h5>
+            <h5 className="font-bold text-slate-900 text-sm">Cálculos e sugestões (sempre revisados pelo profissional):</h5>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
@@ -349,15 +345,15 @@ export default function Manual() {
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
-                <span><strong>Tipo de Perda (Silman & Silverman, 1997):</strong> Audição Normal, Condutiva, Neurossensorial ou Mista.</span>
+                <span><strong>Tipo de perda (Silman e Silverman, 1997):</strong> condutiva, neurossensorial ou mista, analisando as frequências com via óssea; padrões incompletos ou heterogêneos ficam indeterminados.</span>
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
-                <span><strong>Grau da Perda:</strong> Padrão OMS 2021 (Normal &lt; 20 dB, Leve, Moderada, Mod. Severa, Severa, Profunda, Completa) ou Lloyd & Kaplan.</span>
+                <span><strong>Grau:</strong> conforme a classificação escolhida entre as do Guia CFFa (Quadros 3–7, 14 e 15). Com OMS 2021, também a classificação global pela melhor orelha e a categoria unilateral. Média dentro do padrão não recebe grau.</span>
               </div>
               <div className="flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
-                <span><strong>Análise de PAIR (Portaria 19 / NR-7):</strong> Detecção automática de entalhes audiométricos em 3k, 4k ou 6k Hz com recuperação em 8k Hz.</span>
+                <span><strong>NR-7, Anexo II:</strong> verificação descritiva dos itens 5.1 e 5.2 por orelha e, na comparação com o exame de referência, dos critérios de desencadeamento (5.3) e agravamento (5.4). O diagnóstico conclusivo e a aptidão cabem ao médico do trabalho.</span>
               </div>
             </div>
           </div>
@@ -435,7 +431,7 @@ export default function Manual() {
                 <span className="font-bold text-slate-900 text-sm">Sincronização em Nuvem</span>
               </div>
               <p className="text-xs text-slate-600">
-                Assim que a conexão for reestabelecida, os dados salvos localmente são sincronizados com o servidor em nuvem com criptografia de ponta a ponta.
+                Assim que a conexão for reestabelecida, os dados salvos localmente são sincronizados com o servidor em nuvem por conexão criptografada (TLS).
               </p>
             </div>
           </div>
@@ -556,7 +552,7 @@ export default function Manual() {
     {
       id: 'faq-4',
       question: 'Como funciona o cálculo automático das médias e classificação da perda?',
-      answer: 'O sistema lê os limiares de via aérea inseridos e calcula instantaneamente a média tritonal (500Hz, 1kHz, 2kHz) e quadritonal (500Hz, 1kHz, 2kHz, 4kHz), sugerindo a classificação de acordo com o padrão configurado (ex: OMS 2021 / Lloyd & Kaplan). Você tem total liberdade para editar o texto final da conclusão.'
+      answer: 'O sistema lê os limiares de via aérea inseridos e calcula instantaneamente a média tritonal (500Hz, 1kHz, 2kHz) e quadritonal (500Hz, 1kHz, 2kHz, 4kHz), sugerindo, quando os limiares são confiáveis, a faixa de grau da classificação selecionada no exame (Guia CFFa, 2023). A sugestão não substitui a conclusão do profissional, que redige e revisa o parecer.'
     },
     {
       id: 'faq-5',
@@ -695,9 +691,9 @@ export default function Manual() {
                   >
                     <div className="flex items-start justify-between gap-4 mb-4">
                       <div className="flex items-center gap-3">
-                        <div className="p-3 bg-blue-50 text-[#0071e3] rounded-2xl shrink-0">
+                        {IconComponent && <div className="p-3 bg-blue-50 text-[#0071e3] rounded-2xl shrink-0">
                           <IconComponent className="h-6 w-6" />
-                        </div>
+                        </div>}
                         <div>
                           <h3 className="text-xl sm:text-2xl font-bold text-slate-900 leading-snug">
                             {topic.title}

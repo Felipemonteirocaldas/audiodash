@@ -1,3 +1,4 @@
+import ClinicalEvidence from './ClinicalEvidence';
 import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,13 +10,11 @@ import {
   classifyType,
   classifyConfiguration,
   checkMaskingNecessity,
-  isSuggestivePAIR,
+  assessNR7Audiogram,
+  classifyWHOGlobal,
   DegreeStandard
 } from '@/lib/audiologyCalculations';
 import {
-  Activity,
-  Sparkles,
-  Layers,
   ChevronDown,
   ChevronUp,
   ShieldAlert,
@@ -40,6 +39,15 @@ interface Props {
   onChangeFreeField: (data: Partial<EarTonalData>) => void;
   category?: 'clinico' | 'ocupacional';
   standard?: DegreeStandard;
+  transducer: 'supra' | 'insert';
+  onTransducerChange: (value: 'supra' | 'insert') => void;
+  allowInterpretation?: boolean;
+  allowDegree?: boolean;
+  isChild?: boolean;
+  interpretationBlockedReason?: string;
+  showAverages?: boolean;
+  protocol?: 'BSA_2018';
+  responseType?: '' | 'threshold' | 'minimum_response';
 }
 
 export default function TonalAudiometryExam({
@@ -50,37 +58,45 @@ export default function TonalAudiometryExam({
   onChangeMasking,
   onChangeFreeField,
   category = 'clinico',
-  standard = 'OMS_2021'
+  standard = 'OMS_2021',
+  transducer,
+  onTransducerChange,
+  allowInterpretation = false,
+  allowDegree = allowInterpretation,
+  isChild = false,
+  interpretationBlockedReason = 'Classificação a definir pelo profissional.',
+  showAverages = false,
+  protocol,
+  responseType
 }: Props) {
   type DrawingTool = 'OD_VA' | 'OD_VO' | 'OE_VA' | 'OE_VO' | 'FREE_FIELD' | null;
   const [activeTool, setActiveTool] = useState<DrawingTool>('OD_VA');
   const [isMasked, setIsMasked] = useState(false);
   const [isNR, setIsNR] = useState(false);
-  const [transducer, setTransducer] = useState<'supra' | 'insert'>('supra');
+  const [inputDrafts, setInputDrafts] = useState<Record<string, string>>({});
   const [showMaskingAdvisor, setShowMaskingAdvisor] = useState(false);
   const [mobileEarView, setMobileEarView] = useState<'all' | 'right' | 'left'>('all');
   const [quickFreq, setQuickFreq] = useState<TonalFrequency>('1000');
 
   // Cálculos Audiológicos em tempo real
-  const rightPTA = useMemo(() => calculatePTA(tonalData.right), [tonalData.right]);
-  const leftPTA = useMemo(() => calculatePTA(tonalData.left), [tonalData.left]);
+  const rightPTA = useMemo(() => calculatePTA(showAverages ? tonalData.right : undefined), [tonalData.right, showAverages]);
+  const leftPTA = useMemo(() => calculatePTA(showAverages ? tonalData.left : undefined), [tonalData.left, showAverages]);
 
-  const rightDegree = useMemo(() => classifyDegree(rightPTA, standard), [rightPTA, standard]);
-  const leftDegree = useMemo(() => classifyDegree(leftPTA, standard), [leftPTA, standard]);
+  const rightDegree = useMemo(() => allowDegree ? classifyDegree(rightPTA, standard, isChild) : { degree: 'Definido pelo profissional', code: 'NA' }, [rightPTA, standard, allowDegree, isChild]);
+  const leftDegree = useMemo(() => allowDegree ? classifyDegree(leftPTA, standard, isChild) : { degree: 'Definido pelo profissional', code: 'NA' }, [leftPTA, standard, allowDegree, isChild]);
+  const whoGlobal = useMemo(() => allowDegree && standard === 'OMS_2021' ? classifyWHOGlobal(rightPTA, leftPTA) : null, [allowDegree, standard, rightPTA, leftPTA]);
 
-  const rightType = useMemo(() => classifyType(tonalData.right), [tonalData.right]);
-  const leftType = useMemo(() => classifyType(tonalData.left), [tonalData.left]);
+  const rightType = useMemo(() => allowInterpretation ? classifyType(tonalData.right) : 'A interpretar', [tonalData.right, allowInterpretation]);
+  const leftType = useMemo(() => allowInterpretation ? classifyType(tonalData.left) : 'A interpretar', [tonalData.left, allowInterpretation]);
 
   const rightConfig = useMemo(() => classifyConfiguration(tonalData.right), [tonalData.right]);
   const leftConfig = useMemo(() => classifyConfiguration(tonalData.left), [tonalData.left]);
 
   const maskingAlerts = useMemo(() => {
-    return checkMaskingNecessity(tonalData.right, tonalData.left, transducer);
-  }, [tonalData.right, tonalData.left, transducer]);
+    return checkMaskingNecessity(tonalData.right, tonalData.left, transducer, protocol);
+  }, [tonalData.right, tonalData.left, transducer, protocol]);
 
-  const pairAnalysis = useMemo(() => {
-    return isSuggestivePAIR(tonalData.right, tonalData.left);
-  }, [tonalData.right, tonalData.left]);
+  const occupational = useMemo(() => ({ right: assessNR7Audiogram(tonalData.right), left: assessNR7Audiogram(tonalData.left) }), [tonalData.right, tonalData.left]);
 
   // Manipuladores de alteração de limiar
   const handleThresholdChange = (
@@ -89,20 +105,24 @@ export default function TonalAudiometryExam({
     field: 'va' | 'vo',
     value: string
   ) => {
+    if (field === 'vo' && !VO_FREQUENCIES.includes(freq)) return;
+    const key = `${ear}-${freq}-${field}`;
+    setInputDrafts(previous => ({ ...previous, [key]: value }));
     const raw = value.trim().toUpperCase();
     let finalVal: number | 'NR' | undefined = undefined;
-    if (raw === 'NR' || raw === 'SR' || raw === 'X') {
+    if (raw === 'NR' || raw === 'N' || raw === 'SR' || raw === 'X') {
       finalVal = 'NR';
     } else if (raw !== '') {
-      const parsed = parseInt(raw, 10);
-      finalVal = isNaN(parsed) ? undefined : parsed;
+      const parsed = Number(raw);
+      finalVal = /^-?\d+$/.test(raw) && Number.isFinite(parsed) ? parsed : undefined;
     }
 
     const updatedEarData = {
       ...tonalData[ear],
       [freq]: {
         ...(tonalData[ear]?.[freq] || {}),
-        [field]: finalVal
+        [field]: finalVal,
+        [field === 'va' ? 'nrLevelVa' : 'nrLevelVo']: finalVal === 'NR' ? (typeof tonalData[ear]?.[freq]?.[field] === 'number' ? tonalData[ear][freq]![field] : tonalData[ear]?.[freq]?.[field === 'va' ? 'nrLevelVa' : 'nrLevelVo']) : undefined
       }
     };
 
@@ -122,7 +142,8 @@ export default function TonalAudiometryExam({
       ...tonalData[ear],
       [freq]: {
         ...(tonalData[ear]?.[freq] || {}),
-        [field]: checked
+        [field]: checked,
+        [field === 'maskedVa' ? 'unmaskedVa' : 'unmaskedVo']: checked ? (tonalData[ear]?.[freq]?.[field === 'maskedVa' ? 'unmaskedVa' : 'unmaskedVo'] ?? (typeof tonalData[ear]?.[freq]?.[field === 'maskedVa' ? 'va' : 'vo'] === 'number' ? tonalData[ear][freq]![field === 'maskedVa' ? 'va' : 'vo'] : undefined)) : tonalData[ear]?.[freq]?.[field === 'maskedVa' ? 'unmaskedVa' : 'unmaskedVo']
       }
     };
 
@@ -135,6 +156,7 @@ export default function TonalAudiometryExam({
   // Clique no Audiograma Gráfico Interativo
   const handleAudiogramClick = (freq: string, dbVal: number) => {
     if (!activeTool) return;
+    setInputDrafts({});
 
     if (activeTool === 'FREE_FIELD') {
       const currentPoint = freeField?.[freq as TonalFrequency];
@@ -146,6 +168,7 @@ export default function TonalAudiometryExam({
         ...(freeField || {}),
         [freq]: {
           ...(freeField?.[freq as TonalFrequency] || {}),
+          nrLevelVa: valToSet === 'NR' ? dbVal : undefined,
           va: valToSet === 'NR' ? 'NR' : (valToSet === undefined ? undefined : parseInt(valToSet.toString(), 10))
         }
       });
@@ -156,6 +179,7 @@ export default function TonalAudiometryExam({
     const isVA = activeTool.endsWith('VA');
     const ear = isRight ? 'right' : 'left';
 
+    if (!isVA && !VO_FREQUENCIES.includes(freq as TonalFrequency)) return;
     const currentPoint = tonalData[ear]?.[freq as TonalFrequency];
     let valToSet: string | number | undefined = isNR ? 'NR' : dbVal;
     let maskedToSet = isMasked;
@@ -170,13 +194,19 @@ export default function TonalAudiometryExam({
     }
 
     const finalVal = valToSet === 'NR' ? 'NR' : (valToSet === undefined ? undefined : parseInt(valToSet.toString(), 10));
+    const previousValue = isVA ? currentPoint?.va : currentPoint?.vo;
+    const unmaskedField = isVA ? 'unmaskedVa' : 'unmaskedVo';
+    // Ao lançar um valor mascarado sobre um limiar sem mascaramento, preserva o limiar inicial (usado nos alertas BSA).
+    const unmaskedValue = maskedToSet && !(isVA ? currentPoint?.maskedVa : currentPoint?.maskedVo) && typeof previousValue === 'number' ? previousValue : currentPoint?.[unmaskedField];
 
     const updatedEarData = {
       ...tonalData[ear],
       [freq]: {
         ...(tonalData[ear]?.[freq as TonalFrequency] || {}),
         [isVA ? 'va' : 'vo']: finalVal,
-        [isVA ? 'maskedVa' : 'maskedVo']: maskedToSet
+        [isVA ? 'maskedVa' : 'maskedVo']: maskedToSet,
+        [unmaskedField]: unmaskedValue,
+        [isVA ? 'nrLevelVa' : 'nrLevelVo']: valToSet === 'NR' ? dbVal : undefined
       }
     };
 
@@ -187,10 +217,12 @@ export default function TonalAudiometryExam({
   };
 
   const clearEarData = (ear: 'right' | 'left' | 'freeField', field?: 'va' | 'vo') => {
+    setInputDrafts({});
     if (ear === 'freeField') {
       onChangeFreeField({});
       return;
     }
+    if (!field) { onChangeTonal({ ...tonalData, [ear]: {} }); return; }
     const earData = { ...tonalData[ear] };
     FREQUENCIES.forEach(freq => {
       if (earData[freq] && field) {
@@ -209,6 +241,11 @@ export default function TonalAudiometryExam({
 
   return (
     <div className="space-y-6">
+      <ClinicalEvidence sources={['CFFA_GUIA_2023', 'WHO_2021', 'BSA_2018', 'ASHA_SYMBOLS', 'NR7_ANEXO2']} />
+      <p className="text-xs text-slate-500">Os alertas dependem de dados sem mascaramento disponíveis. Ausência de alerta não confirma dispensa de mascaramento nem platô observado.</p>
+      {!protocol && <p className="text-xs text-slate-600">Selecione a referência de procedimento para habilitar os alertas de mascaramento. Ausência de alerta não confirma que o mascaramento é dispensável.</p>}
+      {!allowInterpretation && <p className="text-xs rounded-lg bg-slate-50 border p-2 text-slate-700">{allowDegree ? 'Grau sugerido pela referência pediátrica selecionada; tipo e configuração definidos pelo profissional.' : 'Tipo e grau automáticos não aplicados:'} {allowDegree ? '' : interpretationBlockedReason}</p>}
+      {whoGlobal && <p className="text-xs rounded-lg bg-slate-50 border p-2 text-slate-700"><strong>Classificação global OMS 2021 (melhor orelha):</strong> {whoGlobal.label} Os graus por orelha abaixo usam as faixas da OMS aplicadas à média de cada orelha.</p>}
       {/* Resumo Diagnóstico e Indicadores em Tempo Real */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* OD Card */}
@@ -245,7 +282,7 @@ export default function TonalAudiometryExam({
           </div>
 
           <div className="text-xs text-slate-700 flex flex-wrap gap-x-4 gap-y-1 pt-1 border-t border-red-100/60">
-            <span><strong>Grau:</strong> {rightDegree.degree}</span>
+            <span><strong>Grau (média OD):</strong> {rightDegree.degree}</span>
             <span><strong>Configuração:</strong> {rightConfig}</span>
           </div>
         </div>
@@ -284,7 +321,7 @@ export default function TonalAudiometryExam({
           </div>
 
           <div className="text-xs text-slate-700 flex flex-wrap gap-x-4 gap-y-1 pt-1 border-t border-blue-100/60">
-            <span><strong>Grau:</strong> {leftDegree.degree}</span>
+            <span><strong>Grau (média OE):</strong> {leftDegree.degree}</span>
             <span><strong>Configuração:</strong> {leftConfig}</span>
           </div>
         </div>
@@ -297,14 +334,14 @@ export default function TonalAudiometryExam({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 font-bold text-sm">
                 <ShieldAlert className="w-4 h-4 text-amber-600" />
-                <span>Indicação Clínica de Mascaramento Contralateral Detectada ({maskingAlerts.length})</span>
+                <span>Alertas de mascaramento · BSA 2018 ({maskingAlerts.length})</span>
               </div>
               <button
                 type="button"
                 onClick={() => setShowMaskingAdvisor(!showMaskingAdvisor)}
                 className="text-xs font-semibold text-amber-800 underline flex items-center gap-1"
               >
-                {showMaskingAdvisor ? 'Ocultar Detalhes' : 'Ver Níveis Recomendados'}
+                {showMaskingAdvisor ? 'Ocultar Detalhes' : 'Ver alertas de revisão'}
                 {showMaskingAdvisor ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               </button>
             </div>
@@ -321,7 +358,7 @@ export default function TonalAudiometryExam({
                       <span>{alert.reason}</span>
                       {alert.plateauRange && (
                         <span className="block font-semibold text-amber-950 mt-0.5">
-                          Faixa de Platô Segura: {alert.plateauRange}
+                          Observação: {alert.plateauRange}
                         </span>
                       )}
                     </div>
@@ -333,19 +370,21 @@ export default function TonalAudiometryExam({
         )}
 
         {category === 'ocupacional' && (
-          <div className={`p-3 rounded-xl border flex items-center gap-2.5 text-xs font-medium ${
-            pairAnalysis.isPAIR
-              ? 'bg-orange-50 border-orange-200 text-orange-900'
-              : 'bg-slate-50 border-slate-200 text-slate-700'
-          }`}>
-            <Volume2 className={`w-4 h-4 shrink-0 ${pairAnalysis.isPAIR ? 'text-orange-600' : 'text-slate-400'}`} />
-            <div>
-              <strong className="font-bold">Análise Ocupacional (Portaria 19/NR-7): </strong>
-              <span>{pairAnalysis.reason}</span>
+          <div className="p-3 rounded-xl border flex items-start gap-2.5 text-xs font-medium bg-slate-50 border-slate-200 text-slate-700">
+            <Volume2 className="w-4 h-4 shrink-0 text-slate-400 mt-0.5" />
+            <div className="space-y-1">
+              <strong className="font-bold block">Análise descritiva ocupacional · NR-7, Anexo II (item 5)</strong>
+              <span className="block"><strong>OD:</strong> {occupational.right.reason}</span>
+              <span className="block"><strong>OE:</strong> {occupational.left.reason}</span>
+              <span className="block text-slate-500">Desencadeamento e agravamento exigem comparação com o exame de referência (tela Comparar exames). O diagnóstico conclusivo e a aptidão cabem ao médico do trabalho (item 6).</span>
             </div>
           </div>
         )}
       </div>
+
+      {(['right', 'left'] as const).map(ear => Object.entries(tonalData[ear]).map(([freq, point]) => (['va', 'vo'] as const).map(via => point[via] === 'NR' ? <label key={`${ear}-${freq}-${via}`} className="block text-xs font-semibold bg-amber-50 border border-amber-200 rounded-lg p-3">Sem resposta · {ear === 'right' ? 'OD' : 'OE'} · {freq} Hz · {via.toUpperCase()} — nível apresentado (dB NA)
+        <Input type="number" min={-10} max={120} step={5} aria-label={`Nível sem resposta ${ear} ${freq} ${via}`} value={point[via === 'va' ? 'nrLevelVa' : 'nrLevelVo'] ?? ''} onChange={e => onChangeTonal({ ...tonalData, [ear]: { ...tonalData[ear], [freq]: { ...point, [via === 'va' ? 'nrLevelVa' : 'nrLevelVo']: e.target.value === '' ? undefined : Number(e.target.value) } } })} />
+      </label> : null)))}
 
       {/* Tabela de Lançamento Tonal + Audiograma Interativo */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -354,14 +393,13 @@ export default function TonalAudiometryExam({
           <CardHeader className="bg-slate-50/60 border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
-                <Activity className="w-4 h-4 text-indigo-600" />
                 Matriz de Limiares Tonais (dB NA)
               </CardTitle>
               <CardDescription className="text-xs text-slate-500">
                 Insira valores de -10 a 120 dB ou 'NR' para ausência de resposta.
               </CardDescription>
             </div>
-            
+
             <div className="flex items-center gap-2">
               {/* Seletor de Orelha no Mobile */}
               <div className="flex lg:hidden items-center bg-slate-200/80 p-0.5 rounded-lg text-xs font-bold">
@@ -393,10 +431,10 @@ export default function TonalAudiometryExam({
                 <select
                   className="h-7 text-xs rounded border border-slate-300 bg-white px-2 py-0.5"
                   value={transducer}
-                  onChange={e => setTransducer(e.target.value as any)}
+                  onChange={e => onTransducerChange(e.target.value as any)}
                 >
-                  <option value="supra">Supra-aural (40dB)</option>
-                  <option value="insert">Inserção ER-3A (60dB)</option>
+                  <option value="supra">Supra-aural</option>
+                  <option value="insert">Inserção (registrar modelo)</option>
                 </select>
               </div>
             </div>
@@ -457,7 +495,9 @@ export default function TonalAudiometryExam({
                               placeholder="-"
                               inputMode="text"
                               autoComplete="off"
-                              value={tonalData.right?.[freq]?.va !== undefined ? tonalData.right[freq]?.va : ''}
+                              aria-label="VA OD"
+                              value={inputDrafts[`right-${freq}-va`] ?? tonalData.right?.[freq]?.va ?? ''}
+                              onBlur={() => setInputDrafts(previous => { const next = { ...previous }; delete next[`right-${freq}-va`]; return next; })}
                               onChange={e => handleThresholdChange('right', freq, 'va', e.target.value)}
                             />
                           </td>
@@ -477,7 +517,9 @@ export default function TonalAudiometryExam({
                                 placeholder="-"
                                 inputMode="text"
                                 autoComplete="off"
-                                value={tonalData.right?.[freq]?.vo !== undefined ? tonalData.right[freq]?.vo : ''}
+                                aria-label="VO OD"
+                              value={inputDrafts[`right-${freq}-vo`] ?? tonalData.right?.[freq]?.vo ?? ''}
+                              onBlur={() => setInputDrafts(previous => { const next = { ...previous }; delete next[`right-${freq}-vo`]; return next; })}
                                 onChange={e => handleThresholdChange('right', freq, 'vo', e.target.value)}
                               />
                             ) : (
@@ -507,7 +549,9 @@ export default function TonalAudiometryExam({
                               placeholder="-"
                               inputMode="text"
                               autoComplete="off"
-                              value={tonalData.left?.[freq]?.va !== undefined ? tonalData.left[freq]?.va : ''}
+                              aria-label="VA OE"
+                              value={inputDrafts[`left-${freq}-va`] ?? tonalData.left?.[freq]?.va ?? ''}
+                              onBlur={() => setInputDrafts(previous => { const next = { ...previous }; delete next[`left-${freq}-va`]; return next; })}
                               onChange={e => handleThresholdChange('left', freq, 'va', e.target.value)}
                             />
                           </td>
@@ -527,7 +571,9 @@ export default function TonalAudiometryExam({
                                 placeholder="-"
                                 inputMode="text"
                                 autoComplete="off"
-                                value={tonalData.left?.[freq]?.vo !== undefined ? tonalData.left[freq]?.vo : ''}
+                                aria-label="VO OE"
+                              value={inputDrafts[`left-${freq}-vo`] ?? tonalData.left?.[freq]?.vo ?? ''}
+                              onBlur={() => setInputDrafts(previous => { const next = { ...previous }; delete next[`left-${freq}-vo`]; return next; })}
                                 onChange={e => handleThresholdChange('left', freq, 'vo', e.target.value)}
                               />
                             ) : (
@@ -557,8 +603,7 @@ export default function TonalAudiometryExam({
             <div className="p-3 bg-slate-50 border-t border-slate-200 block lg:hidden space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                  Lançamento Rápido Touch
+                  Entrada por toque
                 </span>
                 <span className="text-[10px] text-slate-500 font-medium">
                   {quickFreq} Hz • {activeTool?.replace('_', ' ')}: {' '}
@@ -682,7 +727,6 @@ export default function TonalAudiometryExam({
           <CardHeader className="bg-slate-50/60 border-b border-slate-100 pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-indigo-600" />
                 Audiograma Interativo
               </CardTitle>
             </div>
@@ -772,7 +816,7 @@ export default function TonalAudiometryExam({
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
-                    onClick={() => clearEarData('right', 'va')}
+                    onClick={() => clearEarData('right')}
                     className="text-[10px] text-red-500 hover:underline"
                   >
                     Limpar OD
@@ -780,7 +824,7 @@ export default function TonalAudiometryExam({
                   <span className="text-slate-300">|</span>
                   <button
                     type="button"
-                    onClick={() => clearEarData('left', 'va')}
+                    onClick={() => clearEarData('left')}
                     className="text-[10px] text-blue-500 hover:underline"
                   >
                     Limpar OE
@@ -792,12 +836,14 @@ export default function TonalAudiometryExam({
 
           <CardContent className="flex-1 flex items-center justify-center p-3 bg-white">
             <div className="w-full max-w-[500px]">
+              <p className="text-xs font-semibold text-slate-700 mb-2">{responseType === 'minimum_response' ? 'Níveis mínimos de resposta · não equivalem automaticamente a limiares' : responseType === 'threshold' ? 'Limiares auditivos registrados' : 'Tipo de resposta ainda não informado'}</p>
               <AudiogramSVG
                 rightData={tonalData.right}
                 leftData={tonalData.left}
                 freeFieldData={freeField}
                 onPointClick={handleAudiogramClick}
               />
+              <p className="text-xs text-slate-600 mt-3">OD: O / △ mascarada · OE: X / □ mascarada · VO: &lt; / &gt; e [ / ] mascarada · S: campo livre, sem lateralidade. Seta: ausência de resposta no nível informado; não é limiar. VO sem mascaramento não identifica isoladamente a cóclea respondente. O alcance da escala não define a saída máxima do equipamento.</p>
             </div>
           </CardContent>
         </Card>
@@ -807,7 +853,6 @@ export default function TonalAudiometryExam({
       <Card className="border-slate-200 shadow-sm overflow-hidden">
         <CardHeader className="bg-slate-50/60 border-b border-slate-100 py-3">
           <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-2">
-            <Layers className="w-4 h-4 text-indigo-600" />
             Registro de Mascaramento Utilizado (Nível de Ruído Narrow-Band)
           </CardTitle>
         </CardHeader>
@@ -821,7 +866,7 @@ export default function TonalAudiometryExam({
                   <label className="text-[11px] text-slate-600 block mb-0.5">VA Inicial (dBNB)</label>
                   <Input
                     className="h-7 text-xs bg-white"
-                    placeholder="Ex: 50 dBNB"
+                    placeholder="Nível aplicado"
                     value={tonalMasking?.right?.va1 || ''}
                     onChange={e => onChangeMasking({
                       ...tonalMasking!,
@@ -833,7 +878,7 @@ export default function TonalAudiometryExam({
                   <label className="text-[11px] text-slate-600 block mb-0.5">VO Inicial (dBNB)</label>
                   <Input
                     className="h-7 text-xs bg-white"
-                    placeholder="Ex: 40 dBNB"
+                    placeholder="Nível aplicado"
                     value={tonalMasking?.right?.vo1 || ''}
                     onChange={e => onChangeMasking({
                       ...tonalMasking!,
@@ -852,7 +897,7 @@ export default function TonalAudiometryExam({
                   <label className="text-[11px] text-slate-600 block mb-0.5">VA Inicial (dBNB)</label>
                   <Input
                     className="h-7 text-xs bg-white"
-                    placeholder="Ex: 50 dBNB"
+                    placeholder="Nível aplicado"
                     value={tonalMasking?.left?.va1 || ''}
                     onChange={e => onChangeMasking({
                       ...tonalMasking!,
@@ -864,7 +909,7 @@ export default function TonalAudiometryExam({
                   <label className="text-[11px] text-slate-600 block mb-0.5">VO Inicial (dBNB)</label>
                   <Input
                     className="h-7 text-xs bg-white"
-                    placeholder="Ex: 40 dBNB"
+                    placeholder="Nível aplicado"
                     value={tonalMasking?.left?.vo1 || ''}
                     onChange={e => onChangeMasking({
                       ...tonalMasking!,

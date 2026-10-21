@@ -16,11 +16,11 @@ export default function BeforeAfterSection() {
     },
     {
       old: "Receito constante de perder arquivos ou danificar fichas médicas físicas",
-      new: "Armazenamento em nuvem com criptografia de alta segurança e backup diário",
+      new: "Armazenamento em nuvem com conexão criptografada e backup manual exportável",
     },
     {
       old: "Gastar de 30 a 45 minutos por laudo emitido após a consulta com o paciente",
-      new: "Conclusão do laudo oficial impresso ou em PDF durante a própria consulta em 3 minutos",
+      new: "Registro estruturado e exportação em PDF ao final da avaliação, com revisão profissional",
     },
   ];
 

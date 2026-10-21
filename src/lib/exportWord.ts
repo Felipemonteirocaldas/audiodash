@@ -1,8 +1,11 @@
+import { formatTonalValue, isReviewCurrent, hasRecordedValue, professionalClassificationLines, examProfessional } from '@/lib/examIntegrity';
 import { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, AlignmentType, WidthType, HeadingLevel } from 'docx';
 import { saveAs } from 'file-saver';
-import { Audiometry, Patient, db, TonalFrequency } from '@/db/db';
-import { calculatePTA, classifyTympanometry } from '@/lib/audiologyCalculations';
+import { Audiometry, Patient, db, TonalFrequency, TympanometryData } from '@/db/db';
+import { calculatePTA, classifyTympanometry, degreeStandardLabel } from '@/lib/audiologyCalculations';
 import { customAlert } from '@/lib/dialogs';
+
+const tympWordLabel = (data: TympanometryData | undefined, type: string) => type === 'Inconclusivo' ? `Classificação: ${data?.recordedType ? 'incompleta ou incompatível com a sonda' : 'não registrada'}` : type === 'Normal' || type === 'Alterada' ? `Curva ${type.toLowerCase()}` : `Tipo ${type === 'As' ? 'As (Ar)' : type}`;
 
 const FREQUENCIES: TonalFrequency[] = ['125', '250', '500', '750', '1000', '1500', '2000', '3000', '4000', '6000', '8000'];
 
@@ -11,8 +14,8 @@ export const exportToDocx = async (exam: Audiometry, patient: Patient) => {
     const settingsArray = await db.settings.toArray();
     const settings = settingsArray[0];
 
-    const rightPTA = calculatePTA(exam.tonalData?.right);
-    const leftPTA = calculatePTA(exam.tonalData?.left);
+    const rightPTA = calculatePTA(exam.header?.responseType === 'threshold' ? exam.tonalData?.right : undefined);
+    const leftPTA = calculatePTA(exam.header?.responseType === 'threshold' ? exam.tonalData?.left : undefined);
     const rightTymp = classifyTympanometry(exam.tympanometry?.right);
     const leftTymp = classifyTympanometry(exam.tympanometry?.left);
 
@@ -21,6 +24,7 @@ export const exportToDocx = async (exam: Audiometry, patient: Patient) => {
         {
           properties: {},
           children: [
+            new Paragraph({ text: isReviewCurrent(exam) ? 'EXAME REVISADO' : 'RASCUNHO — AGUARDANDO REVISÃO PROFISSIONAL' }),
             // Cabeçalho
             new Paragraph({
               alignment: AlignmentType.CENTER,
@@ -37,7 +41,7 @@ export const exportToDocx = async (exam: Audiometry, patient: Patient) => {
               alignment: AlignmentType.CENTER,
               children: [
                 new TextRun({
-                  text: `Fonoaudiólogo(a): ${settings?.professionalName || 'Responsável'} ${settings?.crfaNumber ? `- CRFa: ${settings.crfaNumber}` : ''}`,
+                  text: `Fonoaudiólogo(a): ${examProfessional(exam, settings)}`,
                   size: 20,
                   color: '475569'
                 })
@@ -93,9 +97,9 @@ export const exportToDocx = async (exam: Audiometry, patient: Patient) => {
                 spacing: { after: 200 },
                 children: [
                   new TextRun({ text: 'OD: ', bold: true, color: 'DC2626' }),
-                  new TextRun({ text: `${exam.meatoscopy?.rightDescription || exam.meatoscopy?.right || 'Normal'}\n` }),
+                  new TextRun({ text: `${exam.meatoscopy?.rightDescription || exam.meatoscopy?.right || 'Não realizado'}\n` }),
                   new TextRun({ text: 'OE: ', bold: true, color: '2563EB' }),
-                  new TextRun({ text: `${exam.meatoscopy?.leftDescription || exam.meatoscopy?.left || 'Normal'}` })
+                  new TextRun({ text: `${exam.meatoscopy?.leftDescription || exam.meatoscopy?.left || 'Não realizado'}` })
                 ]
               })
             ] : []),
@@ -120,10 +124,10 @@ export const exportToDocx = async (exam: Audiometry, patient: Patient) => {
                 ...FREQUENCIES.map(f => new TableRow({
                   children: [
                     new TableCell({ children: [new Paragraph({ text: f, alignment: AlignmentType.CENTER })] }),
-                    new TableCell({ children: [new Paragraph({ text: String(exam.tonalData?.right?.[f]?.va ?? '-'), alignment: AlignmentType.CENTER })] }),
-                    new TableCell({ children: [new Paragraph({ text: String(exam.tonalData?.right?.[f]?.vo ?? '-'), alignment: AlignmentType.CENTER })] }),
-                    new TableCell({ children: [new Paragraph({ text: String(exam.tonalData?.left?.[f]?.va ?? '-'), alignment: AlignmentType.CENTER })] }),
-                    new TableCell({ children: [new Paragraph({ text: String(exam.tonalData?.left?.[f]?.vo ?? '-'), alignment: AlignmentType.CENTER })] })
+                    new TableCell({ children: [new Paragraph({ text: String(formatTonalValue(exam.tonalData?.right?.[f], 'va')), alignment: AlignmentType.CENTER })] }),
+                    new TableCell({ children: [new Paragraph({ text: String(formatTonalValue(exam.tonalData?.right?.[f], 'vo')), alignment: AlignmentType.CENTER })] }),
+                    new TableCell({ children: [new Paragraph({ text: String(formatTonalValue(exam.tonalData?.left?.[f], 'va')), alignment: AlignmentType.CENTER })] }),
+                    new TableCell({ children: [new Paragraph({ text: String(formatTonalValue(exam.tonalData?.left?.[f], 'vo')), alignment: AlignmentType.CENTER })] })
                   ]
                 }))
               ]
@@ -156,7 +160,7 @@ export const exportToDocx = async (exam: Audiometry, patient: Patient) => {
             }),
 
             // Imitanciometria se preenchida
-            ...(exam.tympanometry?.right?.peak || exam.tympanometry?.left?.peak ? [
+            ...(hasRecordedValue(exam.tympanometry) ? [
               new Paragraph({
                 heading: HeadingLevel.HEADING_2,
                 children: [new TextRun({ text: '5. Imitanciometria', bold: true, size: 22, color: '1E3A8A' })]
@@ -165,9 +169,9 @@ export const exportToDocx = async (exam: Audiometry, patient: Patient) => {
                 spacing: { after: 200 },
                 children: [
                   new TextRun({ text: 'OD: ', bold: true, color: 'DC2626' }),
-                  new TextRun({ text: `Curva ${rightTymp.type} | Pico: ${exam.tympanometry?.right?.peak ?? '-'} daPa | Complacência: ${exam.tympanometry?.right?.compliance200 ?? '-'} ml | Vea: ${exam.tympanometry?.right?.volume ?? '-'} ml\n` }),
+                  new TextRun({ text: `${tympWordLabel(exam.tympanometry?.right, rightTymp.type)} | Sonda: ${exam.tympanometry?.right?.probeFrequency || '?'} Hz | Pico: ${exam.tympanometry?.right?.curveShape === 'flat' ? 'sem pico' : `${exam.tympanometry?.right?.peak ?? '-'} daPa`} | Admitância: ${exam.tympanometry?.right?.compliance200 ?? '-'} ${exam.tympanometry?.right?.admittanceUnit || '(unidade não informada)'} | Volume: ${exam.tympanometry?.right?.volume ?? '-'} | Referência: ${exam.tympanometry?.right?.normativeReference || 'não informada'}\n` }),
                   new TextRun({ text: 'OE: ', bold: true, color: '2563EB' }),
-                  new TextRun({ text: `Curva ${leftTymp.type} | Pico: ${exam.tympanometry?.left?.peak ?? '-'} daPa | Complacência: ${exam.tympanometry?.left?.compliance200 ?? '-'} ml | Vea: ${exam.tympanometry?.left?.volume ?? '-'} ml` })
+                  new TextRun({ text: `${tympWordLabel(exam.tympanometry?.left, leftTymp.type)} | Sonda: ${exam.tympanometry?.left?.probeFrequency || '?'} Hz | Pico: ${exam.tympanometry?.left?.curveShape === 'flat' ? 'sem pico' : `${exam.tympanometry?.left?.peak ?? '-'} daPa`} | Admitância: ${exam.tympanometry?.left?.compliance200 ?? '-'} ${exam.tympanometry?.left?.admittanceUnit || '(unidade não informada)'} | Volume: ${exam.tympanometry?.left?.volume ?? '-'} | Referência: ${exam.tympanometry?.left?.normativeReference || 'não informada'}` })
                 ]
               })
             ] : []),
@@ -175,13 +179,15 @@ export const exportToDocx = async (exam: Audiometry, patient: Patient) => {
             // Conclusão e Parecer
             new Paragraph({
               heading: HeadingLevel.HEADING_2,
-              children: [new TextRun({ text: '6. Conclusão Diagnóstica e Parecer Fonoaudiológico', bold: true, size: 22, color: '1E3A8A' })]
+              children: [new TextRun({ text: '6. Parecer Fonoaudiológico e Conduta', bold: true, size: 22, color: '1E3A8A' })]
             }),
+            ...professionalClassificationLines(exam).map(line => new Paragraph({ children: [new TextRun({ text: line, size: 20 })] })),
+            new Paragraph({ children: [new TextRun({ text: `Classificação de grau adotada: ${degreeStandardLabel(exam.header?.degreeStandard)}.`, size: 18, color: '475569' })] }),
             new Paragraph({
               spacing: { after: 400 },
               children: [
                 new TextRun({
-                  text: exam.resultAndConduct || exam.opinion?.clinical || 'Audição dentro dos padrões de normalidade bilateralmente.',
+                  text: exam.resultAndConduct || exam.opinion?.clinical || 'Parecer não registrado.',
                   size: 20
                 })
               ]
@@ -193,9 +199,8 @@ export const exportToDocx = async (exam: Audiometry, patient: Patient) => {
               spacing: { before: 400 },
               children: [
                 new TextRun({ text: '____________________________________________________\n', bold: true }),
-                new TextRun({ text: `${settings?.professionalName || 'Fonoaudiólogo(a) Responsável'}\n`, bold: true, size: 20 }),
-                new TextRun({ text: `CRFa: ${settings?.crfaNumber || '---'} ${settings?.specialty ? `• ${settings.specialty}` : ''}\n`, size: 18, color: '475569' }),
-                new TextRun({ text: 'Documento emitido via AudioDash conforme diretrizes CFFa / SBFa / OMS (2021)', size: 16, color: '94A3B8' })
+                new TextRun({ text: `${examProfessional(exam, settings)}\n`, bold: true, size: 20 }),
+                new TextRun({ text: 'Documento gerado pelo AudioDash. Validade condicionada à assinatura do fonoaudiólogo responsável (manuscrita ou eletrônica avançada/qualificada — Res. CFFa 777/2025, art. 6º).', size: 16, color: '94A3B8' })
               ]
             })
           ]

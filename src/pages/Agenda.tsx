@@ -541,7 +541,8 @@ export default function Agenda() {
     }
   }, [location.state]);
 
-  const patients = useLiveQuery(() => db.patients.toArray(), []);
+  // Pacientes arquivados não recebem novos agendamentos (prontuário preservado; ver recordRetention).
+  const patients = useLiveQuery(() => db.patients.filter(p => !p.archivedAt).toArray(), []);
 
   // Selected day's appointments
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');

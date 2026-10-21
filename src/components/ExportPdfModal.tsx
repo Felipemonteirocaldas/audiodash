@@ -1,3 +1,4 @@
+import { hasRecordedValue, isReviewCurrent } from '@/lib/examIntegrity';
 import { useState } from 'react';
 import { Audiometry, Patient } from '@/db/db';
 import { exportToPdf, PdfExportOptions } from '@/lib/exportPdf';
@@ -5,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import {
   FileText,
   X,
-  Sparkles,
   Download
 } from 'lucide-react';
 
@@ -17,20 +17,19 @@ interface Props {
 }
 
 export default function ExportPdfModal({ isOpen, onClose, exam, patient }: Props) {
-  if (!isOpen) return null;
 
   // Auto-detecção de exames preenchidos
-  const hasMeatoscopy = !!(exam.meatoscopy?.right || exam.meatoscopy?.left);
-  const hasTonal = !!(exam.tonalData?.right?.['1000']?.va !== undefined || exam.tonalData?.left?.['1000']?.va !== undefined);
-  const hasLogo = !!(exam.logoAudiometry?.right?.srt?.db || exam.logoAudiometry?.left?.srt?.db || exam.logoAudiometry?.right?.irf?.mono?.percentage);
-  const hasImmitance = !!(exam.tympanometry?.right?.peak || exam.tympanometry?.left?.peak || exam.reflexes?.right?.['1000']?.ipsi || exam.reflexes?.sondaOD);
-  const hasComplementary = !!(exam.complementary?.weber || exam.complementary?.eoa?.right || exam.complementary?.bera?.right);
+  const hasMeatoscopy = hasRecordedValue(exam.meatoscopy);
+  const hasTonal = hasRecordedValue(exam.tonalData) || hasRecordedValue(exam.freeField);
+  const hasLogo = hasRecordedValue(exam.logoAudiometry);
+  const hasImmitance = hasRecordedValue(exam.tympanometry) || hasRecordedValue(exam.reflexes);
+  const hasComplementary = hasRecordedValue(exam.complementary);
 
   const [options, setOptions] = useState<PdfExportOptions>({
     includeMeatoscopy: hasMeatoscopy,
-    includeTonalChart: hasTonal || true,
-    includeTonalTable: hasTonal || true,
-    includePTA: true,
+    includeTonalChart: hasTonal,
+    includeTonalTable: hasTonal,
+    includePTA: exam.header?.responseType === 'threshold',
     includeLogo: hasLogo,
     includeImmitance: hasImmitance,
     includeComplementary: hasComplementary,
@@ -38,6 +37,8 @@ export default function ExportPdfModal({ isOpen, onClose, exam, patient }: Props
   });
 
   const [isGenerating, setIsGenerating] = useState(false);
+
+  if (!isOpen) return null;
 
   const toggleOption = (key: keyof PdfExportOptions) => {
     setOptions(prev => ({
@@ -52,7 +53,7 @@ export default function ExportPdfModal({ isOpen, onClose, exam, patient }: Props
         includeMeatoscopy: hasMeatoscopy,
         includeTonalChart: true,
         includeTonalTable: true,
-        includePTA: true,
+        includePTA: exam.header?.responseType === 'threshold',
         includeLogo: hasLogo,
         includeImmitance: hasImmitance,
         includeComplementary: hasComplementary,
@@ -63,7 +64,7 @@ export default function ExportPdfModal({ isOpen, onClose, exam, patient }: Props
         includeMeatoscopy: true,
         includeTonalChart: true,
         includeTonalTable: true,
-        includePTA: true,
+        includePTA: exam.header?.responseType === 'threshold',
         includeLogo: true,
         includeImmitance: true,
         includeComplementary: true,
@@ -74,7 +75,7 @@ export default function ExportPdfModal({ isOpen, onClose, exam, patient }: Props
         includeMeatoscopy: hasMeatoscopy,
         includeTonalChart: true,
         includeTonalTable: true,
-        includePTA: true,
+        includePTA: exam.header?.responseType === 'threshold',
         includeLogo: false,
         includeImmitance: false,
         includeComplementary: false,
@@ -85,7 +86,7 @@ export default function ExportPdfModal({ isOpen, onClose, exam, patient }: Props
         includeMeatoscopy: false,
         includeTonalChart: true,
         includeTonalTable: true,
-        includePTA: true,
+        includePTA: exam.header?.responseType === 'threshold',
         includeLogo: false,
         includeImmitance: false,
         includeComplementary: false,
@@ -118,7 +119,7 @@ export default function ExportPdfModal({ isOpen, onClose, exam, patient }: Props
             <div>
               <h3 className="text-base font-bold text-slate-800">Opções de Exportação do PDF</h3>
               <p className="text-xs text-slate-500">
-                Selecione os exames e seções que deseja incluir no laudo oficial.
+                {isReviewCurrent(exam) ? 'Exame revisado. Selecione as seções para exportar.' : 'Rascunho: o PDF será identificado como aguardando revisão.'}
               </p>
             </div>
           </div>
@@ -142,8 +143,7 @@ export default function ExportPdfModal({ isOpen, onClose, exam, patient }: Props
                 type="button"
                 onClick={() => applyPreset('auto')}
                 className="px-2.5 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100 text-indigo-700 font-semibold text-center transition-all flex items-center justify-center gap-1"
-              >
-                <Sparkles className="w-3 h-3" /> Auto (Realizados)
+              > Selecionar procedimentos registrados
               </button>
               <button
                 type="button"

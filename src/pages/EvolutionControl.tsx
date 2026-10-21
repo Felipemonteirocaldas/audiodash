@@ -4,6 +4,7 @@ import { db, TonalFrequency } from '@/db/db';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Activity } from 'lucide-react';
+import { formatTonalValue } from '@/lib/examIntegrity';
 
 const FREQUENCIES: TonalFrequency[] = ['500', '1000', '2000', '3000', '4000', '6000', '8000'];
 
@@ -21,6 +22,10 @@ export default function EvolutionControl() {
   const getTonalValue = (exam: any, ear: 'right' | 'left', freq: TonalFrequency) => {
     return exam.tonalData?.[ear]?.[freq]?.va ?? '-';
   };
+  const showTonal = (exam: any, ear: 'right' | 'left', freq: TonalFrequency) => {
+    const point = exam.tonalData?.[ear]?.[freq];
+    return point?.va === undefined ? '-' : typeof point.va === 'number' ? `${point.va} dB` : formatTonalValue(point, 'va');
+  };
 
   return (
     <div className="space-y-6">
@@ -31,7 +36,7 @@ export default function EvolutionControl() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Controle Evolutivo (PCA)</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Evolução dos limiares (VA)</h1>
           <p className="text-muted-foreground mt-1">
             {patient?.name} {patient?.cpf ? `(${patient.cpf})` : ''}
           </p>
@@ -68,7 +73,7 @@ export default function EvolutionControl() {
                 </tr>
                 <tr className="bg-slate-50 text-slate-500 text-xs">
                   <th className="p-2 border-r border-b font-medium text-left bg-white sticky left-0 z-10 shadow-[1px_0_0_rgba(0,0,0,0.1)]">
-                    Classificação / Diagnóstico
+                    Síntese clínica registrada
                   </th>
                   {exams.map(exam => (
                     <td key={exam.id} className="p-2 border-r border-b font-medium">
@@ -90,12 +95,12 @@ export default function EvolutionControl() {
                       const prevVal = i > 0 ? getTonalValue(exams[i-1], 'right', freq) : null;
                       let diffClass = "";
                       if (typeof val === 'number' && typeof prevVal === 'number') {
-                        if (val > prevVal + 10) diffClass = "text-red-600 font-bold"; // Piora > 10dB
-                        else if (val < prevVal - 10) diffClass = "text-emerald-600 font-bold"; // Melhora
+                        if (val - prevVal >= 15) diffClass = "text-red-600 font-bold";
+                        else if (prevVal - val >= 15) diffClass = "text-emerald-600 font-bold";
                       }
                       return (
                         <td key={exam.id} className={`p-2 border-r border-b ${diffClass}`}>
-                          {val !== 'NR' && val !== '-' ? `${val} dB` : val}
+                          {showTonal(exam, 'right', freq)}
                         </td>
                       );
                     })}
@@ -114,12 +119,12 @@ export default function EvolutionControl() {
                       const prevVal = i > 0 ? getTonalValue(exams[i-1], 'left', freq) : null;
                       let diffClass = "";
                       if (typeof val === 'number' && typeof prevVal === 'number') {
-                        if (val > prevVal + 10) diffClass = "text-red-600 font-bold"; // Piora > 10dB
-                        else if (val < prevVal - 10) diffClass = "text-emerald-600 font-bold"; // Melhora
+                        if (val - prevVal >= 15) diffClass = "text-red-600 font-bold";
+                        else if (prevVal - val >= 15) diffClass = "text-emerald-600 font-bold";
                       }
                       return (
                         <td key={exam.id} className={`p-2 border-r border-b ${diffClass}`}>
-                           {val !== 'NR' && val !== '-' ? `${val} dB` : val}
+                           {showTonal(exam, 'left', freq)}
                         </td>
                       );
                     })}
@@ -128,7 +133,7 @@ export default function EvolutionControl() {
               </tbody>
             </table>
             <div className="p-4 text-xs text-slate-500 bg-slate-50">
-              * Pioras maiores que 10dB em relação ao exame anterior são destacadas em <span className="text-red-600 font-bold">vermelho</span>. Melhorias em <span className="text-emerald-600 font-bold">verde</span>.
+              * Diferenças de 15 dB ou mais em relação ao exame imediatamente anterior: piora em <span className="text-red-600 font-bold">vermelho</span>, melhora em <span className="text-emerald-600 font-bold">verde</span>. Destaque visual descritivo: os critérios da NR-7 (Anexo II, itens 5.3 e 5.4) comparam cada exame com o exame de referência, e não com o anterior — use Comparar exames.
             </div>
           </CardContent>
         </Card>

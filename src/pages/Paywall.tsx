@@ -2,6 +2,10 @@ import { useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { CreditCard, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { downloadFullBackup } from '@/lib/backup';
+
+// Defina VITE_DODO_CHECKOUT_URL no ambiente de produção. O link padrão abaixo é do modo de TESTE do Dodo Payments.
+const CHECKOUT_URL = import.meta.env.VITE_DODO_CHECKOUT_URL || 'https://test.checkout.dodopayments.com/buy/pdt_0NkP4tyyh4C0dF9wG6eUW';
 
 export default function Paywall() {
   const { user, logout } = useAuth();
@@ -24,11 +28,7 @@ export default function Paywall() {
 
   const handleCheckout = () => {
     // Redireciona para o link de checkout do Dodo Payments enviando o email
-    if (user?.email) {
-      window.location.href = `https://test.checkout.dodopayments.com/buy/pdt_0NkP4tyyh4C0dF9wG6eUW?customer_email=${encodeURIComponent(user.email)}`;
-    } else {
-      window.location.href = 'https://test.checkout.dodopayments.com/buy/pdt_0NkP4tyyh4C0dF9wG6eUW';
-    }
+    window.location.href = user?.email ? `${CHECKOUT_URL}${CHECKOUT_URL.includes('?') ? '&' : '?'}customer_email=${encodeURIComponent(user.email)}` : CHECKOUT_URL;
   };
 
   return (
@@ -98,6 +98,16 @@ export default function Paywall() {
               Assinar Agora
             </button>
             
+            <div className="border border-slate-200 rounded-md p-4 text-sm text-gray-600 space-y-2">
+              <p>Seus prontuários continuam guardados mesmo sem assinatura ativa. Você pode baixar a cópia completa dos dados deste dispositivo a qualquer momento (Res. CFFa 777/2025, arts. 7º e 8º).</p>
+              <button
+                onClick={() => downloadFullBackup().catch(() => undefined)}
+                className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Baixar cópia dos meus dados (JSON)
+              </button>
+            </div>
+
             <button
               onClick={() => logout()}
               className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"

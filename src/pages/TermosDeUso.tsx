@@ -149,13 +149,15 @@ export default function TermosDeUso() {
                 <h2 className="text-lg font-bold text-slate-900">Planos e Pagamento</h2>
               </div>
               <p>
-                A Plataforma oferece planos gratuitos e pagos. Os valores, condições e benefícios de cada plano estão descritos 
-                na página de preços. O pagamento é processado por meio de provedores terceirizados de pagamento seguros. 
-                A cobrança é recorrente (mensal) e pode ser cancelada a qualquer momento pelo painel de configurações.
+                A Plataforma é oferecida por assinatura paga. Os valores, condições e benefícios estão descritos 
+                na página de preços. O pagamento é processado por provedor terceirizado (Dodo Payments). 
+                A cobrança é recorrente (mensal) e pode ser cancelada a qualquer momento pelo portal do cliente do provedor 
+                ou pelo e-mail contato@audiodash.com.br, mantendo o acesso até o fim do período pago.
               </p>
               <p className="mt-3">
-                Em caso de inadimplência, a Empresa reserva-se o direito de restringir o acesso às funcionalidades premium 
-                até a regularização do pagamento, sem exclusão dos dados armazenados.
+                Em caso de inadimplência ou fim da assinatura, a Empresa pode restringir o acesso às funcionalidades 
+                até a regularização do pagamento, sem exclusão dos dados armazenados. O Profissional continua podendo 
+                baixar a cópia completa dos seus registros na tela de planos.
               </p>
             </section>
 

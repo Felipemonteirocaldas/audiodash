@@ -4,7 +4,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  passwordHash: string; // Senha (hash ou plain text simples para Dexie local)
+  passwordHash: string; // Modo local sem Supabase: hash PBKDF2 ("pbkdf2$..."); registros antigos em texto são migrados no próximo login
   createdAt: number;
   subscriptionStatus?: 'active' | 'inactive' | 'past_due' | 'canceled' | null;
   subscriptionEndDate?: number | null;
@@ -27,6 +27,8 @@ export interface Patient {
   syncStatus: 'synced' | 'pending';
   user_id?: string;
   tenant_id?: string; // Previsão estrutural para o futuro SaaS Multi-Tenant
+  /** Arquivamento (Res. CFFa 777/2025, art. 8º): paciente oculto das listas, prontuário preservado. Requer a coluna "archivedAt" no Supabase. */
+  archivedAt?: number | null;
 }
 
 export interface Appointment {
@@ -52,6 +54,18 @@ export interface ExamHeader {
   impedanciometer?: string;
   requestingPhysician?: string;
   speechTherapist?: string;
+  degreeStandard?: 'OMS_2021' | 'LLOYD_KAPLAN' | 'KAPLAN_1993' | 'DAVIS_1970' | 'BIAP_1996' | 'NORTHERN_DOWNS_2005' | 'OMS_2014';
+  transducer?: 'supra' | 'insert';
+  assessmentMethod?: '' | 'conventional' | 'play' | 'vra' | 'observation';
+  responseType?: '' | 'threshold' | 'minimum_response';
+  reliability?: '' | 'good' | 'limited' | 'inconclusive';
+  freeFieldCondition?: string;
+  calibrationDate?: string;
+  clinicalRulesVersion?: string;
+  audiometryProtocol?: '' | 'BSA_2018';
+  retest1000?: { right?: string; left?: string; initialRight?: number; initialLeft?: number; notes?: string };
+  /** NR-7, Anexo II, item 3.4: repouso auditivo mínimo de 14 h informado (exames ocupacionais). */
+  auditoryRest14h?: boolean;
 }
 
 // Tonal Audiometry
@@ -61,6 +75,10 @@ export type TonalPoint = {
   vo?: number | 'NR';
   maskedVa?: boolean;
   maskedVo?: boolean;
+  nrLevelVa?: number;
+  nrLevelVo?: number;
+  unmaskedVa?: number;
+  unmaskedVo?: number;
 };
 export type EarTonalData = Record<TonalFrequency, TonalPoint>;
 
@@ -83,6 +101,9 @@ export interface IRFPoint {
   db?: number | string;
   percentage?: number | string;
   masking?: string;
+  totalItems?: string;
+  correctItems?: string;
+  listId?: string;
 }
 
 export interface IRFData {
@@ -101,6 +122,10 @@ export interface LogoAudiometryData {
   srt: SRTData;
   irf: IRFData;
   voiceDetection: VoiceDetectionData;
+  language?: string;
+  materialReference?: string;
+  presentation?: '' | 'recorded' | 'live';
+  responseMode?: string;
 }
 
 // Tympanometry
@@ -108,6 +133,13 @@ export interface TympanometryData {
   peak?: string | number;
   compliance200?: string | number;
   volume?: string | number;
+  probeFrequency?: '' | '226' | '1000';
+  curveShape?: '' | 'peaked' | 'flat';
+  /** 226 Hz: tipos de Jerger (As é o registro histórico equivalente a Ar). 1000 Hz: Normal/Alterada (SBFa 2025). */
+  recordedType?: '' | 'A' | 'As' | 'Ar' | 'Ad' | 'B' | 'C' | 'Normal' | 'Alterada' | 'Inconclusivo';
+  admittanceUnit?: '' | 'ml' | 'mmho';
+  normativeReference?: string;
+  protocolNotes?: string;
 }
 
 // Stapedial Reflex
@@ -153,16 +185,25 @@ export interface ComplementaryTests {
     left?: 'presente' | 'ausente' | 'parcial' | '';
     type?: 'transiente' | 'distorcao' | '';
     notes?: string;
+    protocol?: string;
+    quality?: string;
   };
   bera?: {
     right?: string;
     left?: string;
     notes?: string;
+    protocol?: string;
+    stimulus?: string;
+    levelAndUnit?: string;
   };
 }
 
 // Audiological Opinion (Parecer)
 export interface AudiologicalOpinion {
+  workflowStatus?: 'draft' | 'reviewed';
+  reviewedSignature?: string;
+  reviewedAt?: number;
+  clinicalStatus?: 'normal_bilateral' | 'altered' | 'inconclusive';
   clinical?: string; // e.g., Normal, Alterado
   lossTypeRight?: string; // Tipo de Perda OD
   lossTypeLeft?: string; // Tipo de Perda OE
@@ -242,9 +283,11 @@ export interface Audiometry {
     left: Partial<EarReflexData>;
     sondaOD?: string;
     sondaOE?: string;
+    /** O que as colunas OD/OE representam nos reflexos contralaterais. Sem este registro o Metz não é calculado. */
+    earConvention?: '' | 'stimulated' | 'probe';
   };
 
-  examPurpose?: 'referencial' | 'sequencial' | 'outro';
+  examPurpose?: 'referencial' | 'sequencial' | 'admissional' | 'demissional' | 'periodico' | 'outro';
   examCategory?: 'clinico' | 'ocupacional';
   freeField?: Partial<EarTonalData>;
 

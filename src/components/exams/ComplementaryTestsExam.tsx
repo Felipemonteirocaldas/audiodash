@@ -1,12 +1,7 @@
+import ClinicalEvidence from './ClinicalEvidence';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ComplementaryTests, EarTonalData } from '@/db/db';
-import {
-  Activity,
-  Headphones,
-  Waves
-} from 'lucide-react';
-
 interface Props {
   complementary?: ComplementaryTests;
   tonalData?: {
@@ -42,7 +37,7 @@ export default function ComplementaryTestsExam({ complementary, onChange }: Prop
     onChange({
       ...current,
       weberFreqs: updatedFreqs,
-      weber: summary || current.weber
+      weber: summary
     });
   };
 
@@ -53,7 +48,6 @@ export default function ComplementaryTestsExam({ complementary, onChange }: Prop
         <Card className="border-slate-200 shadow-sm overflow-hidden">
           <CardHeader className="bg-slate-50/60 border-b border-slate-100 py-3">
             <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-2">
-              <Headphones className="w-4 h-4 text-indigo-600" />
               1. Teste de Weber Audiométrico (Diapasão / Via Óssea)
             </CardTitle>
             <CardDescription className="text-xs text-slate-500">
@@ -84,7 +78,7 @@ export default function ComplementaryTestsExam({ complementary, onChange }: Prop
               <label className="text-xs font-medium text-slate-700 block mb-1">Síntese / Descrição do Weber</label>
               <Input
                 className="h-8 text-xs bg-white"
-                placeholder="Ex: Weber indiferente em todas as frequências testadas"
+                placeholder="Registre a resposta nas frequências pesquisadas"
                 value={current.weber || ''}
                 onChange={e => updateField('weber', e.target.value)}
               />
@@ -96,11 +90,10 @@ export default function ComplementaryTestsExam({ complementary, onChange }: Prop
         <Card className="border-slate-200 shadow-sm overflow-hidden">
           <CardHeader className="bg-slate-50/60 border-b border-slate-100 py-3">
             <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-2">
-              <Activity className="w-4 h-4 text-indigo-600" />
               2. Testes de Fadiga Tonal (Tone Decay) &amp; SISI
             </CardTitle>
             <CardDescription className="text-xs text-slate-500">
-              Investigação de fadiga patológica (Carhart / Rosenberg) e sensibilidade a pequenos incrementos.
+              Registre o protocolo aplicado, as condições de pesquisa e o resultado obtido.
             </CardDescription>
           </CardHeader>
 
@@ -110,7 +103,7 @@ export default function ComplementaryTestsExam({ complementary, onChange }: Prop
                 <label className="text-xs font-bold text-red-600 block mb-1">Tone Decay OD</label>
                 <Input
                   className="h-8 text-xs bg-white"
-                  placeholder="Ex: Negativo (0 dB)"
+                  placeholder="Resultado e condições de pesquisa"
                   value={current.toneDecayDetails?.right || ''}
                   onChange={e => updateField('toneDecayDetails', { ...(current.toneDecayDetails || {}), right: e.target.value })}
                 />
@@ -119,7 +112,7 @@ export default function ComplementaryTestsExam({ complementary, onChange }: Prop
                 <label className="text-xs font-bold text-blue-600 block mb-1">Tone Decay OE</label>
                 <Input
                   className="h-8 text-xs bg-white"
-                  placeholder="Ex: Negativo (0 dB)"
+                  placeholder="Resultado e condições de pesquisa"
                   value={current.toneDecayDetails?.left || ''}
                   onChange={e => updateField('toneDecayDetails', { ...(current.toneDecayDetails || {}), left: e.target.value })}
                 />
@@ -131,7 +124,7 @@ export default function ComplementaryTestsExam({ complementary, onChange }: Prop
                 <label className="text-xs font-bold text-red-600 block mb-1">SISI Test OD (%)</label>
                 <Input
                   className="h-8 text-xs bg-white"
-                  placeholder="Ex: 10% (Normal)"
+                  placeholder="Percentual obtido e protocolo utilizado"
                   value={current.sisi?.right || ''}
                   onChange={e => updateField('sisi', { ...(current.sisi || {}), right: e.target.value })}
                 />
@@ -140,7 +133,7 @@ export default function ComplementaryTestsExam({ complementary, onChange }: Prop
                 <label className="text-xs font-bold text-blue-600 block mb-1">SISI Test OE (%)</label>
                 <Input
                   className="h-8 text-xs bg-white"
-                  placeholder="Ex: 10% (Normal)"
+                  placeholder="Percentual obtido e protocolo utilizado"
                   value={current.sisi?.left || ''}
                   onChange={e => updateField('sisi', { ...(current.sisi || {}), left: e.target.value })}
                 />
@@ -154,19 +147,22 @@ export default function ComplementaryTestsExam({ complementary, onChange }: Prop
       <Card className="border-slate-200 shadow-sm overflow-hidden">
         <CardHeader className="bg-slate-50/60 border-b border-slate-100 py-3">
           <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-2">
-            <Waves className="w-4 h-4 text-indigo-600" />
             3. Emissões Otoacústicas (EOA) &amp; PEATE / BERA
           </CardTitle>
           <CardDescription className="text-xs text-slate-500">
-            Triagem auditiva neonatal e avaliação coclear/eletrofisiológica do nervo auditivo.
+            Registro resumido de EOA e PEATE obtidos em equipamento externo; documente o protocolo e consulte o registro original.
           </CardDescription>
         </CardHeader>
 
         <CardContent className="p-4 space-y-4">
+          <ClinicalEvidence sources={['AAA_2020', 'MCCREERY_2015']} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* EOA */}
             <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/40 space-y-3">
               <span className="text-xs font-bold text-slate-800 block">Emissões Otoacústicas Evocadas (EOA)</span>
+              <label className="block text-xs">Tipo<select aria-label="Tipo de EOA" className="block border rounded p-2 bg-white w-full" value={current.eoa?.type || ''} onChange={e => updateField('eoa', { ...current.eoa, type: e.target.value })}><option value="">Não informado</option><option value="transiente">EOAT</option><option value="distorcao">EOAPD</option></select></label>
+              <label className="block text-xs">Protocolo, frequências e critério do equipamento<Input aria-label="Protocolo EOA" value={current.eoa?.protocol || ''} onChange={e => updateField('eoa', { ...current.eoa, protocol: e.target.value })} /></label>
+              <label className="block text-xs">Qualidade do registro e ruído residual<Input aria-label="Qualidade EOA" value={current.eoa?.quality || ''} onChange={e => updateField('eoa', { ...current.eoa, quality: e.target.value })} /></label>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-[11px] font-semibold text-red-600 block mb-0.5">OD</label>
@@ -176,8 +172,8 @@ export default function ComplementaryTestsExam({ complementary, onChange }: Prop
                     onChange={e => updateField('eoa', { ...(current.eoa || {}), right: e.target.value })}
                   >
                     <option value="">Não realizado</option>
-                    <option value="presente">Presente (Passa)</option>
-                    <option value="ausente">Ausente (Falha)</option>
+                    <option value="presente">Presente (resultado registrado)</option>
+                    <option value="ausente">Ausente (resultado registrado)</option>
                     <option value="parcial">Parcial</option>
                   </select>
                 </div>
@@ -189,15 +185,15 @@ export default function ComplementaryTestsExam({ complementary, onChange }: Prop
                     onChange={e => updateField('eoa', { ...(current.eoa || {}), left: e.target.value })}
                   >
                     <option value="">Não realizado</option>
-                    <option value="presente">Presente (Passa)</option>
-                    <option value="ausente">Ausente (Falha)</option>
+                    <option value="presente">Presente (resultado registrado)</option>
+                    <option value="ausente">Ausente (resultado registrado)</option>
                     <option value="parcial">Parcial</option>
                   </select>
                 </div>
               </div>
               <Input
                 className="h-7 text-xs bg-white"
-                placeholder="Observações EOA (ex: EOAT presentes em 1 a 4 kHz)"
+                placeholder="Frequências avaliadas e resultados do registro original"
                 value={current.eoa?.notes || ''}
                 onChange={e => updateField('eoa', { ...(current.eoa || {}), notes: e.target.value })}
               />
@@ -206,12 +202,16 @@ export default function ComplementaryTestsExam({ complementary, onChange }: Prop
             {/* PEATE / BERA */}
             <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/40 space-y-3">
               <span className="text-xs font-bold text-slate-800 block">PEATE / BERA (Eletrofisiologia)</span>
+              <label className="block text-xs">Protocolo de aquisição e referência<Input aria-label="Protocolo PEATE" value={current.bera?.protocol || ''} onChange={e => updateField('bera', { ...current.bera, protocol: e.target.value })} /></label>
+              <label className="block text-xs">Estímulo, frequência e taxa de apresentação<Input aria-label="Estímulo PEATE" value={current.bera?.stimulus || ''} onChange={e => updateField('bera', { ...current.bera, stimulus: e.target.value })} /></label>
+              <label className="block text-xs">Nível de apresentação e unidade (nHL/eHL/SPL)<Input aria-label="Nível PEATE" value={current.bera?.levelAndUnit || ''} onChange={e => updateField('bera', { ...current.bera, levelAndUnit: e.target.value })} /></label>
+              <p className="text-xs text-slate-500">A unidade e a correção pertencem ao protocolo. Este registro não converte automaticamente PEATE em limiar comportamental.</p>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-[11px] font-semibold text-red-600 block mb-0.5">Latências OD (ms)</label>
                   <Input
                     className="h-8 text-xs bg-white"
-                    placeholder="Ex: I: 1.6ms, III: 3.7ms, V: 5.6ms"
+                    placeholder="Latências identificadas no registro original, em ms"
                     value={current.bera?.right || ''}
                     onChange={e => updateField('bera', { ...(current.bera || {}), right: e.target.value })}
                   />
@@ -220,7 +220,7 @@ export default function ComplementaryTestsExam({ complementary, onChange }: Prop
                   <label className="text-[11px] font-semibold text-blue-600 block mb-0.5">Latências OE (ms)</label>
                   <Input
                     className="h-8 text-xs bg-white"
-                    placeholder="Ex: I: 1.6ms, III: 3.7ms, V: 5.6ms"
+                    placeholder="Latências identificadas no registro original, em ms"
                     value={current.bera?.left || ''}
                     onChange={e => updateField('bera', { ...(current.bera || {}), left: e.target.value })}
                   />
@@ -228,7 +228,7 @@ export default function ComplementaryTestsExam({ complementary, onChange }: Prop
               </div>
               <Input
                 className="h-7 text-xs bg-white"
-                placeholder="Intervalos interpicos I-III, III-V, I-V normais..."
+                placeholder="Registre interpicos, condições de coleta e interpretação do laudo original"
                 value={current.bera?.notes || ''}
                 onChange={e => updateField('bera', { ...(current.bera || {}), notes: e.target.value })}
               />

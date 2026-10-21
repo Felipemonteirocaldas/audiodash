@@ -1,197 +1,41 @@
-import React from 'react';
+import type { TympanometryData } from '@/db/db';
+import { illustrativeTympanogram, tympanometryPeak } from '@/lib/examPlot';
 
-interface TympanometryData {
-  peak?: string | number;
-  compliance200?: string | number;
-  volume?: string | number;
-}
+interface Props { rightData?: TympanometryData; leftData?: TympanometryData; }
 
-interface TympanogramSVGProps {
-  rightData?: TympanometryData;
-  leftData?: TympanometryData;
-  onPointClick?: (pressure: number, compliance: number) => void;
-}
+export const TYMP_ILLUSTRATIVE_NOTICE = 'Curva ilustrativa construída a partir do pico registrado e do tipo informado. Não é o traçado medido pelo equipamento; consulte o registro original.';
 
-export default function TympanogramSVG({ rightData, leftData, onPointClick }: TympanogramSVGProps) {
-  const getX = (pressure: number) => ((pressure + 400) / 800) * 360;
-  const getY = (compliance: number) => {
-    let y = 260;
-    if (compliance <= 0.4) y = 260 - (compliance / 0.2) * 26;
-    else if (compliance <= 1.0) y = 208 - ((compliance - 0.4) / 0.1) * 26;
-    else y = 52 - ((compliance - 1.0) / 0.2) * 26;
-    
-    // Clamp
-    return Math.max(0, Math.min(260, y));
-  };
-
-  const getPressureFromX = (x: number): number => {
-    // x = ((pressure + 400) / 800) * 360
-    // (x / 360) * 800 - 400 = pressure
-    const p = (x / 360) * 800 - 400;
-    // Snap to nearest 10 daPa
-    return Math.max(-400, Math.min(400, Math.round(p / 10) * 10));
-  };
-
-  const getComplianceFromY = (y: number): number => {
-    let c = 0;
-    if (y > 208) c = ((260 - y) / 26) * 0.2; // 0 to 0.4
-    else if (y > 52) c = 0.4 + ((208 - y) / 26) * 0.1; // 0.4 to 1.0
-    else c = 1.0 + ((52 - y) / 26) * 0.2; // 1.0 to 1.4
-
-    // Snap to nearest 0.1
-    return Math.max(0, Math.min(1.4, Math.round(c * 10) / 10));
-  };
-
-  const processCoordinates = (clientX: number, clientY: number, currentTarget: SVGSVGElement) => {
-    if (!onPointClick) return;
-    const svgRect = currentTarget.getBoundingClientRect();
-    const x = clientX - svgRect.left;
-    const y = clientY - svgRect.top;
-
-    // Scale to viewBox (500x350)
-    const scaleX = 500 / svgRect.width;
-    const scaleY = 350 / svgRect.height;
-    
-    const svgX = x * scaleX;
-    const svgY = y * scaleY;
-
-    // Remove translate offset (50, 40)
-    const gridX = svgX - 50;
-    const gridY = svgY - 40;
-
-    // Bounds check
-    if (gridX < -20 || gridX > 380) return;
-    if (gridY < -20 || gridY > 280) return;
-
-    const pressure = getPressureFromX(gridX);
-    const compliance = getComplianceFromY(gridY);
-    onPointClick(pressure, compliance);
-  };
-
-  const handleSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    processCoordinates(e.clientX, e.clientY, e.currentTarget);
-  };
-
-  const handleSvgTouch = (e: React.TouchEvent<SVGSVGElement>) => {
-    if (e.changedTouches && e.changedTouches[0]) {
-      processCoordinates(e.changedTouches[0].clientX, e.changedTouches[0].clientY, e.currentTarget);
-    }
-  };
-
-  const renderPeak = (data: TympanometryData | undefined, color: string, isRight: boolean) => {
-    if (!data) return null;
-    
-    // Se ambos peak e compliance estiverem vazios ou indefinidos, não renderiza
-    if ((data.peak === undefined || data.peak === '') && (data.compliance200 === undefined || data.compliance200 === '')) {
-      return null;
-    }
-    
-    // Convert comma to dot for Brazilian inputs
-    const pStr = String(data.peak ?? '0').replace(',', '.');
-    const cStr = String(data.compliance200 ?? '0').replace(',', '.');
-    
-    const pressure = parseFloat(pStr);
-    const compliance = parseFloat(cStr);
-    
-    if (isNaN(pressure) || isNaN(compliance)) return null;
-
-    const x = getX(pressure);
-    const y = getY(compliance);
-
-    // Realistic Bell Curve for Tympanogram
-    const startX = getX(-400); // Start curve at -400 daPa
-    const endX = getX(200);   // End curve at +200 daPa
-    const baseY = getY(0);    // Base compliance 0
-
-    return (
-      <g style={{ pointerEvents: 'none' }}>
-        <path 
-          d={`M ${startX} ${baseY} C ${(startX + x) / 2} ${baseY}, ${(startX + x) / 2} ${y}, ${x} ${y} C ${(x + endX) / 2} ${y}, ${(x + endX) / 2} ${baseY}, ${endX} ${baseY}`} 
-          stroke={color} 
-          strokeWidth="2.5" 
-          fill="none" 
-          opacity="0.85" 
-          strokeDasharray={isRight ? "" : "5,5"} 
-        />
-        {isRight ? (
-          <circle cx={x} cy={y} r="5" fill="none" stroke={color} strokeWidth="2.5" />
-        ) : (
-          <path d={`M ${x-5} ${y-5} L ${x+5} ${y+5} M ${x+5} ${y-5} L ${x-5} ${y+5}`} stroke={color} strokeWidth="2.5" fill="none" />
-        )}
-      </g>
-    );
-  };
-
-  return (
-    <svg 
-      viewBox="0 0 500 350" 
-      className={`w-full max-w-[400px] select-none ${onPointClick ? 'cursor-crosshair' : ''}`} 
-      style={{ backgroundColor: 'white', touchAction: 'manipulation' }}
-      onClick={handleSvgClick}
-      onTouchEnd={handleSvgTouch}
-    >
-      {/* Title */}
-      <text x="230" y="20" textAnchor="middle" fontSize="14" fontWeight="bold" style={{ pointerEvents: 'none' }}>Timpanograma</text>
-
-      {/* Grid Area */}
-      <g transform="translate(50, 40)">
-        {/* Background Grid */}
-        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(i => {
-          const y = (260 / 10) * i;
-          return <line key={`h-${i}`} x1="0" y1={y} x2="360" y2={y} stroke="#e5e7eb" strokeWidth="1" />;
-        })}
-        {[0, 1, 2, 3, 4, 5, 6, 7, 8].map(i => {
-          const x = (360 / 8) * i;
-          return <line key={`v-${i}`} x1={x} y1="0" x2={x} y2="260" stroke="#e5e7eb" strokeWidth="1" />;
-        })}
-
-        {/* Shaded Jerger Type A Normal Box */}
-        <rect 
-          x={getX(-100)} 
-          y={getY(1.4)} 
-          width={getX(100) - getX(-100)} 
-          height={getY(0.3) - getY(1.4)} 
-          fill="#10b981" 
-          fillOpacity="0.08" 
-          stroke="#10b981" 
-          strokeWidth="1" 
-          strokeDasharray="2,2" 
-        />
-        <text 
-          x={(getX(-100) + getX(100)) / 2} 
-          y={getY(1.4) + 12} 
-          textAnchor="middle" 
-          fontSize="9" 
-          fill="#059669" 
-          fontWeight="bold" 
-          style={{ pointerEvents: 'none' }}
-        >
-          Zona Normal (Tipo A)
-        </text>
-
-        {/* Axes */}
-        <line x1="0" y1="260" x2="360" y2="260" stroke="black" strokeWidth="1.5" />
-        <line x1="0" y1="0" x2="0" y2="260" stroke="black" strokeWidth="1.5" />
-        <line x1="360" y1="0" x2="360" y2="260" stroke="black" strokeWidth="1.5" />
-        <line x1="0" y1="0" x2="360" y2="0" stroke="black" strokeWidth="1.5" />
-
-        {/* X-axis labels (Pressure: -400 to +400) */}
-        {['-400', '-300', '-200', '-100', '0', '+100', '+200', '+300', '+400'].map((val, i) => (
-          <text key={`x-${i}`} x={(360 / 8) * i} y="275" textAnchor="middle" fontSize="10" style={{ pointerEvents: 'none' }}>{val}</text>
-        ))}
-
-        {/* Y-axis labels (Compliance: 0.2 to 1.4) */}
-        {['1.4', '1.2', '1.0', '0.9', '0.8', '0.7', '0.6', '0.5', '0.4', '0.2', ''].map((val, i) => (
-          val && <text key={`y-${i}`} x="-10" y={(260 / 10) * i + 4} textAnchor="end" fontSize="10" style={{ pointerEvents: 'none' }}>{val}</text>
-        ))}
-
-        {/* Right Label (COMPLACÊNCIA) */}
-        <text transform="translate(375, 130) rotate(90)" textAnchor="middle" fontSize="10" letterSpacing="4" style={{ pointerEvents: 'none' }}>COMPLACÊNCIA</text>
-
-        {/* Plotted Peaks and Curves */}
-        {renderPeak(rightData, 'red', true)}
-        {renderPeak(leftData, 'blue', false)}
-      </g>
-    </svg>
-  );
+export default function TympanogramSVG({ rightData, leftData }: Props) {
+  const records = [rightData, leftData].map((data, i) => ({ curve: illustrativeTympanogram(data), peak: tympanometryPeak(data).point, reason: tympanometryPeak(data).reason, type: data?.recordedType || '', ear: i === 0 ? 'OD' : 'OE', color: i === 0 ? '#dc2626' : '#2563eb' }));
+  const groups = [...new Set(records.flatMap(r => r.curve ? [`${r.curve.probe}/${r.curve.unit}`] : []))];
+  return <div className="space-y-3">
+    {records.filter(r => !r.curve).map(r => <p key={r.ear} className="text-xs text-slate-600">{r.ear}: {r.reason}</p>)}
+    {groups.map(group => {
+      const items = records.filter(r => r.curve && `${r.curve.probe}/${r.curve.unit}` === group);
+      const first = items[0].curve!;
+      const minPressure = Math.min(...items.map(r => r.curve!.minPressure));
+      const maxPressure = Math.max(...items.map(r => r.curve!.maxPressure));
+      const maxAdmittance = Math.max(2, ...items.flatMap(r => r.curve!.points.map(p => Math.ceil(p.admittance * 1.2 * 10) / 10)));
+      const tickStep = Math.max(100, Math.ceil((maxPressure - minPressure) / 8 / 100) * 100);
+      const pressureTicks = [...new Set([minPressure, 0, maxPressure, ...Array.from({ length: Math.floor((maxPressure - minPressure) / tickStep) + 1 }, (_, i) => minPressure + i * tickStep)])].sort((a, b) => a - b);
+      const x = (pressure: number) => 65 + (pressure - minPressure) / (maxPressure - minPressure) * 390;
+      const y = (admittance: number) => 270 - admittance / maxAdmittance * 215;
+      return <figure key={group} className="space-y-2"><svg viewBox="0 0 520 345" role="img" aria-label={`Timpanograma ilustrativo: sonda ${first.probe} Hz; admitância em ${first.unit}`} className="w-full max-w-xl bg-white border rounded-lg">
+        <title>{`Timpanograma ilustrativo · ${first.probe} Hz · ${first.unit}`}</title>
+        <desc>{TYMP_ILLUSTRATIVE_NOTICE} Sem faixa de normalidade automática.</desc>
+        <text x="260" y="22" textAnchor="middle" fontSize="14">Timpanograma ilustrativo · sonda {first.probe} Hz</text>
+        {pressureTicks.map(value => <g key={value}><line x1={x(value)} y1="55" x2={x(value)} y2="270" stroke={value === 0 ? '#94a3b8' : '#e2e8f0'}/><text x={x(value)} y="290" textAnchor="middle" fontSize="11">{Number(value.toFixed(1))}</text></g>)}
+        {[0, 1, 2, 3, 4].map(i => <g key={i}><line x1="65" y1={y(maxAdmittance*i/4)} x2="455" y2={y(maxAdmittance*i/4)} stroke="#e2e8f0"/><text x="57" y={y(maxAdmittance*i/4)+4} textAnchor="end" fontSize="11">{(maxAdmittance*i/4).toFixed(2)}</text></g>)}
+        <text x="260" y="315" textAnchor="middle" fontSize="12">Pressão (daPa)</text>
+        <text x="16" y="162" textAnchor="middle" fontSize="12" transform="rotate(-90 16 162)">Admitância ({first.unit})</text>
+        {items.map(({ curve, peak, ear, color, type }) => <g key={ear}>
+          <path d={curve!.points.map((p, i) => `${i ? 'L' : 'M'} ${x(p.pressure).toFixed(1)},${y(p.admittance).toFixed(1)}`).join(' ')} fill="none" stroke={color} strokeWidth="2" strokeDasharray={ear === 'OE' ? '6,3' : undefined} data-illustrative="true"/>
+          {peak && <circle cx={x(peak.pressure)} cy={y(peak.admittance)} r="4.5" fill={color}/>}
+          <text x={peak ? x(peak.pressure) + 8 : 460} y={peak ? y(peak.admittance) - 9 : y(curve!.points[0].admittance) - 6} fontSize="12" fill={color} textAnchor={peak ? 'start' : 'end'}>{ear}{type ? ` · ${type === 'As' ? 'Ar' : type}` : ''}</text>
+          <title>{peak ? `${ear}: pico registrado em ${peak.pressure} daPa; ${peak.admittance} ${peak.unit}` : `${ear}: sem pico identificável`}</title>
+        </g>)}
+        <text x="260" y="334" textAnchor="middle" fontSize="10">Curva ilustrativa · ponto = pico registrado · não é o traçado medido</text>
+      </svg><figcaption className="text-xs text-slate-700 space-y-1"><p className="font-semibold text-amber-800">{TYMP_ILLUSTRATIVE_NOTICE}</p>{items.map(({ peak, ear, curve }) => <p key={ear}>{ear}: {peak ? `pressão do pico ${peak.pressure} daPa · admitância ${peak.admittance} ${peak.unit}` : 'sem pico identificável (linha plana ilustrativa)'} · sonda {curve!.probe} Hz</p>)}</figcaption></figure>;
+    })}
+  </div>;
 }

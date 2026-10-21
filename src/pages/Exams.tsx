@@ -1,3 +1,6 @@
+import { isReviewCurrent } from '@/lib/examIntegrity';
+import { examStatus } from '@/lib/clinicalOverview';
+import { customAlert } from '@/lib/dialogs';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/db';
@@ -102,6 +105,13 @@ export default function Exams() {
   }, []);
 
   const toggleExamSelection = (examId: string) => {
+    // Comparação só faz sentido entre exames do mesmo paciente.
+    const patientOf = (id: string) => allExams?.find(e => e.id === id)?.patientId;
+    if (!selectedExams.includes(examId) && selectedExams.length && patientOf(selectedExams[selectedExams.length - 1]) !== patientOf(examId)) {
+      setSelectedExams([examId]);
+      customAlert('A comparação é feita entre exames do mesmo paciente. A seleção anterior foi substituída.');
+      return;
+    }
     setSelectedExams((prev) => {
       if (prev.includes(examId)) return prev.filter((id) => id !== examId);
       if (prev.length >= 2) return [prev[1], examId]; // Keep only the last 2 selected
@@ -212,7 +222,7 @@ export default function Exams() {
                       : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                   }`}
                 >
-                  Ocupacionais (ASO)
+                  Ocupacionais (NR-7)
                 </button>
               </div>
 
@@ -264,19 +274,18 @@ export default function Exams() {
                           </Link>
                           {exam.examCategory === 'ocupacional' ? (
                             <span className="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full uppercase font-bold tracking-wide">
-                              Ocupacional (ASO)
+                              Ocupacional
                             </span>
                           ) : (
                             <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full uppercase font-bold tracking-wide">
                               Clínico
                             </span>
                           )}
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${isReviewCurrent(exam) ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-900'}`}>{isReviewCurrent(exam) ? 'Revisado' : 'Aguardando revisão'}</span>
                           {exam.opinion?.clinical && (
                             <span
-                              className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                                exam.opinion.clinical.toLowerCase().includes('normal')
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : 'bg-rose-50 text-rose-700 border border-rose-200'
+                              className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
+                                { normal: 'bg-emerald-50 text-emerald-700 border-emerald-200', altered: 'bg-rose-50 text-rose-700 border-rose-200', inconclusive: 'bg-amber-50 text-amber-800 border-amber-200', draft: 'bg-slate-50 text-slate-600 border-slate-200' }[examStatus(exam)]
                               }`}
                             >
                               {exam.opinion.clinical}
@@ -290,7 +299,7 @@ export default function Exams() {
                           </span>
                           <span>•</span>
                           <span>
-                            Finalidade: <strong className="capitalize text-slate-700 font-semibold">{exam.examPurpose || 'Audiometria Tonal'}</strong>
+                            Finalidade: <strong className="capitalize text-slate-700 font-semibold">{exam.examPurpose || 'não informada'}</strong>
                           </span>
                           {exam.header?.speechTherapist && (
                             <>
@@ -455,7 +464,7 @@ export default function Exams() {
                               </h3>
                               {exam.examCategory === 'ocupacional' && (
                                 <span className="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">
-                                  Ocupacional (ASO)
+                                  Ocupacional
                                 </span>
                               )}
                               {exam.examCategory === 'clinico' && (
@@ -466,7 +475,7 @@ export default function Exams() {
                             </div>
                             <div className="text-xs text-slate-500 mt-1 flex flex-wrap gap-x-4 gap-y-1">
                               <span>
-                                Propósito: <strong className="capitalize text-slate-700">{exam.examPurpose || 'Referencial'}</strong>
+                                Propósito: <strong className="capitalize text-slate-700">{exam.examPurpose || 'não informado'}</strong>
                               </span>
                               <span>
                                 Fonoaudiólogo(a): <strong className="text-slate-700">{exam.header?.speechTherapist || '--'}</strong>

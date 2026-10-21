@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom';
 import { syncManager } from '@/lib/syncManager';
 import { customAlert } from '@/lib/dialogs';
 import { useAuth } from '@/contexts/AuthContext';
+import { localDate } from '@/lib/examIntegrity';
 
 export default function AnamnesisForm() {
   const { user } = useAuth();
@@ -20,7 +21,7 @@ export default function AnamnesisForm() {
   
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [anamnesis, setAnamnesis] = useState<Partial<Anamnesis>>({
-    examDate: new Date().toISOString().split('T')[0],
+    examDate: localDate(),
     noiseExposure: '', chemicalExposure: '', ppe: '',
     tinnitus: '', dizziness: '', earache: '', hearingDifficulty: '',
     familyHistory: '', diabetes: '', hypertension: ''

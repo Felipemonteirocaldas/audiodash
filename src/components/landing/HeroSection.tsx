@@ -8,12 +8,10 @@ import {
   FileSpreadsheet, 
   Activity, 
   Ear, 
-  Users, 
   Award,
   X,
   Printer,
   Download,
-  Sparkles,
   Volume2,
   FileCheck2
 } from 'lucide-react';
@@ -51,7 +49,6 @@ export default function HeroSection() {
         {/* Human Headline & Empathy Copywriting */}
         <div className="text-center max-w-6xl mx-auto space-y-6">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-200/80 text-blue-700 text-xs font-semibold shadow-xs">
-            <Sparkles className="w-3.5 h-3.5 text-blue-600" />
             <span>Sistema Especializado para Clínicas de Fonoaudiologia</span>
           </div>
 
@@ -85,16 +82,12 @@ export default function HeroSection() {
           {/* Real Social Proof Badge */}
           <div className="pt-6 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-500 font-medium">
             <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-blue-600" />
-              <span>Utilizado em mais de 120 consultórios</span>
-            </div>
-            <div className="flex items-center gap-2">
               <Award className="w-4 h-4 text-emerald-600" />
-              <span>Conforme Resoluções do CFFa</span>
+              <span>Referências clínicas citadas no registro</span>
             </div>
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-amber-600" />
-              <span>Emissão do laudo em 3 minutos</span>
+              <span>Exportação em PDF e Excel</span>
             </div>
           </div>
         </div>
@@ -479,11 +472,12 @@ export default function HeroSection() {
               <div className="border-b border-slate-200 pb-4 flex justify-between items-start">
                 <div>
                   <h4 className="text-base font-extrabold text-slate-900">CLÍNICA DE FONOAUDIOLOGIA AUDIODASH</h4>
+                  <p className="text-[11px] font-semibold text-amber-700">Exemplo ilustrativo com dados fictícios</p>
                   <p className="text-xs text-slate-500">Av. Paulista, 1000 • São Paulo/SP • Tel: (11) 99999-8888</p>
                 </div>
                 <div className="text-right">
                   <span className="text-xs font-bold text-slate-700 block">Dra. Camila Rocha</span>
-                  <span className="text-[11px] text-blue-600 font-medium">CRFa 4-18920</span>
+                  <span className="text-[11px] text-blue-600 font-medium">CRFa fictício</span>
                 </div>
               </div>
 
@@ -511,15 +505,15 @@ export default function HeroSection() {
                 </div>
                 <div>
                   <span className="text-slate-400 block">Equipamento</span>
-                  <span className="font-bold text-slate-800">Interacoustics AC40 (Calibrado)</span>
+                  <span className="font-bold text-slate-800">Audiômetro (calibração registrada pelo profissional)</span>
                 </div>
               </div>
 
               {/* Clinical Conclusion */}
               <div className="bg-blue-50/70 p-4 rounded-xl border border-blue-200 text-xs space-y-2">
-                <span className="font-bold text-blue-900 block">PARECER AUDIOLÓGICO & CONCLUSÃO:</span>
+                <span className="font-bold text-blue-900 block">PARECER FONOAUDIOLÓGICO (EXEMPLO):</span>
                 <p className="text-slate-700 leading-relaxed">
-                  Orelha Direita e Esquerda apresentam perda auditiva do tipo sensorioneural de grau leve a moderado em frequências agudas (3kHz - 8kHz). Discriminação da fala (IPRF) compatível em ambas as orelhas (OD 96% e OE 100%). Quadro auditivo estável em relação ao exame anterior de 2024.
+                  Orelhas direita e esquerda: limiares alterados em 3, 4, 6 e 8 kHz, com via óssea compatível com perda neurossensorial nessas frequências (Silman e Silverman, 1997). Médias dentro do padrão de normalidade; grau não atribuído a frequências isoladas (Guia CFFa, 2023). IPRF: OD 96% e OE 100%. Sem variação relevante em relação ao exame anterior.
                 </p>
               </div>
 

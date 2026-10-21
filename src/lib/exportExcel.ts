@@ -1,93 +1,55 @@
-// @ts-nocheck
-// @ts-ignore
-import XlsxPopulate from 'xlsx-populate/browser/xlsx-populate';
+import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
-import { Audiometry, Patient, db } from '@/db/db';
+import type { Audiometry, Patient, TonalFrequency } from '@/db/db';
+import { formatTonalValue, isReviewCurrent, CLINICAL_STATUS_LABELS, professionalClassificationLines } from '@/lib/examIntegrity';
+import { degreeStandardLabel } from '@/lib/audiologyCalculations';
 
-const FREQUENCIES = ['125', '250', '500', '1000', '2000', '3000', '4000', '6000', '8000'];
+const FREQUENCIES: TonalFrequency[] = ['125', '250', '500', '750', '1000', '1500', '2000', '3000', '4000', '6000', '8000'];
 
-const parseVal = (v: any) => {
-  if (v === undefined || v === null || v === '-' || v === 'NR' || v === '') return undefined;
-  const num = Number(v);
-  return isNaN(num) ? undefined : num;
-};
-
-export const exportToExcelJs = async (exam: Audiometry, patient: Patient) => {
-  const settingsArray = await db.settings.toArray();
-  const settings = settingsArray[0];
-
-  // Fetch the template
-  const response = await fetch('/template.xlsx');
-  const arrayBuffer = await response.arrayBuffer();
-
-  // Load the workbook using xlsx-populate
-  // @ts-ignore
-  const workbook = await XlsxPopulate.fromDataAsync(arrayBuffer);
-  
-  const sheet = workbook.sheet('Laudo Audiométrico');
-
-  // Fill in Clinic Header (Row 1 and 2)
-  // Let's create a solid blue background for A1:F2
-  const clinicName = settings?.clinicName || 'Clínica de Audiologia';
-  const profName = `${settings?.professionalName || 'Fonoaudiólogo'} - CRFa: ${settings?.crfaNumber || '---'}`;
-  
-  sheet.cell('A1').value(clinicName).style({ bold: true, fontSize: 16, fontColor: 'FFFFFF', fill: '1E3A8A', horizontalAlignment: 'center', verticalAlignment: 'center' });
-  sheet.range('A1:F1').merged(true).style({ fill: '1E3A8A' });
-  
-  sheet.cell('A2').value(profName).style({ fontSize: 11, fontColor: 'FFFFFF', fill: '1E3A8A', horizontalAlignment: 'center', verticalAlignment: 'center' });
-  sheet.range('A2:F2').merged(true).style({ fill: '1E3A8A' });
-
-  // Fill Patient Info (Row 4 to 6)
-  sheet.cell('A4').value('Identificação do Paciente').style({ bold: true, fontSize: 12, fontColor: '1E3A8A', bottomBorder: true });
-  sheet.range('A4:F4').merged(true);
-
-  sheet.cell('A5').value('Nome:').style({ bold: true });
-  sheet.cell('B5').value(patient.name);
-  sheet.cell('D5').value('Data:').style({ bold: true });
-  sheet.cell('E5').value(exam.examDate.split('-').reverse().join('/'));
-  
-  sheet.cell('A6').value('Anamnese:').style({ bold: true });
-
-  FREQUENCIES.forEach((f, idx) => {
-    const row = 10 + idx;
-    sheet.cell(`B${row}`).value(parseVal(exam.tonalData?.right?.[f]?.va));
-    sheet.cell(`C${row}`).value(parseVal(exam.tonalData?.right?.[f]?.vo));
-    sheet.cell(`D${row}`).value(parseVal(exam.tonalData?.left?.[f]?.va));
-    sheet.cell(`E${row}`).value(parseVal(exam.tonalData?.left?.[f]?.vo));
-  });
-  
-  // Center all values in the table
-  sheet.range('A10:E18').style({ horizontalAlignment: 'center', border: true, borderColor: 'CBD5E1' });
-  sheet.range('A9:E9').style({ border: true, borderColor: 'CBD5E1' });
-
-  // Logoaudiometria Table
-  sheet.cell('A20').value('Logoaudiometria').style({ bold: true, fontSize: 12, fontColor: '1E3A8A', bottomBorder: true });
-  sheet.range('A20:C20').merged(true);
-
-  sheet.cell('A21').value('Teste').style({ bold: true, fill: 'F1F5F9', horizontalAlignment: 'center', border: true });
-  sheet.cell('B21').value('OD').style({ bold: true, fontColor: 'DC2626', fill: 'F1F5F9', horizontalAlignment: 'center', border: true });
-  sheet.cell('C21').value('OE').style({ bold: true, fontColor: '2563EB', fill: 'F1F5F9', horizontalAlignment: 'center', border: true });
-
-  sheet.cell('A22').value('LRF (dB)').style({ border: true, horizontalAlignment: 'center' });
-  sheet.cell('B22').value(parseVal(exam.logoAudiometry?.right?.srt?.db)).style({ border: true, horizontalAlignment: 'center' });
-  sheet.cell('C22').value(parseVal(exam.logoAudiometry?.left?.srt?.db)).style({ border: true, horizontalAlignment: 'center' });
-
-  sheet.cell('A23').value('LDV (dB)').style({ border: true, horizontalAlignment: 'center' });
-  sheet.cell('B23').value(parseVal(exam.logoAudiometry?.right?.voiceDetection?.db)).style({ border: true, horizontalAlignment: 'center' });
-  sheet.cell('C23').value(parseVal(exam.logoAudiometry?.left?.voiceDetection?.db)).style({ border: true, horizontalAlignment: 'center' });
-
-  sheet.cell('A24').value('IPRF (%)').style({ border: true, horizontalAlignment: 'center' });
-  sheet.cell('B24').value(parseVal(exam.logoAudiometry?.right?.irf?.mono?.percentage)).style({ border: true, horizontalAlignment: 'center' });
-  sheet.cell('C24').value(parseVal(exam.logoAudiometry?.left?.irf?.mono?.percentage)).style({ border: true, horizontalAlignment: 'center' });
-
-  // Parecer
-  sheet.cell('A26').value('Parecer Fonoaudiológico').style({ bold: true, fontSize: 12, fontColor: '1E3A8A', bottomBorder: true });
-  sheet.range('A26:F26').merged(true);
-  
-  sheet.cell('A31').value(exam.resultAndConduct || 'Sem parecer registrado.').style({ horizontalAlignment: 'left', verticalAlignment: 'top', wrapText: true, border: true });
-  sheet.range('A27:F30').merged(true);
-
-  // Save the blob
-  const blob = await workbook.outputAsync();
-  saveAs(blob, `Laudo_${patient.name.replace(/\s+/g, '_')}.xlsx`);
-};
+export async function exportToExcelJs(exam: Audiometry, patient: Patient) {
+  const book = new ExcelJS.Workbook();
+  const info = book.addWorksheet('Identificação');
+  info.addRows([
+    ['AUDIODASH — REGISTRO AUDIOLÓGICO'],
+    ['Situação', isReviewCurrent(exam) ? 'REVISADO' : 'RASCUNHO — AGUARDANDO REVISÃO'],
+    ['Paciente', patient.name], ['Data do exame', exam.examDate],
+    ['Profissional', exam.header?.speechTherapist || 'Não informado'],
+    ['Método', exam.header?.assessmentMethod || 'Não informado'],
+    ['Tipo de resposta', exam.header?.responseType || 'Não informado'],
+    ['Confiabilidade', exam.header?.reliability || 'Não informada'],
+    ['Referência de grau', degreeStandardLabel(exam.header?.degreeStandard)],
+    ['Transdutor', exam.header?.transducer || 'Não registrado'],
+    ['Campo livre', exam.header?.freeFieldCondition || 'Não informado'],
+    ['Calibração', exam.header?.calibrationDate || 'Não informada'],
+    ['Referência de procedimento', exam.header?.audiometryProtocol || 'Não selecionada'],
+    ['Reteste de 1 kHz OD/OE', `${exam.header?.retest1000?.right || '—'} / ${exam.header?.retest1000?.left || '—'}`],
+    ['Observações do reteste', exam.header?.retest1000?.notes || ''],
+    ['Nota', 'NR representa ausência de resposta no nível apresentado. Campo livre não atribui lateralidade.']
+  ]);
+  const tonal = book.addWorksheet('Audiometria tonal');
+  tonal.addRow(['Hz', 'VA OD (dB NA)', 'VO OD (dB NA)', 'Masc. VA OD', 'Masc. VO OD', 'VA OE (dB NA)', 'VO OE (dB NA)', 'Masc. VA OE', 'Masc. VO OE', 'Campo livre (dB NA)']);
+  for (const freq of FREQUENCIES) {
+    const r = exam.tonalData?.right?.[freq], l = exam.tonalData?.left?.[freq];
+    tonal.addRow([freq, formatTonalValue(r, 'va'), formatTonalValue(r, 'vo'), r?.maskedVa ? 'Sim' : '', r?.maskedVo ? 'Sim' : '', formatTonalValue(l, 'va'), formatTonalValue(l, 'vo'), l?.maskedVa ? 'Sim' : '', l?.maskedVo ? 'Sim' : '', formatTonalValue(exam.freeField?.[freq], 'va')]);
+  }
+  const details = book.addWorksheet('Procedimentos');
+  details.addRow(['Procedimento', 'Campo', 'Valor registrado']);
+  const append = (section: string, value: unknown, prefix = '') => {
+    if (value && typeof value === 'object') Object.entries(value).forEach(([key, val]) => append(section, val, prefix ? `${prefix} / ${key}` : key));
+    else if (value !== undefined && value !== null && value !== '') details.addRow([section, prefix, String(value)]);
+  };
+  append('Meatoscopia', exam.meatoscopy); append('Logoaudiometria', exam.logoAudiometry); append('Timpanometria', exam.tympanometry); append('Reflexos', exam.reflexes); append('Mascaramento', exam.tonalMasking); append('Complementares', exam.complementary);
+  const report = book.addWorksheet('Parecer');
+  report.addRows([['Situação', isReviewCurrent(exam) ? 'REVISADO' : 'RASCUNHO'], ['Situação clínica', exam.opinion?.clinicalStatus ? CLINICAL_STATUS_LABELS[exam.opinion.clinicalStatus] : 'Não revisada'], ...professionalClassificationLines(exam).map(line => ['Classificação registrada', line]), ['Síntese', exam.opinion?.clinical || ''], ['Parecer e conduta', exam.resultAndConduct || 'Não registrado']]);
+  for (const sheet of book.worksheets) {
+    sheet.views = [{ state: 'frozen', ySplit: 1 }];
+    sheet.columns.forEach((column, index) => { column.width = index === 0 ? 24 : 32; });
+    sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
+    sheet.eachRow(row => { row.alignment = { vertical: 'top', wrapText: true }; });
+  }
+  report.getColumn(2).width = 100;
+  report.getRow(4).height = 240;
+  const buffer = await book.xlsx.writeBuffer();
+  saveAs(new Blob([buffer as BlobPart], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `Audiometria_${exam.examDate}_${patient.name.replace(/[^a-zA-Z0-9À-ÿ -]/g, '').slice(0, 60)}.xlsx`);
+}

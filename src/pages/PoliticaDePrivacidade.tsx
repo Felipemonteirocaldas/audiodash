@@ -146,7 +146,7 @@ export default function PoliticaDePrivacidade() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
                   <h4 className="font-semibold text-slate-900 text-sm mb-1">Nuvem (Supabase)</h4>
-                  <p className="text-xs text-slate-500">Infraestrutura com criptografia em trânsito (TLS) e em repouso. Servidores com conformidade SOC2.</p>
+                  <p className="text-xs text-slate-500">Infraestrutura com criptografia em trânsito (TLS) e em repouso. Provedor com relatório SOC 2 (Supabase).</p>
                 </div>
                 <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
                   <h4 className="font-semibold text-slate-900 text-sm mb-1">Local (Modo Offline)</h4>
@@ -154,7 +154,7 @@ export default function PoliticaDePrivacidade() {
                 </div>
                 <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
                   <h4 className="font-semibold text-slate-900 text-sm mb-1">Autenticação</h4>
-                  <p className="text-xs text-slate-500">JWT com expiração automática, login social (OAuth 2.0) e suporte a autenticação multifator.</p>
+                  <p className="text-xs text-slate-500">Sessões com token de expiração automática e login por e-mail/senha ou Google (OAuth 2.0), gerenciados pelo Supabase.</p>
                 </div>
                 <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
                   <h4 className="font-semibold text-slate-900 text-sm mb-1">Pagamentos</h4>
@@ -235,8 +235,12 @@ export default function PoliticaDePrivacidade() {
               </div>
               <p>
                 Os dados pessoais serão armazenados pelo tempo necessário para a prestação do serviço ou para cumprimento 
-                de obrigações legais. Após a solicitação de exclusão da conta, os dados serão eliminados em até 
-                <strong> 30 (trinta) dias úteis</strong>, exceto aqueles cuja retenção seja exigida por lei.
+                de obrigações legais. O Profissional é responsável pela guarda do prontuário de seus pacientes
+                (Resolução CFFa nº 777/2025, arts. 7º e 8º: prontuário eletrônico de guarda permanente, com eliminação
+                possível após 20 anos do último registro). Por isso, a Plataforma arquiva — em vez de apagar — pacientes
+                cujo prazo de guarda não terminou, e a exclusão da conta exige a exportação prévia da cópia completa dos
+                registros. A exclusão da conta apaga os dados do dispositivo e da nuvem no momento da confirmação,
+                exceto aqueles cuja retenção seja exigida por lei.
               </p>
             </section>
 
@@ -279,7 +283,7 @@ export default function PoliticaDePrivacidade() {
               <div className="mt-3 bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-2">
                 <p className="text-sm"><strong className="text-slate-900">E-mail:</strong> contato@audiodash.com.br</p>
                 <p className="text-sm"><strong className="text-slate-900">Empresa:</strong> Black Dog Tecnologia LTDA</p>
-                <p className="text-sm text-slate-500">Responderemos dentro de 15 (quinze) dias úteis conforme Art. 18, §5º da LGPD.</p>
+                <p className="text-sm text-slate-500">Requisições de confirmação ou acesso completo são respondidas em até 15 (quinze) dias, contados do requerimento (Art. 19, II, da LGPD).</p>
               </div>
             </section>
 

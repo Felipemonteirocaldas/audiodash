@@ -1,12 +1,57 @@
-import { EarTonalData, TonalFrequency, TympanometryData, EarReflexData, ReflexFrequency, LogoAudiometryData, Meatoscopy, ComplementaryTests } from '@/db/db';
+import type { EarTonalData, TonalFrequency, TympanometryData, EarReflexData, ReflexFrequency } from '@/db/db';
 
-export type DegreeStandard = 'OMS_2021' | 'OMS_2014' | 'LLOYD_KAPLAN';
+/**
+ * Regras clínicas do AudioDash. Cada regra está descrita em docs/MATRIZ-REGRAS-CLINICAS.md
+ * (identificador entre colchetes nos comentários). Validação clínica por fonoaudiólogo responsável
+ * continua pendente para todas as regras; testes de software não substituem essa validação.
+ */
+
+// Classificações de grau apresentadas no Guia CFFa (2023). O profissional escolhe e cita a adotada (p. 17).
+// 'OMS_2014' é a chave histórica armazenada nos exames; corresponde à graduação OMS anterior a 2021 (graus 0–4).
+export type DegreeStandard = 'OMS_2021' | 'LLOYD_KAPLAN' | 'KAPLAN_1993' | 'DAVIS_1970' | 'BIAP_1996' | 'NORTHERN_DOWNS_2005' | 'OMS_2014';
+
+export const DEGREE_STANDARD_LABELS: Record<DegreeStandard, string> = {
+  OMS_2021: 'OMS 2021 · média 500/1k/2k/4k Hz (adultos e crianças)',
+  LLOYD_KAPLAN: 'Lloyd e Kaplan (1978) · média 500/1k/2k Hz',
+  KAPLAN_1993: 'Kaplan, Gladstone e Lloyd (1993) · média 500/1k/2k Hz',
+  DAVIS_1970: 'Davis (1970) · média 500/1k/2k Hz',
+  BIAP_1996: 'BIAP (1996) · média 500/1k/2k/4k Hz',
+  NORTHERN_DOWNS_2005: 'Northern e Downs (2005) · crianças · média 500/1k/2k Hz',
+  OMS_2014: 'OMS anterior a 2021 (graus 0–4, substituída em 2021) · média 500/1k/2k/4k Hz'
+};
+
+/**
+ * Uso indicado no Guia CFFa (2023): Quadros 14–15 na seção de audiologia infantil ('child'/'both'); Quadros 3–6 sem população
+ * especificada, escolhidos pelo profissional ('adult' aqui significa "não indicado pelo Guia para crianças").
+ */
+export const DEGREE_STANDARD_POPULATION: Record<DegreeStandard, 'adult' | 'child' | 'both'> = {
+  OMS_2021: 'both', LLOYD_KAPLAN: 'adult', KAPLAN_1993: 'adult', DAVIS_1970: 'adult', BIAP_1996: 'adult', NORTHERN_DOWNS_2005: 'child', OMS_2014: 'adult'
+};
+
+/** Média usada por cada tabela. */
+export const DEGREE_STANDARD_AVERAGE: Record<DegreeStandard, 'tritonal' | 'quadritonal'> = {
+  OMS_2021: 'quadritonal', LLOYD_KAPLAN: 'tritonal', KAPLAN_1993: 'tritonal', DAVIS_1970: 'tritonal', BIAP_1996: 'quadritonal', NORTHERN_DOWNS_2005: 'tritonal', OMS_2014: 'quadritonal'
+};
+
+/** Limite superior da faixa "dentro do padrão" de cada tabela (média). OMS 2021 usa "< 20". */
+export function isAverageWithinNormal(average: number, standard: DegreeStandard): boolean {
+  switch (standard) {
+    case 'OMS_2021': return average < 20;
+    case 'KAPLAN_1993': case 'NORTHERN_DOWNS_2005': return average <= 15;
+    case 'BIAP_1996': return average <= 20;
+    default: return average <= 25;
+  }
+}
+
+export function degreeStandardLabel(standard: string | undefined): string {
+  return standard && standard in DEGREE_STANDARD_LABELS ? DEGREE_STANDARD_LABELS[standard as DegreeStandard] : 'não registrada';
+}
 
 export interface CalculatedPTA {
-  tritonal: number | null; // 500, 1000, 2000 Hz (Davis & Silverman / OMS tradicional)
-  quadritonal: number | null; // 500, 1000, 2000, 4000 Hz (OMS 2021 / CFFa / BIAP)
-  highFreqs: number | null; // 3000, 4000, 6000 Hz (Ocupacional / Portaria 19 / NR-7)
-  extendedHighFreqs?: number | null; // 6000, 8000 Hz
+  tritonal: number | null; // 500, 1000, 2000 Hz
+  quadritonal: number | null; // 500, 1000, 2000, 4000 Hz (OMS 2021 / BIAP)
+  highFreqs: number | null; // 3000, 4000, 6000 Hz (grupo de frequências do Anexo II da NR-7)
+  extendedHighFreqs?: number | null;
   biap: number | null;
 }
 
@@ -28,21 +73,26 @@ export interface EarClassification {
   pta: CalculatedPTA;
   hasAirBoneGap: boolean;
   airBoneGapValues: Record<string, number>;
-  isSuggestiveNoiseInduced: boolean; // Sugestivo de PAIR (NR-7)
+  isSuggestiveNoiseInduced: boolean;
 }
 
 export interface JergerClassification {
-  type: 'A' | 'As' | 'Ad' | 'B' | 'C' | 'D' | 'Inconclusivo';
+  type: 'A' | 'As' | 'Ar' | 'Ad' | 'B' | 'C' | 'D' | 'Normal' | 'Alterada' | 'Inconclusivo';
   description: string;
   interpretation: string;
   isNormal: boolean;
 }
 
+export type MetzCriterion = 'met' | 'not_met' | 'not_assessable';
 export interface MetzTestResult {
   freq: ReflexFrequency;
   ear: 'right' | 'left';
+  /** Diferença reflexo ipsilateral − VA da mesma orelha (descritiva). Mantido o nome histórico. */
   sensationLevel: number | null;
-  hasRecruitment: boolean; // Metz positivo se diferença <= 60 dB
+  /** Diferença reflexo contralateral − VA da orelha estimulada, quando a convenção das colunas é conhecida. */
+  contraDifference: number | null;
+  stimulatedEar: 'right' | 'left' | null;
+  metzCriterion: MetzCriterion;
   interpretation: string;
 }
 
@@ -51,375 +101,330 @@ export interface MetzTestResult {
  */
 export function getNumericThreshold(val: number | 'NR' | string | undefined): number | null {
   if (val === undefined || val === null || val === '' || val === 'NR') return null;
-  const num = typeof val === 'number' ? val : parseFloat(val);
-  return isNaN(num) ? null : num;
+  const text = String(val).trim().replace(',', '.');
+  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(text)) return null;
+  const num = Number(text);
+  return Number.isFinite(num) ? num : null;
 }
 
+/** Numeric threshold within the supported audiogram scale; NR is never a threshold. */
+export function getAudiometricThreshold(value: number | string | undefined): number | null {
+  const number = getNumericThreshold(value);
+  return number !== null && number >= -10 && number <= 120 && number % 5 === 0 ? number : null;
+}
+
+const mean = (values: number[]) => values.reduce((a, b) => a + b, 0) / values.length;
+const roundForDisplay = (value: number) => Math.round(value * 10) / 10;
+
 /**
- * Calcula as médias audiométricas (PTA) para uma orelha
+ * [AUD-MED-01] Médias de VA. Exige todas as frequências prescritas com limiar numérico; NR nunca é substituído.
+ * Os valores retornados são arredondados a 0,1 dB; com limiares em passos de 5 dB isso não altera nenhuma fronteira
+ * das tabelas implementadas (ver matriz).
  */
 export function calculatePTA(tonalData: Partial<EarTonalData> | undefined): CalculatedPTA {
   if (!tonalData) {
     return { tritonal: null, quadritonal: null, highFreqs: null, biap: null };
   }
-
-  const getVal = (freq: TonalFrequency) => {
-    const raw = tonalData[freq]?.va;
-    if (raw === 'NR') return 120; // Trata Ausência de Resposta como intensidade máxima para fins de cálculo
-    return getNumericThreshold(raw);
+  const getVal = (freq: TonalFrequency) => getAudiometricThreshold(tonalData[freq]?.va);
+  const average = (freqs: TonalFrequency[]) => {
+    const values = freqs.map(getVal);
+    return values.every((v): v is number => v !== null) ? roundForDisplay(mean(values as number[])) : null;
   };
-
-  // Tritonal: 500, 1000, 2000
-  const t500 = getVal('500');
-  const t1000 = getVal('1000');
-  const t2000 = getVal('2000');
-  const t3000 = getVal('3000');
-  const t4000 = getVal('4000');
-  const t6000 = getVal('6000');
-
-  // Média Tritonal (500, 1k, 2k)
-  let tritonal: number | null = null;
-  const triVals = [t500, t1000, t2000].filter((v): v is number => v !== null);
-  if (triVals.length >= 2) {
-    tritonal = Math.round((triVals.reduce((a, b) => a + b, 0) / triVals.length) * 10) / 10;
-  }
-
-  // Média Quadritonal (500, 1k, 2k, 4k)
-  let quadritonal: number | null = null;
-  const quadVals = [t500, t1000, t2000, t4000].filter((v): v is number => v !== null);
-  if (quadVals.length >= 3) {
-    quadritonal = Math.round((quadVals.reduce((a, b) => a + b, 0) / quadVals.length) * 10) / 10;
-  }
-
-  // Altas Frequências / Ocupacional (3k, 4k, 6k)
-  let highFreqs: number | null = null;
-  const highVals = [t3000, t4000, t6000].filter((v): v is number => v !== null);
-  if (highVals.length >= 2) {
-    highFreqs = Math.round((highVals.reduce((a, b) => a + b, 0) / highVals.length) * 10) / 10;
-  }
-
+  const quadritonal = average(['500', '1000', '2000', '4000']);
   return {
-    tritonal,
+    tritonal: average(['500', '1000', '2000']),
     quadritonal,
-    highFreqs,
+    highFreqs: average(['3000', '4000', '6000']),
     biap: quadritonal
   };
 }
 
 /**
- * Classifica o grau de perda auditiva segundo diretrizes OMS 2021 ou OMS 2014 / Lloyd & Kaplan
+ * [AUD-GRAU-01..03] Faixa de grau pela média de uma orelha — Guia CFFa (2023), Quadros 3–7 (adultos) e 14–15 (crianças).
+ * Não existe "grau normal"; com média dentro do padrão, não se menciona grau.
+ * OMS 2021: a classificação da pessoa é feita pela melhor orelha (ver classifyWHOGlobal); aqui é a faixa da média desta orelha.
+ * isChild: tabelas apresentadas pelo Guia só para adultos não são aplicadas a crianças, e Northern e Downs não é aplicada a adultos.
  */
 export function classifyDegree(
-  pta: CalculatedPTA, 
-  standard: DegreeStandard = 'OMS_2021', 
+  pta: CalculatedPTA,
+  standard: DegreeStandard = 'OMS_2021',
   isChild = false
 ): { degree: string; code: string } {
-  const average = standard === 'OMS_2021' 
-    ? (pta.quadritonal ?? pta.tritonal) 
-    : (pta.tritonal ?? pta.quadritonal);
+  const population = DEGREE_STANDARD_POPULATION[standard] ?? 'adult';
+  if (isChild && population === 'adult') return { degree: 'Para crianças, o Guia CFFa indica Northern e Downs (2005) ou OMS (Quadros 14 e 15): selecione uma delas', code: 'NA' };
+  if (!isChild && population === 'child') return { degree: 'Northern e Downs (2005) é referência pediátrica: selecione uma referência para adultos', code: 'NA' };
+  const useTritonal = DEGREE_STANDARD_AVERAGE[standard] === 'tritonal';
+  const average = useTritonal ? pta.tritonal : pta.quadritonal;
+  const needed = useTritonal ? '500, 1000 e 2000 Hz' : '500, 1000, 2000 e 4000 Hz';
 
   if (average === null) {
-    return { degree: 'Não avaliado', code: 'NA' };
+    return { degree: `Grau não calculável: requer limiar numérico de VA em ${needed}`, code: 'NA' };
+  }
+  const withinNormal = { degree: 'Média dentro do padrão de normalidade (sem grau)', code: 'NORMAL' };
+  if (isAverageWithinNormal(average, standard)) return withinNormal;
+
+  if (standard === 'KAPLAN_1993') {
+    // Quadro 4: normal −10 a 15; discreto 16–25; leve 26–40; moderado 41–55; moderadamente severo 56–70; severo 71–90; profundo ≥ 91.
+    if (average <= 25) return { degree: 'Grau discreto (Kaplan, Gladstone e Lloyd)', code: 'DISCRETA' };
+    if (average <= 40) return { degree: 'Grau leve (Kaplan, Gladstone e Lloyd)', code: 'LEVE' };
+    if (average <= 55) return { degree: 'Grau moderado (Kaplan, Gladstone e Lloyd)', code: 'MODERADA' };
+    if (average <= 70) return { degree: 'Grau moderadamente severo (Kaplan, Gladstone e Lloyd)', code: 'MOD_SEVERA' };
+    if (average <= 90) return { degree: 'Grau severo (Kaplan, Gladstone e Lloyd)', code: 'SEVERA' };
+    return { degree: 'Grau profundo (Kaplan, Gladstone e Lloyd)', code: 'PROFUNDA' };
+  }
+  if (standard === 'DAVIS_1970') {
+    // Quadro 5: normal ≤ 25; leve 26–40; moderado 41–55; marcado/acentuado 56–70; severo 71–90; profundo > 90.
+    if (average <= 40) return { degree: 'Grau leve (Davis)', code: 'LEVE' };
+    if (average <= 55) return { degree: 'Grau moderado (Davis)', code: 'MODERADA' };
+    if (average <= 70) return { degree: 'Grau acentuado (Davis)', code: 'ACENTUADA' };
+    if (average <= 90) return { degree: 'Grau severo (Davis)', code: 'SEVERA' };
+    return { degree: 'Grau profundo (Davis)', code: 'PROFUNDA' };
+  }
+  if (standard === 'BIAP_1996') {
+    // Quadro 6: normal ≤ 20; leve 21–40; moderado I 41–55, II 56–70; severo I 71–80, II 81–90; muito severo 1º 91–100, 2º 101–110, 3º 111–120; cofose > 120.
+    if (average <= 40) return { degree: 'Perda leve (BIAP)', code: 'LEVE' };
+    if (average <= 55) return { degree: 'Perda moderada de 1º grau (BIAP)', code: 'MODERADA' };
+    if (average <= 70) return { degree: 'Perda moderada de 2º grau (BIAP)', code: 'MODERADA' };
+    if (average <= 80) return { degree: 'Perda severa de 1º grau (BIAP)', code: 'SEVERA' };
+    if (average <= 90) return { degree: 'Perda severa de 2º grau (BIAP)', code: 'SEVERA' };
+    if (average <= 100) return { degree: 'Perda muito severa de 1º grau (BIAP)', code: 'PROFUNDA' };
+    if (average <= 110) return { degree: 'Perda muito severa de 2º grau (BIAP)', code: 'PROFUNDA' };
+    if (average <= 120) return { degree: 'Perda muito severa de 3º grau (BIAP)', code: 'PROFUNDA' };
+    return { degree: 'Cofose (BIAP)', code: 'COMPLETA' };
+  }
+  if (standard === 'NORTHERN_DOWNS_2005') {
+    // Quadro 14 (crianças): normal ≤ 15; discreta 16–25; leve 26–30; moderada 31–50; severa 51–70; profunda ≥ 71.
+    if (average <= 25) return { degree: 'Grau discreto (Northern e Downs)', code: 'DISCRETA' };
+    if (average <= 30) return { degree: 'Grau leve (Northern e Downs)', code: 'LEVE' };
+    if (average <= 50) return { degree: 'Grau moderado (Northern e Downs)', code: 'MODERADA' };
+    if (average <= 70) return { degree: 'Grau severo (Northern e Downs)', code: 'SEVERA' };
+    return { degree: 'Grau profundo (Northern e Downs)', code: 'PROFUNDA' };
   }
 
   if (standard === 'OMS_2021') {
-    // Nova classificação mundial da OMS (World Report on Hearing, 2021)
-    if (average < 20) return { degree: 'Audição Normal', code: 'NORMAL' };
-    if (average < 35) return { degree: 'Perda Auditiva Leve (Grau 1)', code: 'LEVE' };
-    if (average < 50) return { degree: 'Perda Auditiva Moderada (Grau 2)', code: 'MODERADA' };
-    if (average < 65) return { degree: 'Perda Auditiva Moderadamente Severa (Grau 3)', code: 'MOD_SEVERA' };
-    if (average < 80) return { degree: 'Perda Auditiva Severa (Grau 4)', code: 'SEVERA' };
-    if (average < 95) return { degree: 'Perda Auditiva Profunda (Grau 5)', code: 'PROFUNDA' };
-    return { degree: 'Perda Auditiva Completa / Surdez (Grau 6)', code: 'COMPLETA' };
+    if (average < 20) return withinNormal;
+    if (average < 35) return { degree: 'Grau leve (OMS 2021)', code: 'LEVE' };
+    if (average < 50) return { degree: 'Grau moderado (OMS 2021)', code: 'MODERADA' };
+    if (average < 65) return { degree: 'Grau moderadamente severo (OMS 2021)', code: 'MOD_SEVERA' };
+    if (average < 80) return { degree: 'Grau severo (OMS 2021)', code: 'SEVERA' };
+    if (average < 95) return { degree: 'Grau profundo (OMS 2021)', code: 'PROFUNDA' };
+    return { degree: 'Perda completa / surdez (OMS 2021)', code: 'COMPLETA' };
   }
 
-  // OMS 2014 / Davis & Silverman / Lloyd & Kaplan
-  const normalLimit = isChild ? 15 : 25;
-  if (average <= normalLimit) return { degree: 'Audição dentro dos padrões de normalidade', code: 'NORMAL' };
-  if (average <= 40) return { degree: 'Perda Auditiva de Grau Leve', code: 'LEVE' };
-  if (average <= 55) return { degree: 'Perda Auditiva de Grau Moderado', code: 'MODERADA' };
-  if (average <= 70) return { degree: 'Perda Auditiva de Grau Moderadamente Severo', code: 'MOD_SEVERA' };
-  if (average <= 90) return { degree: 'Perda Auditiva de Grau Severo', code: 'SEVERA' };
-  return { degree: 'Perda Auditiva de Grau Profundo', code: 'PROFUNDA' };
+  if (standard === 'OMS_2014') {
+    if (average <= 25) return withinNormal;
+    if (average <= 40) return { degree: 'Grau leve (OMS, graduação anterior a 2021)', code: 'LEVE' };
+    if (average <= 60) return { degree: 'Grau moderado (OMS, graduação anterior a 2021)', code: 'MODERADA' };
+    if (average <= 80) return { degree: 'Grau severo (OMS, graduação anterior a 2021)', code: 'SEVERA' };
+    return { degree: 'Grau profundo (OMS, graduação anterior a 2021)', code: 'PROFUNDA' };
+  }
+  // Lloyd e Kaplan (1978), Quadro 3 do Guia CFFa (2023): média de 500, 1000 e 2000 Hz.
+  if (average <= 25) return withinNormal;
+  if (average <= 40) return { degree: 'Grau leve (Lloyd e Kaplan)', code: 'LEVE' };
+  if (average <= 55) return { degree: 'Grau moderado (Lloyd e Kaplan)', code: 'MODERADA' };
+  if (average <= 70) return { degree: 'Grau moderadamente severo (Lloyd e Kaplan)', code: 'MOD_SEVERA' };
+  if (average <= 90) return { degree: 'Grau severo (Lloyd e Kaplan)', code: 'SEVERA' };
+  return { degree: 'Grau profundo (Lloyd e Kaplan)', code: 'PROFUNDA' };
 }
 
 /**
- * Classifica o tipo de perda auditiva (Silman & Silverman, 1997 / CFFa)
+ * [AUD-GRAU-04] Classificação global OMS 2021 pela melhor orelha, com a categoria unilateral
+ * (melhor orelha < 20 dB e pior orelha ≥ 35 dB). Exige a média quadritonal das duas orelhas.
+ */
+export function classifyWHOGlobal(right: CalculatedPTA, left: CalculatedPTA): { label: string; code: string; betterEar: 'right' | 'left' | 'equal' | null } {
+  const r = right.quadritonal, l = left.quadritonal;
+  if (r === null || l === null) return { label: 'Classificação global OMS 2021 indisponível: requer média de 500, 1000, 2000 e 4000 Hz nas duas orelhas.', code: 'NA', betterEar: null };
+  const better = Math.min(r, l), worse = Math.max(r, l);
+  const betterEar = r === l ? 'equal' : r < l ? 'right' : 'left';
+  if (better < 20 && worse >= 35) return { label: 'Perda auditiva unilateral (OMS 2021: melhor orelha < 20 dB e pior orelha ≥ 35 dB).', code: 'UNILATERAL', betterEar };
+  const grade = classifyDegree({ ...right, quadritonal: better }, 'OMS_2021');
+  return { label: grade.code === 'NORMAL' ? 'Melhor orelha com média < 20 dB (OMS 2021); verificar a outra orelha e as frequências isoladas.' : `${grade.degree} pela melhor orelha (média ${better} dB).`, code: grade.code, betterEar };
+}
+
+const TYPE_CORE: TonalFrequency[] = ['500', '1000', '2000', '4000'];
+const TYPE_WITH_BONE: TonalFrequency[] = ['500', '1000', '2000', '3000', '4000'];
+
+/**
+ * [AUD-TIPO-01] Tipo de perda por orelha — Silman e Silverman (1997), Quadro 2 do Guia CFFa (2023):
+ * condutiva: VO ≤ 15, VA > 25 e gap ≥ 15; neurossensorial: VO > 15, VA > 25 e gap ≤ 10; mista: VO > 15, VA > 25 e gap > 10.
+ * Analisa os limiares testados (não a média). 250, 6000 e 8000 Hz não têm VO no protocolo e não determinam o tipo.
+ * Limite de normalidade de 25 dB NA: referência adulta; a tela só chama esta função para adultos.
  */
 export function classifyType(tonalData: Partial<EarTonalData> | undefined): string {
   if (!tonalData) return 'Não avaliado';
-
-  const allFreqs: TonalFrequency[] = ['250', '500', '1000', '2000', '3000', '4000', '6000', '8000'];
-  let countVAAltered = 0;
-  let countVOAltered = 0;
-  let hasSignificantGap = false;
-  let validPoints = 0;
-
-  allFreqs.forEach(freq => {
-    const rawVA = tonalData[freq]?.va;
-    const rawVO = tonalData[freq]?.vo;
-    const va = rawVA === 'NR' ? 120 : getNumericThreshold(rawVA);
-    const vo = rawVO === 'NR' ? 120 : getNumericThreshold(rawVO);
-
-    if (va !== null) {
-      validPoints++;
-      if (va > 25) countVAAltered++;
-      if (vo !== null) {
-        if (vo > 25) countVOAltered++;
-        if (va - vo >= 15) hasSignificantGap = true;
-      }
-    }
-  });
-
-  if (validPoints === 0) return 'Não avaliado';
-
-  if (countVAAltered === 0) {
-    return 'Audição Normal';
-  }
-
-  if (countVOAltered === 0 && hasSignificantGap) {
-    return 'Condutiva';
-  }
-
-  if (countVOAltered > 0 && !hasSignificantGap) {
-    return 'Neurossensorial';
-  }
-
-  if (countVOAltered > 0 && hasSignificantGap) {
-    return 'Mista';
-  }
-
-  // Se VA alterada em frequências agudas (ex: 6k ou 8k) e VO não foi registrada
-  return 'Neurossensorial';
+  const recorded = Object.values(tonalData).filter(point => point?.va !== undefined && point?.va !== null && (point.va as unknown) !== '');
+  if (!recorded.length) return 'Não avaliado';
+  if (recorded.some(point => point.va === 'NR')) return 'Indeterminado (ausência de resposta registrada: definir pelo profissional)';
+  const va = (f: TonalFrequency) => getAudiometricThreshold(tonalData[f]?.va);
+  if (TYPE_CORE.some(f => va(f) === null)) return 'Indeterminado (VA incompleta em 500, 1000, 2000 e 4000 Hz)';
+  const numbers = recorded.map(point => getAudiometricThreshold(point.va));
+  if (numbers.some(v => v === null)) return 'Indeterminado (limiar inválido registrado)';
+  if ((numbers as number[]).every(v => v <= 25)) return 'Limiares dentro do padrão de normalidade';
+  const altered = TYPE_WITH_BONE.filter(f => (va(f) ?? -Infinity) > 25);
+  if (!altered.length) return 'Indeterminado (alteração restrita a frequências sem via óssea: informar frequências alteradas, sem tipo)';
+  const points = altered
+    .map(f => ({ f, point: tonalData[f], va: va(f)!, vo: getAudiometricThreshold(tonalData[f]?.vo) }))
+    .filter(p => p.f !== '3000' || p.vo !== null);
+  if (points.some(p => p.vo === null)) return 'Indeterminado (via óssea ausente ou sem resposta em frequência alterada)';
+  if (points.some(p => p.vo! > p.va + 10)) return 'Indeterminado (revisar VA/VO)';
+  if (points.some(p => p.va - p.vo! > 10 && !p.point?.maskedVo)) return 'Indeterminado (revisar mascaramento da VO)';
+  if (points.every(p => p.vo! <= 15 && p.va - p.vo! >= 15)) return 'Condutiva';
+  if (points.every(p => p.vo! > 15 && p.va - p.vo! <= 10)) return 'Neurossensorial';
+  if (points.every(p => p.vo! > 15 && p.va - p.vo! > 10)) return 'Mista';
+  return 'Indeterminado (padrão heterogêneo entre frequências)';
 }
 
+const OCTAVES: TonalFrequency[] = ['250', '500', '1000', '2000', '4000', '8000'];
+
 /**
- * Classifica a configuração audiométrica (Carhart, 1945 / Silman & Silverman, 1997)
+ * [AUD-CONF-01] Configuração: o Guia CFFa (2023, Quadro 8) descreve os tipos de Silman e Silverman (1997) em termos
+ * qualitativos por oitava. Sem operacionalização validada, o sistema mostra as variações entre oitavas e deixa
+ * a classificação ao profissional.
  */
 export function classifyConfiguration(tonalData: Partial<EarTonalData> | undefined): string {
-  if (!tonalData) return 'Não avaliado';
-
-  const freqs: TonalFrequency[] = ['250', '500', '1000', '2000', '3000', '4000', '6000', '8000'];
-  const values = freqs.map(f => ({ freq: f, val: getNumericThreshold(tonalData[f]?.va) })).filter(item => item.val !== null) as { freq: string; val: number }[];
-
-  if (values.length < 3) return 'Indeterminada';
-
-  // Verifica se há entalhe acústico típico de PAIR (queda em 3k, 4k ou 6k com recuperação em 8k)
-  const val3k = getNumericThreshold(tonalData['3000']?.va);
-  const val4k = getNumericThreshold(tonalData['4000']?.va);
-  const val6k = getNumericThreshold(tonalData['6000']?.va);
-  const val8k = getNumericThreshold(tonalData['8000']?.va);
-  const val2k = getNumericThreshold(tonalData['2000']?.va);
-
-  const notchFreqVal = Math.max(val3k ?? -999, val4k ?? -999, val6k ?? -999);
-  if (notchFreqVal > 25 && val8k !== null && val2k !== null && (notchFreqVal - val8k >= 10) && (notchFreqVal - val2k >= 10)) {
-    return 'Entalhe Acústico (em 3, 4 ou 6 kHz)';
+  if (!tonalData) return 'Não avaliada';
+  const steps: string[] = [];
+  for (let i = 1; i < OCTAVES.length; i++) {
+    const a = getAudiometricThreshold(tonalData[OCTAVES[i - 1]]?.va), b = getAudiometricThreshold(tonalData[OCTAVES[i]]?.va);
+    if (a !== null && b !== null) steps.push(`${OCTAVES[i - 1]}→${OCTAVES[i]}: ${b - a > 0 ? '+' : ''}${b - a} dB`);
   }
-
-  // Diferença entre início e fim
-  const firstVal = values[0].val;
-  const lastVal = values[values.length - 1].val;
-  const minVal = Math.min(...values.map(v => v.val));
-  const maxVal = Math.max(...values.map(v => v.val));
-
-  // Plana / Horizontal: variação máxima menor ou igual a 10 dB entre todas as frequências
-  if (maxVal - minVal <= 10) {
-    return 'Horizontal / Plana';
-  }
-
-  // Descendente Leve: piora progressiva de 5 a 10 dB por oitava
-  // Descendente Acentuada (Rampa): piora de 15 a 20 dB ou mais por oitava
-  if (lastVal - firstVal >= 25) {
-    if (lastVal - firstVal >= 40) return 'Descendente Acentuada (em Rampa)';
-    return 'Descendente Leve';
-  }
-
-  // Ascendente: melhora de 5 dB ou mais por oitava em direção às agudas
-  if (firstVal - lastVal >= 15) {
-    return 'Ascendente';
-  }
-
-  // Curva em U (Bacia) ou U invertido (Cúpula)
-  const midFreqs = values.filter(v => ['1000', '2000', '3000'].includes(v.freq));
-  if (midFreqs.length > 0) {
-    const avgMid = midFreqs.reduce((acc, v) => acc + v.val, 0) / midFreqs.length;
-    if (avgMid - firstVal >= 15 && avgMid - lastVal >= 15) {
-      return 'Em U / Em Bacia (Frequências médias rebaixadas)';
-    }
-    if (firstVal - avgMid >= 15 && lastVal - avgMid >= 15) {
-      return 'Em U Invertido / Cúpula';
-    }
-  }
-
-  return 'Irregular';
+  if (steps.length < 2) return 'Indeterminada (dados insuficientes)';
+  return `Variação de VA entre oitavas (positivo = limiar pior): ${steps.join('; ')}. Classificar pelo Quadro 8 do Guia CFFa (Silman e Silverman, 1997).`;
 }
 
-/**
- * Avalia se o audiograma é sugestivo de PAIR (Perda Auditiva Induzida por Ruído - NR-7 Anexo II)
- */
+// ---------------------------------------------------------------------------------------------
+// NR-7, Anexo II (Portaria SEPRT 6.734/2020). Critérios descritivos; o diagnóstico conclusivo,
+// diferencial e a aptidão cabem ao médico do trabalho (item 6).
+// ---------------------------------------------------------------------------------------------
+export const NR7_FREQUENCIES: TonalFrequency[] = ['500', '1000', '2000', '3000', '4000', '6000', '8000'];
+export type NR7AudiogramStatus = 'not_assessable' | 'acceptable' | 'suggestive' | 'suggestive_air_only' | 'not_suggestive';
+export interface NR7AudiogramResult { status: NR7AudiogramStatus; reason: string; }
+
+/** [OCU-NR7-01] Item 5.1 (limites aceitáveis) e 5.2/5.2.1 (sugestivo de PAINPSE) para uma orelha. */
+export function assessNR7Audiogram(ear: Partial<EarTonalData> | undefined): NR7AudiogramResult {
+  const va = (f: TonalFrequency) => getAudiometricThreshold(ear?.[f]?.va);
+  const missing = NR7_FREQUENCIES.filter(f => va(f) === null);
+  if (missing.length) return { status: 'not_assessable', reason: `Não avaliável pelo Anexo II: VA sem limiar numérico em ${missing.join(', ')} Hz (item 3.6 exige 500 a 8000 Hz).` };
+  if (NR7_FREQUENCIES.every(f => va(f)! <= 25)) return { status: 'acceptable', reason: 'Limiares ≤ 25 dB NA em 500–8000 Hz: dentro dos limites aceitáveis (item 5.1).' };
+  const high: TonalFrequency[] = ['3000', '4000', '6000'];
+  const others: TonalFrequency[] = ['500', '1000', '2000', '8000'];
+  const peak = Math.max(...high.map(f => va(f)!));
+  const otherMax = Math.max(...others.map(f => va(f)!));
+  if (!(peak > 25 && peak > otherMax)) return { status: 'not_suggestive', reason: 'Alteração que não atende ao item 5.2 (3, 4 e/ou 6 kHz > 25 dB NA e mais elevados que as demais frequências): não sugestiva de PAINPSE (item 5.2.1).' };
+  const boneFreqs = high.filter(f => f !== '6000' && va(f)! > 25);
+  const vo = (f: TonalFrequency) => getAudiometricThreshold(ear?.[f]?.vo);
+  const bonePeakValues = boneFreqs.map(vo).filter((v): v is number => v !== null);
+  const boneOtherValues = (['500', '1000', '2000'] as TonalFrequency[]).map(vo).filter((v): v is number => v !== null);
+  if (!bonePeakValues.length || !boneOtherValues.length) return { status: 'suggestive_air_only', reason: 'VA atende ao padrão do item 5.2. O item refere o padrão também na via óssea: registre VO (500–4000 Hz) para completar a análise descritiva.' };
+  const bonePeak = Math.max(...bonePeakValues);
+  if (bonePeak > 25 && bonePeak > Math.max(...boneOtherValues)) return { status: 'suggestive', reason: 'Padrão descrito no item 5.2 (VA e VO): sugestivo de PAINPSE. Diagnóstico conclusivo e aptidão cabem ao médico do trabalho (item 6).' };
+  return { status: 'not_suggestive', reason: 'VA atende ao padrão do item 5.2, mas a VO registrada não reproduz o padrão: não atende ao item 5.2 nesta análise descritiva.' };
+}
+
+export type NR7ComparisonStatus = 'not_assessable' | 'triggering' | 'no_triggering' | 'aggravation' | 'no_aggravation' | 'out_of_scope';
+export interface NR7Comparison {
+  status: NR7ComparisonStatus;
+  reason: string;
+  meanShift346: number | null;
+  meanShift05to2: number | null;
+  frequencyShifts: Partial<Record<TonalFrequency, number>>;
+}
+
+/** [OCU-NR7-02] Comparação exame de referência × sequencial por orelha: desencadeamento (5.3/5.3.1) e agravamento (5.4). */
+export function compareNR7(reference: Partial<EarTonalData> | undefined, sequential: Partial<EarTonalData> | undefined): NR7Comparison {
+  const ref = assessNR7Audiogram(reference), seq = assessNR7Audiogram(sequential);
+  const empty = { meanShift346: null, meanShift05to2: null, frequencyShifts: {} };
+  if (ref.status === 'not_assessable' || seq.status === 'not_assessable') return { status: 'not_assessable', reason: `Comparação indisponível. Referência: ${ref.reason} Sequencial: ${seq.reason}`, ...empty };
+  const r = (f: TonalFrequency) => getAudiometricThreshold(reference?.[f]?.va)!;
+  const s = (f: TonalFrequency) => getAudiometricThreshold(sequential?.[f]?.va)!;
+  const frequencyShifts = Object.fromEntries(NR7_FREQUENCIES.map(f => [f, s(f) - r(f)])) as Partial<Record<TonalFrequency, number>>;
+  const group = (freqs: TonalFrequency[]) => mean(freqs.map(s)) - mean(freqs.map(r));
+  const meanShift346 = group(['3000', '4000', '6000']);
+  const meanShift05to2 = group(['500', '1000', '2000']);
+  const values = { meanShift346: roundForDisplay(meanShift346), meanShift05to2: roundForDisplay(meanShift05to2), frequencyShifts };
+  if (ref.status === 'acceptable') {
+    const isolated = (['3000', '4000', '6000'] as TonalFrequency[]).filter(f => frequencyShifts[f]! >= 15);
+    const met = meanShift346 >= 10 || isolated.length > 0;
+    const item = seq.status === 'acceptable' ? '5.3' : '5.3.1';
+    return met
+      ? { status: 'triggering', reason: `Critério de desencadeamento atingido (item ${item}): ${meanShift346 >= 10 ? `média de 3, 4 e 6 kHz piorou ${roundForDisplay(meanShift346)} dB (≥ 10)` : ''}${meanShift346 >= 10 && isolated.length ? '; ' : ''}${isolated.length ? `piora ≥ 15 dB em ${isolated.join(', ')} Hz` : ''}. O sequencial passa a ser o novo referencial (item 5.5.1). Conclusão cabe ao médico do trabalho.`, ...values }
+      : { status: 'no_triggering', reason: 'Critérios de desencadeamento (item 5.3) não atingidos.', ...values };
+  }
+  if (ref.status === 'suggestive') {
+    const isolated = NR7_FREQUENCIES.filter(f => frequencyShifts[f]! >= 15);
+    const met = meanShift05to2 >= 10 || meanShift346 >= 10 || isolated.length > 0;
+    return met
+      ? { status: 'aggravation', reason: `Critério numérico de agravamento atingido (item 5.4) — aplicável se a PAINPSE estiver confirmada pelo médico do trabalho: ${[meanShift05to2 >= 10 ? `média 0,5–2 kHz +${roundForDisplay(meanShift05to2)} dB` : '', meanShift346 >= 10 ? `média 3–6 kHz +${roundForDisplay(meanShift346)} dB` : '', isolated.length ? `piora ≥ 15 dB em ${isolated.join(', ')} Hz` : ''].filter(Boolean).join('; ')}.`, ...values }
+      : { status: 'no_aggravation', reason: 'Critérios numéricos de agravamento (item 5.4) não atingidos.', ...values };
+  }
+  return { status: 'out_of_scope', reason: `Referência ${ref.status === 'suggestive_air_only' ? 'com padrão sugestivo apenas na VA (VO incompleta)' : 'alterada sem padrão sugestivo'}: os critérios dos itens 5.3 e 5.4 não se aplicam diretamente. Comparar e interpretar clinicamente.`, ...values };
+}
+
+/** @deprecated Mantido para compatibilidade; use assessNR7Audiogram. */
 export function isSuggestivePAIR(
-  rightData: Partial<EarTonalData> | undefined, 
+  rightData: Partial<EarTonalData> | undefined,
   leftData: Partial<EarTonalData> | undefined
 ): { isPAIR: boolean; reason: string } {
-  if (!rightData || !leftData) return { isPAIR: false, reason: 'Dados insuficientes' };
-
-  const checkEarNotch = (data: Partial<EarTonalData>) => {
-    const v500 = getNumericThreshold(data['500']?.va) ?? 0;
-    const v1k = getNumericThreshold(data['1000']?.va) ?? 0;
-    const v2k = getNumericThreshold(data['2000']?.va) ?? 0;
-    const v3k = getNumericThreshold(data['3000']?.va);
-    const v4k = getNumericThreshold(data['4000']?.va);
-    const v6k = getNumericThreshold(data['6000']?.va);
-    const v8k = getNumericThreshold(data['8000']?.va);
-
-    const highPeak = Math.max(v3k ?? -1, v4k ?? -1, v6k ?? -1);
-    if (highPeak > 25 && v8k !== null && (highPeak - v8k >= 10) && v2k <= 25 && v1k <= 25 && v500 <= 25) {
-      return true;
-    }
-    return false;
-  };
-
-  const rightNotch = checkEarNotch(rightData);
-  const leftNotch = checkEarNotch(leftData);
-
-  if (rightNotch && leftNotch) {
-    return {
-      isPAIR: true,
-      reason: 'Audiograma sugestivo de PAIR: Perda neurossensorial bilateral com entalhe acústico em altas frequências (3, 4 ou 6 kHz) e recuperação em 8 kHz (critérios Portaria 19/NR-7).'
-    };
-  }
-
-  if (rightNotch || leftNotch) {
-    return {
-      isPAIR: false,
-      reason: 'Entalhe unilateral: Sugere investigação clínica complementar (não característico de PAIR típica ocupacional bilateral).'
-    };
-  }
-
-  return { isPAIR: false, reason: 'Padrão não sugestivo de PAIR ocupacional.' };
+  const right = assessNR7Audiogram(rightData), left = assessNR7Audiogram(leftData);
+  return { isPAIR: right.status === 'suggestive' || left.status === 'suggestive', reason: `OD: ${right.reason} OE: ${left.reason}` };
 }
 
 /**
- * Calculadora de Mascaramento Clínico e Detecção de Risco de Audição Cruzada
+ * [AUD-MASC-01] Alertas de mascaramento — BSA (2018), §8.6, regras 1–3. Usa limiares sem mascaramento.
+ * Regra 2: VO sem mascaramento melhor que a VA de qualquer orelha em ≥ 10 dB.
  */
 export function checkMaskingNecessity(
   rightTonal: Partial<EarTonalData> | undefined,
   leftTonal: Partial<EarTonalData> | undefined,
-  transducer: 'supra' | 'insert' = 'supra'
+  transducer: 'supra' | 'insert' = 'supra',
+  protocol?: 'BSA_2018'
 ): MaskingAlert[] {
   const alerts: MaskingAlert[] = [];
-  const interauralAtten = transducer === 'insert' ? 60 : 40;
+  if (protocol !== 'BSA_2018') return alerts;
+  const ia = transducer === 'insert' ? 55 : 40;
   const freqs: TonalFrequency[] = ['250', '500', '1000', '2000', '3000', '4000', '6000', '8000'];
-
-  const occlusionEffect: Record<string, number> = {
-    '250': transducer === 'supra' ? 15 : 10,
-    '500': transducer === 'supra' ? 15 : 10,
-    '1000': transducer === 'supra' ? 10 : 5,
-    '2000': 0, '3000': 0, '4000': 0, '6000': 0, '8000': 0
+  const initial = (data: Partial<EarTonalData> | undefined, freq: TonalFrequency, via: 'va' | 'vo') => {
+    const p = data?.[freq];
+    const saved = via === 'va' ? p?.unmaskedVa : p?.unmaskedVo;
+    return getAudiometricThreshold(saved ?? (p?.[via === 'va' ? 'maskedVa' : 'maskedVo'] ? undefined : p?.[via]));
   };
-
-  freqs.forEach(f => {
-    const rVA = getNumericThreshold(rightTonal?.[f]?.va);
-    const rVO = getNumericThreshold(rightTonal?.[f]?.vo);
-    const lVA = getNumericThreshold(leftTonal?.[f]?.va);
-    const lVO = getNumericThreshold(leftTonal?.[f]?.vo);
-
-    // 1. Mascaramento de VA Orelha Direita: se VA_OD - VO_OE >= Atenuação Interaural
-    const bestContraVO_OE = lVO ?? lVA ?? 0;
-    if (rVA !== null && (rVA - bestContraVO_OE >= interauralAtten)) {
-      const minMasc = (lVA ?? 0) + 10;
-      const maxMasc = (rVO ?? rVA) + interauralAtten - 5;
-      alerts.push({
-        freq: f,
-        ear: 'right',
-        type: 'VA',
-        reason: `Risco de audição cruzada na VA em ${f}Hz (Diferença OD/OE = ${rVA - bestContraVO_OE}dB ≥ AI ${interauralAtten}dB).`,
-        minMaskingDb: minMasc,
-        maxMaskingDb: maxMasc,
-        plateauRange: `${minMasc} a ${maxMasc} dB NBN`
-      });
+  for (const [ear, own, contra] of [['right', rightTonal, leftTonal], ['left', leftTonal, rightTonal]] as const) {
+    for (const freq of freqs) {
+      const va = initial(own, freq, 'va'), contraVA = initial(contra, freq, 'va');
+      const vo = initial(own, freq, 'vo'), contraVO = initial(contra, freq, 'vo');
+      const bones = [vo, contraVO].filter((v): v is number => v !== null);
+      const rule1 = va !== null && contraVA !== null && va - contraVA >= ia;
+      const rule3 = !rule1 && va !== null && contraVO !== null && va - contraVO >= ia;
+      if ((rule1 || rule3) && !own?.[freq]?.maskedVa) alerts.push({ ear, freq, type: 'VA', reason: `BSA 2018, §8.6: revisar mascaramento de VA em ${freq} Hz (regra ${rule1 ? '1' : '3'}, diferença ≥ ${ia} dB). Confirmar posicionamento e protocolo.` });
+      if (va !== null && bones.length && va - Math.min(...bones) >= 10 && !own?.[freq]?.maskedVo) alerts.push({ ear, freq, type: 'VO', reason: `BSA 2018, §8.6, regra 2: VO sem mascaramento ≥ 10 dB melhor que a VA desta orelha em ${freq} Hz. A VO sem mascaramento pode refletir a outra cóclea.` });
     }
-
-    // 2. Mascaramento de VA Orelha Esquerda: se VA_OE - VO_OD >= Atenuação Interaural
-    const bestContraVO_OD = rVO ?? rVA ?? 0;
-    if (lVA !== null && (lVA - bestContraVO_OD >= interauralAtten)) {
-      const minMasc = (rVA ?? 0) + 10;
-      const maxMasc = (lVO ?? lVA) + interauralAtten - 5;
-      alerts.push({
-        freq: f,
-        ear: 'left',
-        type: 'VA',
-        reason: `Risco de audição cruzada na VA em ${f}Hz (Diferença OE/OD = ${lVA - bestContraVO_OD}dB ≥ AI ${interauralAtten}dB).`,
-        minMaskingDb: minMasc,
-        maxMaskingDb: maxMasc,
-        plateauRange: `${minMasc} a ${maxMasc} dB NBN`
-      });
-    }
-
-    // 3. Mascaramento de VO Orelha Direita: Gap Aéreo-Ósseo >= 15 dB
-    if (rVA !== null && rVO !== null && (rVA - rVO >= 15)) {
-      const oe = occlusionEffect[f] || 0;
-      const minMasc = (lVA ?? 0) + oe + 10;
-      alerts.push({
-        freq: f,
-        ear: 'right',
-        type: 'VO',
-        reason: `Gap aéreo-ósseo significativo em ${f}Hz (OD: ${rVA - rVO}dB ≥ 15dB). Mascaramento de VO mandatório.`,
-        minMaskingDb: minMasc,
-        plateauRange: `A partir de ${minMasc} dB NBN (com EO: +${oe}dB)`
-      });
-    }
-
-    // 4. Mascaramento de VO Orelha Esquerda: Gap Aéreo-Ósseo >= 15 dB
-    if (lVA !== null && lVO !== null && (lVA - lVO >= 15)) {
-      const oe = occlusionEffect[f] || 0;
-      const minMasc = (rVA ?? 0) + oe + 10;
-      alerts.push({
-        freq: f,
-        ear: 'left',
-        type: 'VO',
-        reason: `Gap aéreo-ósseo significativo em ${f}Hz (OE: ${lVA - lVO}dB ≥ 15dB). Mascaramento de VO mandatório.`,
-        minMaskingDb: minMasc,
-        plateauRange: `A partir de ${minMasc} dB NBN (com EO: +${oe}dB)`
-      });
-    }
-  });
-
+  }
   return alerts;
 }
 
 /**
- * Validação de Concordância Tonal-Vocal (SRT x Média Tritonal 500-1k-2k)
+ * [FALA-LRF-01] Diferença LRF − média tritonal. A ASHA (1988) espera concordância próxima, sem limite numérico;
+ * o Guia CFFa (2023) não define critério. O sistema mostra a diferença e não emite veredito.
  */
 export function validateSpeechConcordance(
-  srtVal: number | string | undefined, 
+  srtVal: number | string | undefined,
   ptaTritonal: number | null
-): { isConcordant: boolean; diff: number | null; message: string; badgeColor: string } {
+): { isConcordant: boolean | null; diff: number | null; message: string; badgeColor: string } {
   const srt = getNumericThreshold(srtVal);
   if (srt === null || ptaTritonal === null) {
     return {
-      isConcordant: true,
+      isConcordant: null,
       diff: null,
-      message: 'Aguardando preenchimento do SRT e limiares tonais (500, 1k, 2k Hz).',
+      message: 'Diferença LRF − média tritonal indisponível: requer LRF e limiares numéricos em 500, 1000 e 2000 Hz.',
       badgeColor: 'text-slate-500 bg-slate-100'
     };
   }
-
-  const diff = Math.abs(srt - ptaTritonal);
-  if (diff <= 10) {
-    return {
-      isConcordant: true,
-      diff,
-      message: `Excelente concordância tonal-vocal (Diferença: ${diff.toFixed(1)} dB ≤ 10 dB).`,
-      badgeColor: 'text-emerald-700 bg-emerald-100 border-emerald-300'
-    };
-  }
-
+  const diff = roundForDisplay(srt - ptaTritonal);
   return {
-    isConcordant: false,
+    isConcordant: null,
     diff,
-    message: `Discordância tonal-vocal expressiva (Diferença: ${diff.toFixed(1)} dB > 10 dB). Recomenda-se retestar limiares ou investigar componente funcional/central.`,
-    badgeColor: 'text-amber-800 bg-amber-100 border-amber-300'
+    message: `Diferença LRF − média tritonal: ${diff > 0 ? '+' : ''}${diff} dB. Espera-se concordância próxima (ASHA, 1988); o limite de tolerância depende da referência adotada pelo profissional. Diferenças amplas pedem revisão de instruções, material e condições de resposta.`,
+    badgeColor: 'text-slate-700 bg-slate-50 border-slate-200'
   };
 }
 
@@ -428,266 +433,73 @@ export function validateSpeechConcordance(
  */
 export function classifyIPRF(percentVal: number | string | undefined): { rating: string; interpretation: string; color: string } {
   const score = getNumericThreshold(percentVal);
-  if (score === null) return { rating: 'Não testado', interpretation: '', color: 'text-slate-500' };
-
-  if (score >= 92) {
-    return {
-      rating: 'Excelente (92% a 100%)',
-      interpretation: 'Sem dificuldade de discriminação de fala em ambiente silencioso (Padrão de audição normal ou perda condutiva pura).',
-      color: 'text-emerald-600'
-    };
-  }
-  if (score >= 80) {
-    return {
-      rating: 'Boa (80% a 90%)',
-      interpretation: 'Discreta dificuldade de compreensão, principalmente em conversação competitiva ou ruidosa.',
-      color: 'text-blue-600'
-    };
-  }
-  if (score >= 60) {
-    return {
-      rating: 'Moderada (60% a 78%)',
-      interpretation: 'Dificuldade evidente de discriminação em conversas cotidianas (Compatível com perda neurossensorial coclear).',
-      color: 'text-amber-600'
-    };
-  }
-  if (score >= 40) {
-    return {
-      rating: 'Pobre (40% a 58%)',
-      interpretation: 'Dificuldade acentuada na compreensão verbal.',
-      color: 'text-orange-600'
-    };
-  }
-  return {
-    rating: 'Muito Pobre (< 40%)',
-    interpretation: 'Incapacidade quase total de discriminação fonêmica. Forte suspeita de acometimento retrococlear ou neuropatia auditiva.',
-    color: 'text-red-600'
-  };
+  if (score === null) return { rating: 'Não avaliado', interpretation: '', color: 'text-slate-500' };
+  if (score < 0 || score > 100) return { rating: 'Valor inválido (0–100%)', interpretation: 'Revise os acertos e o total de itens apresentados.', color: 'text-red-600' };
+  return { rating: `${score}% de reconhecimento`, interpretation: 'Interpretar conforme material, intensidade, idioma e condições de apresentação. O percentual isolado não determina etiologia.', color: 'text-slate-700' };
 }
 
+const JERGER_226 = ['A', 'As', 'Ar', 'Ad', 'B', 'C'];
+
 /**
- * Classificação Timpanométrica Automática de Jerger (1970) / Jerger & Northern
+ * [IMIT-TIMP-01] Classificação timpanométrica informada pelo profissional.
+ * SBFa (2025): Jerger aplica-se à sonda de 226 Hz em orelhas não operadas; com 1000 Hz, curvas classificadas
+ * apenas como normais ou alteradas. O sistema não classifica a curva automaticamente.
  */
-export function classifyTympanometry(tympData: TympanometryData | undefined): JergerClassification {
-  if (!tympData) {
-    return { type: 'Inconclusivo', description: 'Sem dados', interpretation: 'Preencha os valores da timpanometria.', isNormal: false };
+export function classifyTympanometry(tympData: TympanometryData | undefined, _adultProtocol = false): JergerClassification {
+  const pending: JergerClassification = { type: 'Inconclusivo', description: 'Aguardando interpretação documentada', interpretation: 'Informe a unidade, a sonda, a referência normativa e a classificação da curva medida. Não há limites numéricos universais neste módulo.', isNormal: false };
+  if (!tympData) return pending;
+  for (const field of ['peak', 'compliance200', 'volume'] as const) {
+    const raw = tympData[field];
+    if (raw !== undefined && raw !== '' && (getNumericThreshold(raw) === null || (field !== 'peak' && getNumericThreshold(raw)! < 0))) return { ...pending, description: 'Medida inválida', interpretation: 'Confira o valor e a unidade registrados.' };
   }
-
-  const peak = getNumericThreshold(tympData.peak);
-  const comp = getNumericThreshold(tympData.compliance200);
-  const vol = getNumericThreshold(tympData.volume);
-
-  if (peak === null && comp === null) {
-    return { type: 'Inconclusivo', description: 'Não preenchido', interpretation: 'Insira o pico de pressão e a complacência.', isNormal: false };
+  const type = tympData.recordedType;
+  if (type && tympData.probeFrequency === '1000' && JERGER_226.includes(type)) return { ...pending, description: 'Classificação incompatível com a sonda', interpretation: 'A classificação de Jerger aplica-se à sonda de 226 Hz (SBFa, 2025). Para 1000 Hz, registre curva normal ou alterada conforme a referência adotada.' };
+  if (type && tympData.probeFrequency === '226' && (type === 'Normal' || type === 'Alterada')) return { ...pending, description: 'Classificação incompatível com a sonda', interpretation: 'Para 226 Hz, registre o tipo de curva (Jerger) conforme a referência adotada.' };
+  if (type && tympData.normativeReference?.trim() && tympData.probeFrequency && tympData.admittanceUnit) {
+    const label = type === 'Normal' || type === 'Alterada' ? `Curva ${type.toLowerCase()} (sonda ${tympData.probeFrequency} Hz, informada pelo profissional)` : `Tipo ${type === 'As' ? 'As (Ar)' : type} (informado pelo profissional)`;
+    return { type, description: label, interpretation: `Referência informada: ${tympData.normativeReference}. Correlacionar com inspeção e demais procedimentos.`, isNormal: false };
   }
-
-  // Curva Tipo B: Sem pico de pressão ou curva plana (complacência < 0.20 com pressão indefinida ou ausente)
-  if (comp !== null && comp < 0.20 && (peak === null || peak <= -400 || peak >= 200)) {
-    if (vol !== null && vol > 2.0) {
-      return {
-        type: 'B',
-        description: 'Curva Tipo B (Volume Aumentado)',
-        interpretation: 'Curva plana com volume equivalente aumentado (> 2.0 ml), sugestivo de Perfuração da Membrana Timpânica ou Tubo de Ventilação patente.',
-        isNormal: false
-      };
-    }
-    return {
-      type: 'B',
-      description: 'Curva Tipo B (Efusão / OMS)',
-      interpretation: 'Curva plana sem ponto de máxima complacência, sugestivo de presença de líquido na orelha média (Otite Média Secretora/Serosa).',
-      isNormal: false
-    };
-  }
-
-  if (peak !== null && comp !== null) {
-    // Tipo C: Pressão de pico negativa significativa (< -100 daPa) com complacência normal
-    if (peak < -100) {
-      return {
-        type: 'C',
-        description: 'Curva Tipo C (Disfunção Tubária)',
-        interpretation: 'Pico de pressão negativo (< -100 daPa), indicativo de disfunção da tuba auditiva / pressão negativa na orelha média.',
-        isNormal: false
-      };
-    }
-
-    // Pressão normal (-100 a +100 daPa)
-    if (peak >= -100 && peak <= 100) {
-      if (comp < 0.30) {
-        return {
-          type: 'As',
-          description: 'Curva Tipo As / Ar (Rigidez)',
-          interpretation: 'Pico de pressão normal com complacência reduzida (< 0.30 ml), sugestivo de rigidez da cadeia ossicular (ex: Otoesclerose, Timpanosclerose).',
-          isNormal: false
-        };
-      }
-      if (comp > 1.75) {
-        return {
-          type: 'Ad',
-          description: 'Curva Tipo Ad (Hipermobilidade)',
-          interpretation: 'Pico de pressão normal com complacência aumentada (> 1.75 ml), sugestivo de hipermobilidade/flacidez timpânica ou desarticulação ossicular.',
-          isNormal: false
-        };
-      }
-      return {
-        type: 'A',
-        description: 'Curva Tipo A (Padrão de Normalidade)',
-        interpretation: 'Pressão de pico e complacência dentro dos padrões de normalidade. Mobilidade do sistema tímpano-ossicular preservada.',
-        isNormal: true
-      };
-    }
-  }
-
-  return {
-    type: 'Inconclusivo',
-    description: 'Valores Atípicos',
-    interpretation: 'Revise os valores inseridos de pico e complacência.',
-    isNormal: false
-  };
+  return pending;
 }
 
 /**
- * Avaliação do Reflexo Estapediano e Teste de Metz (Recrutamento Coclear)
+ * [IMIT-REF-01] Reflexos: diferença ipsilateral − VA (descritiva) e critério numérico de Metz
+ * (SBFa 2025: VA da orelha estimulada − limiar do reflexo contralateral ≤ 60 dB). O Metz só é calculado
+ * quando a convenção das colunas (orelha estimulada ou orelha da sonda) foi registrada.
  */
 export function analyzeStapedialReflexes(
   reflexData: Partial<EarReflexData> | undefined,
   tonalData: Partial<EarTonalData> | undefined,
-  ear: 'right' | 'left'
+  ear: 'right' | 'left',
+  options: { convention?: '' | 'stimulated' | 'probe'; otherEarTonal?: Partial<EarTonalData> } = {}
 ): MetzTestResult[] {
   const freqs: ReflexFrequency[] = ['500', '1000', '2000', '4000'];
   const results: MetzTestResult[] = [];
+  const stimulatedEar = options.convention === 'stimulated' ? ear : options.convention === 'probe' ? (ear === 'right' ? 'left' : 'right') : null;
+  const stimulatedTonal = options.convention === 'stimulated' ? tonalData : options.convention === 'probe' ? options.otherEarTonal : undefined;
 
   freqs.forEach(freq => {
     const reflexIpsi = getNumericThreshold(reflexData?.[freq]?.ipsi ?? reflexData?.[freq]?.limiar);
-    const tonalVA = getNumericThreshold(tonalData?.[freq]?.va);
+    const reflexContra = getNumericThreshold(reflexData?.[freq]?.contra);
+    const tonalVA = getAudiometricThreshold(tonalData?.[freq]?.va);
+    const sensationLevel = reflexIpsi !== null && tonalVA !== null ? reflexIpsi - tonalVA : null;
+    const stimulatedVA = getAudiometricThreshold(stimulatedTonal?.[freq]?.va);
+    const contraDifference = reflexContra !== null && stimulatedVA !== null ? reflexContra - stimulatedVA : null;
+    if (sensationLevel === null && contraDifference === null && reflexContra === null) return;
 
-    if (reflexIpsi !== null && tonalVA !== null) {
-      const sensationLevel = reflexIpsi - tonalVA;
-      const hasRecruitment = sensationLevel <= 60 && sensationLevel > 0;
-      let interpretation = 'Normal (sensação 70 a 100 dB)';
-      if (hasRecruitment) interpretation = 'Metz Positivo: Recrutamento de Loudness (Lesão Coclear)';
-      else if (sensationLevel > 100) interpretation = 'Reflexo com nível aumentado / Rebaixado';
-
-      results.push({
-        freq,
-        ear,
-        sensationLevel,
-        hasRecruitment,
-        interpretation
-      });
+    const parts: string[] = [];
+    if (sensationLevel !== null) parts.push(sensationLevel <= 0 ? 'Inconsistência: reflexo ipsilateral igual ou inferior ao limiar tonal. Revisar os dados.' : `Diferença reflexo ipsilateral − VA: ${sensationLevel} dB.`);
+    let metzCriterion: MetzCriterion = 'not_assessable';
+    if (reflexContra !== null && !stimulatedEar) parts.push('Metz não calculado: registre se as colunas indicam a orelha estimulada ou a orelha da sonda.');
+    else if (contraDifference !== null && stimulatedEar) {
+      if (contraDifference <= 0) parts.push('Inconsistência: reflexo contralateral igual ou inferior ao limiar tonal da orelha estimulada.');
+      else {
+        metzCriterion = contraDifference <= 60 ? 'met' : 'not_met';
+        parts.push(`Contralateral (estímulo ${stimulatedEar === 'right' ? 'OD' : 'OE'}) − VA da orelha estimulada: ${contraDifference} dB; critério numérico de Metz (≤ 60 dB, SBFa 2025) ${metzCriterion === 'met' ? 'atingido' : 'não atingido'}. Interpretar com o tipo de perda e demais achados; não é diagnóstico isolado.`);
+      }
     }
+    results.push({ freq, ear, sensationLevel, contraDifference, stimulatedEar, metzCriterion, interpretation: parts.join(' ') || 'Interpretar em conjunto com as condições de pesquisa.' });
   });
 
   return results;
-}
-
-/**
- * Gerador Inteligente de Laudo e Parecer Fonoaudiológico Completo
- */
-export function generateSmartAudiologicalReport(params: {
-  rightTonal?: Partial<EarTonalData>;
-  leftTonal?: Partial<EarTonalData>;
-  rightLogo?: LogoAudiometryData;
-  leftLogo?: LogoAudiometryData;
-  rightTymp?: TympanometryData;
-  leftTymp?: TympanometryData;
-  meatoscopy?: Meatoscopy;
-  complementary?: ComplementaryTests;
-  category?: 'clinico' | 'ocupacional';
-  standard?: DegreeStandard;
-}): {
-  clinicalSummary: string;
-  rightOpinion: { type: string; degree: string; configuration: string };
-  leftOpinion: { type: string; degree: string; configuration: string };
-  conductSuggestion: string;
-} {
-  const standard = params.standard || 'OMS_2021';
-  const rPta = calculatePTA(params.rightTonal);
-  const lPta = calculatePTA(params.leftTonal);
-
-  const rDeg = classifyDegree(rPta, standard);
-  const lDeg = classifyDegree(lPta, standard);
-
-  const rType = classifyType(params.rightTonal);
-  const lType = classifyType(params.leftTonal);
-
-  const rConfig = classifyConfiguration(params.rightTonal);
-  const lConfig = classifyConfiguration(params.leftTonal);
-
-  const rTympClass = classifyTympanometry(params.rightTymp);
-  const lTympClass = classifyTympanometry(params.leftTymp);
-
-  const pairAnalysis = isSuggestivePAIR(params.rightTonal, params.leftTonal);
-
-  // Construção do Laudo Fonoaudiológico Textual
-  const lines: string[] = [];
-
-  // Orelha Direita
-  if (rDeg.code === 'NORMAL' && rType === 'Audição Normal') {
-    lines.push(`• Orelha Direita (OD): Audição dentro dos padrões de normalidade (Média: ${rPta.quadritonal ?? rPta.tritonal ?? '--'} dB).`);
-  } else {
-    lines.push(`• Orelha Direita (OD): ${rType !== 'Não avaliado' ? `Perda auditiva do tipo ${rType.toLowerCase()}` : 'Alteração audiológica'}, de grau ${rDeg.degree.toLowerCase()}, com configuração ${rConfig.toLowerCase()} (Média: ${rPta.quadritonal ?? rPta.tritonal ?? '--'} dB).`);
-  }
-
-  // Orelha Esquerda
-  if (lDeg.code === 'NORMAL' && lType === 'Audição Normal') {
-    lines.push(`• Orelha Esquerda (OE): Audição dentro dos padrões de normalidade (Média: ${lPta.quadritonal ?? lPta.tritonal ?? '--'} dB).`);
-  } else {
-    lines.push(`• Orelha Esquerda (OE): ${lType !== 'Não avaliado' ? `Perda auditiva do tipo ${lType.toLowerCase()}` : 'Alteração audiológica'}, de grau ${lDeg.degree.toLowerCase()}, com configuração ${lConfig.toLowerCase()} (Média: ${lPta.quadritonal ?? lPta.tritonal ?? '--'} dB).`);
-  }
-
-  // Logoaudiometria
-  const rSrt = getNumericThreshold(params.rightLogo?.srt?.db);
-  const lSrt = getNumericThreshold(params.leftLogo?.srt?.db);
-  const rIrf = getNumericThreshold(params.rightLogo?.irf?.mono?.percentage);
-  const lIrf = getNumericThreshold(params.leftLogo?.irf?.mono?.percentage);
-
-  if (rSrt !== null || lSrt !== null || rIrf !== null || lIrf !== null) {
-    let logoStr = '• Logoaudiometria: ';
-    if (rSrt !== null) logoStr += `OD com LRF a ${rSrt} dB e IPRF de ${rIrf ?? '--'}%. `;
-    if (lSrt !== null) logoStr += `OE com LRF a ${lSrt} dB e IPRF de ${lIrf ?? '--'}%.`;
-    lines.push(logoStr);
-  }
-
-  // Imitanciometria
-  if (rTympClass.type !== 'Inconclusivo' || lTympClass.type !== 'Inconclusivo') {
-    lines.push(`• Medidas de Imitância Acústica: Timpanometria com curva tipo ${rTympClass.type} em OD e tipo ${lTympClass.type} em OE.`);
-  }
-
-  // Ocupacional
-  if (params.category === 'ocupacional') {
-    lines.push(`• Avaliação Ocupacional (Portaria 19/NR-7): ${pairAnalysis.reason}`);
-  }
-
-  // Conduta Sugerida
-  const conducts: string[] = [];
-  if (params.meatoscopy?.referToENT || params.meatoscopy?.right === 'cerumen' || params.meatoscopy?.left === 'cerumen' || params.meatoscopy?.right === 'perforation' || params.meatoscopy?.left === 'perforation') {
-    conducts.push('1. Encaminhamento para avaliação com Médico Otorrinolaringologista (avaliação de conduto e conduta médica).');
-  }
-  if (rDeg.code !== 'NORMAL' || lDeg.code !== 'NORMAL') {
-    conducts.push('2. Acompanhamento audiológico periódico e investigação etiológica.');
-    if (rDeg.code === 'MODERADA' || rDeg.code === 'MOD_SEVERA' || rDeg.code === 'SEVERA' || rDeg.code === 'PROFUNDA' || lDeg.code === 'MODERADA' || lDeg.code === 'MOD_SEVERA') {
-      conducts.push('3. Avaliação para indicação e adaptação de Aparelho de Amplificação Sonora Individual (AASI).');
-    }
-  } else {
-    conducts.push('1. Manutenção dos hábitos de saúde auditiva e reavaliação periódica anual.');
-  }
-
-  if (params.category === 'ocupacional') {
-    conducts.push('4. Manutenção do uso correto e fiscalização de Equipamentos de Proteção Individual (EPI Auricular) e controle do PCA.');
-  }
-
-  return {
-    clinicalSummary: lines.join('\n'),
-    rightOpinion: {
-      type: rType,
-      degree: rDeg.degree,
-      configuration: rConfig
-    },
-    leftOpinion: {
-      type: lType,
-      degree: lDeg.degree,
-      configuration: lConfig
-    },
-    conductSuggestion: conducts.join('\n')
-  };
 }

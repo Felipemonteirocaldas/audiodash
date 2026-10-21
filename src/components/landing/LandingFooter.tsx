@@ -27,10 +27,10 @@ export default function LandingFooter() {
 
             <div className="flex items-center gap-3 text-[11px] text-slate-500">
               <span className="flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-blue-600" /> Criptografia de Dados
+                <ShieldCheck className="w-3.5 h-3.5 text-blue-600" /> Conexão criptografada (TLS)
               </span>
               <span>•</span>
-              <span>100% Adequado à LGPD</span>
+              <span>Política de privacidade (LGPD)</span>
             </div>
           </div>
 
@@ -95,7 +95,7 @@ export default function LandingFooter() {
           </Link>
           <span className="flex items-center gap-1">
             <ShieldCheck className="w-3 h-3 text-emerald-500" />
-            Conformidade LGPD
+            Privacidade e LGPD
           </span>
         </div>
 

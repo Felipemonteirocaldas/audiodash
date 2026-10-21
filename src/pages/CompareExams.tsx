@@ -7,6 +7,8 @@ import { ArrowLeft, FileText } from 'lucide-react';
 import AudiogramSVG from '@/components/AudiogramSVG';
 import { exportComparisonToPdf } from '@/lib/exportPdf';
 import { TonalFrequency } from '@/db/db';
+import { compareNR7 } from '@/lib/audiologyCalculations';
+import { formatTonalValue } from '@/lib/examIntegrity';
 
 export default function CompareExams() {
   const { examId1, examId2 } = useParams();
@@ -45,21 +47,23 @@ export default function CompareExams() {
             </thead>
             <tbody>
               {FREQUENCIES.map(freq => {
-                const bVal = baseline?.tonalData?.[ear]?.[freq]?.va;
-                const cVal = current?.tonalData?.[ear]?.[freq]?.va;
+                const bPoint = baseline?.tonalData?.[ear]?.[freq];
+                const cPoint = current?.tonalData?.[ear]?.[freq];
+                const bVal = bPoint?.va;
+                const cVal = cPoint?.va;
                 
                 const hasB = typeof bVal === 'number';
                 const hasC = typeof cVal === 'number';
                 const shift = (hasB && hasC) ? (cVal as number) - (bVal as number) : null;
                 
-                // Highlight worsening (shift >= 10 dB)
-                const isSignificantWorsening = shift !== null && shift >= 10;
+                // Destaque descritivo: piora ≥ 15 dB em frequência isolada (NR-7, Anexo II, itens 5.3 b / 5.4 b).
+                const isSignificantWorsening = shift !== null && shift >= 15;
                 
                 return (
                   <tr key={freq} className="hover:bg-slate-50 border-b last:border-0">
                     <td className="p-3 font-medium text-slate-900">{freq}</td>
-                    <td className="p-3 text-slate-600">{bVal !== undefined ? bVal : '--'}</td>
-                    <td className="p-3 text-slate-600">{cVal !== undefined ? cVal : '--'}</td>
+                    <td className="p-3 text-slate-600">{bVal !== undefined ? formatTonalValue(bPoint, 'va') : '--'}</td>
+                    <td className="p-3 text-slate-600">{cVal !== undefined ? formatTonalValue(cPoint, 'va') : '--'}</td>
                     <td className="p-3 font-semibold">
                       {shift !== null ? (
                         <span className={
@@ -76,6 +80,10 @@ export default function CompareExams() {
               })}
             </tbody>
           </table>
+          {(() => {
+            const result = compareNR7(baseline?.tonalData?.[ear], current?.tonalData?.[ear]);
+            return <p className="mt-3 text-sm text-slate-700 bg-slate-50 border rounded-lg p-3"><strong>NR-7, Anexo II:</strong> {result.reason}{result.meanShift346 !== null && ` (Δ média 3–6 kHz: ${result.meanShift346} dB; Δ média 0,5–2 kHz: ${result.meanShift05to2} dB.)`}</p>;
+          })()}
         </div>
       </div>
     );
@@ -102,7 +110,9 @@ export default function CompareExams() {
         </div>
       </div>
 
-      {(!exam1 || !exam2 || !baseline || !current) ? (
+      {exam1 && exam2 && exam1.patientId !== exam2.patientId ? (
+        <div role="alert" className="p-8 text-center bg-red-50 text-red-800 rounded-3xl border border-red-200">Os exames selecionados pertencem a pacientes diferentes. A comparação só é feita entre exames do mesmo paciente.</div>
+      ) : (!exam1 || !exam2 || !baseline || !current) ? (
         <div className="p-12 text-center bg-white rounded-3xl border border-slate-200">
           <div className="w-12 h-12 text-slate-300 mx-auto mb-4 border-2 border-slate-200 border-t-slate-400 rounded-full animate-spin"></div>
           <h3 className="text-lg font-medium text-slate-700">Buscando exames...</h3>
@@ -192,10 +202,11 @@ export default function CompareExams() {
                 </div>
                 
                 <div className="mt-8 p-4 bg-blue-50 border border-blue-100 rounded-xl">
-                  <h4 className="font-semibold text-blue-900 mb-2">Critérios de Piora Significativa (NR-7)</h4>
+                  <h4 className="font-semibold text-blue-900 mb-2">Critérios da NR-7, Anexo II (itens 5.3 e 5.4)</h4>
                   <p className="text-sm text-blue-800">
-                    O sistema destaca em vermelho qualquer variação positiva (piora) igual ou superior a 10 dB na Via Aérea, facilitando a identificação visual de possível Desencadeamento ou Agravamento (ex: alteração nos limiares de 3, 4 e 6 kHz). Variações negativas indicam melhora nos limiares.
+                    Desencadeamento: com referência ≤ 25 dB NA em 500–8000 Hz, piora ≥ 10 dB na média de 3, 4 e 6 kHz ou ≥ 15 dB em uma dessas frequências. Agravamento (PAINPSE confirmada): piora ≥ 10 dB na média de 0,5–2 kHz ou de 3–6 kHz, ou ≥ 15 dB em frequência isolada. Em vermelho: piora ≥ 15 dB na frequência. O diagnóstico conclusivo e a aptidão cabem ao médico do trabalho (item 6).
                   </p>
+                  {!['referencial', 'admissional'].includes(baseline.examPurpose || '') && <p className="text-sm text-amber-800 mt-2">O exame mais antigo foi usado como base, mas não está marcado como referencial ou admissional. Confirme se é o exame de referência vigente (itens 4.3.1 e 5.5).</p>}
                 </div>
               </div>
             </CardContent>

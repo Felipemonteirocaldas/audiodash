@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { assessRetest1000 } from '@/lib/clinicalProtocol';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { db, Audiometry, TonalFrequency } from '@/db/db';
+import { db, Audiometry } from '@/db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,16 +15,9 @@ import {
   CheckCircle2,
   AlertCircle,
   ArrowLeft,
-  Eye,
-  Activity,
-  MessageSquare,
-  Sparkles,
-  Zap,
-  Layers,
-  ClipboardList
 } from 'lucide-react';
 import { syncManager } from '@/lib/syncManager';
-import { customAlert, customConfirm } from '@/lib/dialogs';
+import { customAlert } from '@/lib/dialogs';
 import { useAuth } from '@/contexts/AuthContext';
 
 // Importação dos Componentes Modulares Especializados de Exame
@@ -35,31 +29,11 @@ import StapedialReflexExam from '@/components/exams/StapedialReflexExam';
 import ComplementaryTestsExam from '@/components/exams/ComplementaryTestsExam';
 import AudiologicalOpinionSummary from '@/components/exams/AudiologicalOpinionSummary';
 import ExportPdfModal from '@/components/ExportPdfModal';
-import { DegreeStandard } from '@/lib/audiologyCalculations';
+import { ageAtExam, localDate, CLINICAL_RULES_VERSION, isReviewCurrent, adultTablesEligibility, degreeEligibility } from '@/lib/examIntegrity';
+import { DEGREE_STANDARD_LABELS } from '@/lib/audiologyCalculations';
 
-export default function NewExam() {
-  const { user } = useAuth();
-  const { patientId, examId } = useParams();
-  const navigate = useNavigate();
-
-  const [selectedPatientId, setSelectedPatientId] = useState<string>(patientId || '');
-  const patients = useLiveQuery(() => db.patients.toArray(), []);
-  const [examDate, setExamDate] = useState(new Date().toISOString().split('T')[0]);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
-  const [activeTab, setActiveTab] = useState<'all' | 'meatoscopy' | 'tonal' | 'logo' | 'tymp' | 'reflex' | 'complementary' | 'opinion'>('all');
-  const [standard, setStandard] = useState<DegreeStandard>('OMS_2021');
-  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
-
-  const selectedPatient = patients?.find(p => p.id === selectedPatientId);
-
-  // Idade do paciente
-  const patientAge = selectedPatient?.birthDate
-    ? Math.floor((new Date().getTime() - new Date(selectedPatient.birthDate).getTime()) / 3.15576e+10)
-    : '';
-
-  // Estado Principal do Exame
-  const [exam, setExam] = useState<Partial<Audiometry>>({
-    header: { audiometer: '', impedanciometer: '', requestingPhysician: '', speechTherapist: '' },
+const createEmptyExam = (): Partial<Audiometry> => ({
+    header: { audiometer: '', impedanciometer: '', requestingPhysician: '', speechTherapist: '', degreeStandard: 'OMS_2021', transducer: 'supra', assessmentMethod: '', responseType: '', reliability: '', clinicalRulesVersion: CLINICAL_RULES_VERSION },
     tonalData: { right: {}, left: {} },
     tonalMasking: { right: {}, left: {} },
     logoAudiometry: {
@@ -72,34 +46,79 @@ export default function NewExam() {
     examPurpose: 'referencial',
     examCategory: 'clinico',
     freeField: {},
-    meatoscopy: { right: 'normal', left: 'normal', rightDescription: 'Conduto livre, membrana timpânica íntegra.', leftDescription: 'Conduto livre, membrana timpânica íntegra.' },
+    meatoscopy: { right: '', left: '', rightDescription: '', leftDescription: '' },
     complementary: { weber: '', toneDecay: '' },
     opinion: {}
   });
 
+export default function NewExam() {
+  const { user } = useAuth();
+  const { patientId, examId } = useParams();
+  const navigate = useNavigate();
+
+  const [selectedPatientId, setSelectedPatientId] = useState<string>(patientId || '');
+  const patients = useLiveQuery(() => db.patients.toArray(), []);
+  const [examDate, setExamDate] = useState(localDate());
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [activeTab, setActiveTab] = useState<'all' | 'meatoscopy' | 'tonal' | 'logo' | 'tymp' | 'reflex' | 'complementary' | 'opinion'>('meatoscopy');
+  const [draftId, setDraftId] = useState(() => crypto.randomUUID());
+  const saving = useRef(false);
+  const [loadError, setLoadError] = useState('');
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+
+  const selectedPatient = patients?.find(p => p.id === selectedPatientId);
+
+  const age = ageAtExam(selectedPatient?.birthDate, examDate);
+  const patientAge = age?.years;
+  // Estado Principal do Exame
+  const [exam, setExam] = useState<Partial<Audiometry>>(createEmptyExam);
+
   useEffect(() => {
+    let cancelled = false;
+    setLoadError('');
     if (examId) {
       db.audiometries.get(examId).then(existingExam => {
+        if (cancelled) return;
         if (existingExam) {
           setSelectedPatientId(existingExam.patientId);
-          setExamDate(existingExam.examDate || new Date().toISOString().split('T')[0]);
+          setExamDate(existingExam.examDate || localDate());
           setExam(existingExam);
-        }
-      });
+        } else { setLoadError('Exame não encontrado. Abra um novo exame ou volte à lista.'); }
+      }).catch(() => { if (!cancelled) setLoadError('Não foi possível carregar este exame. Tente novamente.'); });
     } else {
+      setExam(createEmptyExam());
+      // Preenche o profissional responsável com o cadastro de Configurações (editável no exame).
+      db.settings.toCollection().first().then(settings => {
+        if (cancelled || !settings?.professionalName) return;
+        const professional = `${settings.professionalName}${settings.crfaNumber ? ` · CRFa ${settings.crfaNumber}` : ''}`;
+        setExam(previous => previous.header?.speechTherapist ? previous : { ...previous, header: { ...previous.header, speechTherapist: professional } });
+      }).catch(() => undefined);
+      setDraftId(crypto.randomUUID());
+      setLoadError('');
       setSelectedPatientId(patientId || '');
-      setExamDate(new Date().toISOString().split('T')[0]);
+      setExamDate(localDate());
     }
+    return () => { cancelled = true; };
   }, [examId, patientId]);
 
+  const updateExam = (patch: Partial<Audiometry>) => {
+    setExam(previous => ({ ...previous, ...patch }));
+    setSaveStatus('idle');
+  };
+  const updateHeader = (patch: Partial<Audiometry['header']>) => {
+    setExam(previous => ({ ...previous, header: { ...previous.header, ...patch, clinicalRulesVersion: CLINICAL_RULES_VERSION } }));
+    setSaveStatus('idle');
+  };
+  const reviewExam = { ...exam, patientId: selectedPatientId, examDate };
+  const eligibility = adultTablesEligibility(exam.header, patientAge);
+  const degreeCheck = degreeEligibility(exam.header, patientAge);
+  const reviewed = isReviewCurrent(reviewExam);
+
   const getExamData = (): Audiometry | null => {
-    if (!selectedPatientId) {
-      customAlert('Selecione um paciente!');
-      return null;
-    }
+    if (!selectedPatientId || !selectedPatient || loadError) return null;
     return {
       ...exam,
-      id: examId || exam.id || crypto.randomUUID(),
+      id: examId || exam.id || draftId,
       patientId: selectedPatientId,
       examDate,
       createdAt: exam.createdAt || Date.now(),
@@ -110,42 +129,23 @@ export default function NewExam() {
   };
 
   const handleSave = async () => {
-    const essentialFreqs: TonalFrequency[] = ['500', '1000', '2000', '4000'];
-    let missingSBFa = false;
-    for (const ear of ['right', 'left'] as const) {
-      for (const freq of essentialFreqs) {
-        if (exam.tonalData?.[ear]?.[freq]?.va === undefined) {
-          missingSBFa = true;
-        }
-      }
-    }
-
-    if (missingSBFa) {
-      const proceed = await customConfirm(
-        'Atenção: O Guia de Orientações da SBFa recomenda registrar os limiares de 500, 1000, 2000 e 4000Hz em ambas as orelhas. Faltam alguns dados. Deseja salvar mesmo assim?'
-      );
-      if (!proceed) return;
-    }
-
     const examData = getExamData();
-    if (!examData) return;
+    if (!examData) { await customAlert(loadError || 'Selecione um paciente antes de salvar.'); return; }
+    if (!ageAtExam(examDate, examDate) || examDate > localDate()) { await customAlert('Informe uma data de exame válida, até hoje.'); return; }
+    if (saving.current) return;
+    saving.current = true;
     setSaveStatus('saving');
     try {
       await db.audiometries.put(examData);
       syncManager.sync(); // Cloud sync
 
       setSaveStatus('success');
-      setTimeout(() => {
-        setSaveStatus('idle');
-        if (!examId) {
-          navigate(`/exame/${examData.id}`, { replace: true });
-        }
-      }, 1500);
+      setExam(examData);
+      if (!examId) navigate(`/exame/${examData.id}`, { replace: true });
     } catch (e) {
       console.error(e);
       setSaveStatus('error');
-      setTimeout(() => setSaveStatus('idle'), 3000);
-    }
+    } finally { saving.current = false; }
   };
 
   const handleExport = async (type: 'pdf' | 'docx' | 'xlsx') => {
@@ -177,17 +177,17 @@ export default function NewExam() {
       )}
       <Button
         onClick={handleSave}
-        disabled={saveStatus === 'saving'}
+        disabled={saveStatus === 'saving' || !!loadError}
         className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm h-10 px-5 font-bold"
       >
-        <Save className="w-4 h-4" /> {saveStatus === 'saving' ? 'Salvando...' : 'Salvar Exame'}
+        <Save className="w-4 h-4" /> {saveStatus === 'saving' ? 'Salvando...' : reviewed ? 'Salvar exame revisado' : 'Salvar rascunho'}
       </Button>
       <Button
         variant="outline"
         onClick={() => handleExport('pdf')}
         className="gap-2 rounded-xl border-slate-200 hover:bg-slate-50 h-10 font-semibold"
       >
-        <FileText className="w-4 h-4 text-red-500" /> PDF Oficial
+        <FileText className="w-4 h-4 text-red-500" /> Exportar PDF
       </Button>
       <Button
         variant="outline"
@@ -201,6 +201,8 @@ export default function NewExam() {
 
   return (
     <div className="space-y-6 pb-16">
+      {loadError && <p role="alert" className="p-4 bg-red-50 text-red-800 border rounded-xl">{loadError}</p>}
+      <div className={`p-3 rounded-xl text-sm ${reviewed ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-900'}`}>{reviewed ? 'Exame revisado — salve para guardar esta versão.' : 'Rascunho — complete os procedimentos e revise o parecer antes de finalizar.'}</div>
       {/* Cabeçalho Superior */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-3">
@@ -214,7 +216,7 @@ export default function NewExam() {
               {examId ? 'Editar Exame Audiológico' : 'Novo Exame Audiológico'}
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              Protocolo completo de audiologia clínica e ocupacional conforme diretrizes CFFa/SBFa.
+              Avaliação clínica de adultos e crianças · registro, interpretação e revisão profissional.
             </p>
           </div>
         </div>
@@ -236,7 +238,7 @@ export default function NewExam() {
                 onChange={e => setSelectedPatientId(e.target.value)}
               >
                 <option value="">-- Selecione o paciente cadastrado --</option>
-                {patients?.map(p => (
+                {patients?.filter(p => !p.archivedAt || p.id === selectedPatientId).map(p => (
                   <option key={p.id} value={p.id}>
                     {p.name} {p.cpf ? `(${p.cpf})` : ''}
                   </option>
@@ -244,7 +246,7 @@ export default function NewExam() {
               </select>
               {selectedPatient && (
                 <div className="text-[11px] text-slate-500 mt-1.5 flex gap-4 font-medium">
-                  {patientAge !== '' && <span>Idade: <strong>{patientAge} anos</strong></span>}
+                  {age && <span>Idade no exame: <strong>{age.label}</strong></span>}
                   {selectedPatient.gender && <span>Sexo: <strong>{selectedPatient.gender}</strong></span>}
                   {selectedPatient.rg && <span>RG: {selectedPatient.rg} {selectedPatient.ssp}</span>}
                 </div>
@@ -267,7 +269,7 @@ export default function NewExam() {
                 <select
                   className="flex h-8 w-full rounded-lg border border-slate-300 bg-white px-2 py-0 text-xs font-medium text-slate-800"
                   value={exam.examPurpose || 'referencial'}
-                  onChange={e => setExam({ ...exam, examPurpose: e.target.value as any })}
+                  onChange={e => updateExam({ examPurpose: e.target.value as any })}
                 >
                   <option value="referencial">Referencial</option>
                   <option value="sequencial">Sequencial</option>
@@ -283,7 +285,7 @@ export default function NewExam() {
                 <select
                   className="flex h-8 w-full rounded-lg border border-slate-300 bg-white px-2 py-0 text-xs font-medium text-slate-800"
                   value={exam.examCategory || 'clinico'}
-                  onChange={e => setExam({ ...exam, examCategory: e.target.value as any })}
+                  onChange={e => updateExam({ examCategory: e.target.value as any })}
                 >
                   <option value="clinico">Clínico</option>
                   <option value="ocupacional">Ocupacional (NR-7)</option>
@@ -305,7 +307,7 @@ export default function NewExam() {
                   className="h-8 text-xs bg-white"
                   placeholder="Ex: Interacoustics AD629 / AC40"
                   value={exam.header?.audiometer || ''}
-                  onChange={e => setExam({ ...exam, header: { ...exam.header, audiometer: e.target.value } })}
+                  onChange={e => updateExam({ header: { ...exam.header, audiometer: e.target.value } })}
                 />
               </div>
               <div>
@@ -314,7 +316,7 @@ export default function NewExam() {
                   className="h-8 text-xs bg-white"
                   placeholder="Ex: Interacoustics AT235"
                   value={exam.header?.impedanciometer || ''}
-                  onChange={e => setExam({ ...exam, header: { ...exam.header, impedanciometer: e.target.value } })}
+                  onChange={e => updateExam({ header: { ...exam.header, impedanciometer: e.target.value } })}
                 />
               </div>
             </div>
@@ -326,7 +328,7 @@ export default function NewExam() {
                   className="h-8 text-xs bg-white"
                   placeholder="Ex: Dr. Carlos Eduardo (CRM 12345)"
                   value={exam.header?.requestingPhysician || ''}
-                  onChange={e => setExam({ ...exam, header: { ...exam.header, requestingPhysician: e.target.value } })}
+                  onChange={e => updateExam({ header: { ...exam.header, requestingPhysician: e.target.value } })}
                 />
               </div>
               <div>
@@ -335,13 +337,27 @@ export default function NewExam() {
                   className="h-8 text-xs bg-white"
                   placeholder="Ex: Dra. Mariana Costa (CRFa 2-9876)"
                   value={exam.header?.speechTherapist || ''}
-                  onChange={e => setExam({ ...exam, header: { ...exam.header, speechTherapist: e.target.value } })}
+                  onChange={e => updateExam({ header: { ...exam.header, speechTherapist: e.target.value } })}
                 />
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      <Card><CardHeader><CardTitle>Condições da avaliação</CardTitle></CardHeader><CardContent className="grid md:grid-cols-3 gap-4">
+        <label className="text-xs font-semibold">Método<select aria-label="Método de avaliação" className="mt-1 block w-full border rounded-lg bg-white p-2" value={exam.header?.assessmentMethod || ''} onChange={e => updateHeader({ assessmentMethod: e.target.value as Audiometry['header']['assessmentMethod'] })}><option value="">Selecione o método utilizado</option><option value="conventional">Audiometria convencional</option><option value="play">Audiometria lúdica condicionada</option><option value="vra">Reforço visual (VRA)</option><option value="observation">Observação comportamental</option></select></label>
+        <label className="text-xs font-semibold">Tipo de resposta<select aria-label="Tipo de resposta" className="mt-1 block w-full border rounded-lg bg-white p-2" value={exam.header?.responseType || ''} onChange={e => updateHeader({ responseType: e.target.value as Audiometry['header']['responseType'] })}><option value="">Selecione</option><option value="threshold">Limiar auditivo</option><option value="minimum_response">Nível mínimo de resposta</option></select></label>
+        <label className="text-xs font-semibold">Confiabilidade<select aria-label="Confiabilidade" className="mt-1 block w-full border rounded-lg bg-white p-2" value={exam.header?.reliability || ''} onChange={e => updateHeader({ reliability: e.target.value as Audiometry['header']['reliability'] })}><option value="">Selecione</option><option value="good">Boa</option><option value="limited">Limitada</option><option value="inconclusive">Inconclusiva</option></select></label>
+        <label className="text-xs font-semibold">Referência de grau<select aria-label="Referência de grau" className="mt-1 block w-full border rounded-lg bg-white p-2" value={exam.header?.degreeStandard || ''} onChange={e => updateHeader({ degreeStandard: e.target.value as Audiometry['header']['degreeStandard'] })}><option value="">Não registrada — selecione</option><optgroup label="Indicadas pelo Guia CFFa para crianças (Quadros 14–15)">{(['OMS_2021', 'NORTHERN_DOWNS_2005'] as const).map(key => <option key={key} value={key}>{DEGREE_STANDARD_LABELS[key]}</option>)}</optgroup><optgroup label="Demais classificações do Guia CFFa (Quadros 3–6)">{(['LLOYD_KAPLAN', 'KAPLAN_1993', 'DAVIS_1970', 'BIAP_1996'] as const).map(key => <option key={key} value={key}>{DEGREE_STANDARD_LABELS[key]}</option>)}</optgroup><optgroup label="Histórica"><option value="OMS_2014">{DEGREE_STANDARD_LABELS.OMS_2014}</option></optgroup></select><span className="block mt-1 font-normal text-slate-500">A escolha é do profissional e deve ser citada no laudo (Guia CFFa, 2023).</span></label>
+        <label className="text-xs font-semibold">Condição do campo livre<Input aria-label="Condição do campo livre" placeholder="Estímulo, com/sem AASI ou implante" value={exam.header?.freeFieldCondition || ''} onChange={e => updateHeader({ freeFieldCondition: e.target.value })} /></label>
+        <label className="text-xs font-semibold">Data de calibração do audiômetro<Input aria-label="Data de calibração" type="date" value={exam.header?.calibrationDate || ''} onChange={e => updateHeader({ calibrationDate: e.target.value })} /></label>
+        <label className="text-xs font-semibold">Referência do procedimento tonal<select aria-label="Protocolo tonal" className="mt-1 block w-full border rounded-lg bg-white p-2" value={exam.header?.audiometryProtocol || ''} onChange={e => updateHeader({ audiometryProtocol: e.target.value as Audiometry['header']['audiometryProtocol'] })}><option value="">Sem protocolo selecionado</option><option value="BSA_2018">BSA 2018 · audiometria com/sem mascaramento</option></select></label>
+        {(['right', 'left'] as const).map(ear => <label key={ear} className="text-xs font-semibold">Reteste de 1 kHz · {ear === 'right' ? 'OD' : 'OE'} (dB NA)<Input aria-label={`Reteste 1 kHz ${ear}`} inputMode="numeric" value={exam.header?.retest1000?.[ear] || ''} onChange={e => updateHeader({ retest1000: { ...exam.header?.retest1000, [ear]: e.target.value, [ear === 'right' ? 'initialRight' : 'initialLeft']: exam.header?.retest1000?.[ear === 'right' ? 'initialRight' : 'initialLeft'] ?? (typeof exam.tonalData?.[ear]?.['1000']?.va === 'number' ? exam.tonalData[ear]!['1000']!.va : undefined) } })} /><span className="block mt-1 text-slate-500 font-normal">{exam.header?.audiometryProtocol === 'BSA_2018' && assessRetest1000(exam.header?.retest1000?.[ear === 'right' ? 'initialRight' : 'initialLeft'] ?? exam.tonalData?.[ear]?.['1000']?.unmaskedVa ?? exam.tonalData?.[ear]?.['1000']?.va, exam.header?.retest1000?.[ear]).message}</span></label>)}
+        <label className="md:col-span-3 text-xs font-semibold">Observações sobre o reteste e limiar final<Input aria-label="Observações do reteste" value={exam.header?.retest1000?.notes || ''} onChange={e => updateHeader({ retest1000: { ...exam.header?.retest1000, notes: e.target.value } })} /></label>
+        {exam.examCategory === 'ocupacional' && <label className="md:col-span-3 text-xs font-semibold flex items-center gap-2"><input type="checkbox" checked={!!exam.header?.auditoryRest14h} onChange={e => updateHeader({ auditoryRest14h: e.target.checked })} /> Repouso auditivo mínimo de 14 horas informado (NR-7, Anexo II, item 3.4)</label>}
+        <p className="md:col-span-3 text-xs text-slate-500">A interpretação pediátrica considera idade e desenvolvimento. Campo livre não identifica limiares de cada orelha. Níveis mínimos de resposta são registrados sem classificação automática de grau.</p>
+      </CardContent></Card>
 
       {/* Navegação de Abas Rápidas */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-200">
@@ -364,8 +380,7 @@ export default function NewExam() {
               ? 'bg-indigo-600 text-white shadow-sm'
               : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
           }`}
-        >
-          <Eye className="w-3.5 h-3.5" /> 1. Meatoscopia
+        > 1. Meatoscopia
         </button>
         <button
           type="button"
@@ -375,8 +390,7 @@ export default function NewExam() {
               ? 'bg-indigo-600 text-white shadow-sm'
               : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
           }`}
-        >
-          <Activity className="w-3.5 h-3.5" /> 2. Audiometria Tonal
+        > 2. Audiometria Tonal
         </button>
         <button
           type="button"
@@ -386,8 +400,7 @@ export default function NewExam() {
               ? 'bg-indigo-600 text-white shadow-sm'
               : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
           }`}
-        >
-          <MessageSquare className="w-3.5 h-3.5" /> 3. Logoaudiometria
+        > 3. Logoaudiometria
         </button>
         <button
           type="button"
@@ -397,8 +410,7 @@ export default function NewExam() {
               ? 'bg-indigo-600 text-white shadow-sm'
               : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
           }`}
-        >
-          <Sparkles className="w-3.5 h-3.5" /> 4. Timpanometria
+        > 4. Timpanometria
         </button>
         <button
           type="button"
@@ -408,8 +420,7 @@ export default function NewExam() {
               ? 'bg-indigo-600 text-white shadow-sm'
               : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
           }`}
-        >
-          <Zap className="w-3.5 h-3.5" /> 5. Reflexos Estapedianos
+        > 5. Reflexos Estapedianos
         </button>
         <button
           type="button"
@@ -419,8 +430,7 @@ export default function NewExam() {
               ? 'bg-indigo-600 text-white shadow-sm'
               : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
           }`}
-        >
-          <Layers className="w-3.5 h-3.5" /> 6. Testes Especiais
+        > 6. Testes Especiais
         </button>
         <button
           type="button"
@@ -430,8 +440,7 @@ export default function NewExam() {
               ? 'bg-indigo-600 text-white shadow-sm'
               : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
           }`}
-        >
-          <ClipboardList className="w-3.5 h-3.5" /> 7. Parecer e Laudo
+        > 7. Parecer e Laudo
         </button>
       </div>
 
@@ -442,7 +451,7 @@ export default function NewExam() {
           <section id="sec-meatoscopy">
             <MeatoscopyExam
               meatoscopy={exam.meatoscopy}
-              onChange={data => setExam({ ...exam, meatoscopy: data })}
+              onChange={data => updateExam({ meatoscopy: data })}
             />
           </section>
         )}
@@ -451,14 +460,23 @@ export default function NewExam() {
         {(activeTab === 'all' || activeTab === 'tonal') && (
           <section id="sec-tonal">
             <TonalAudiometryExam
+              responseType={exam.header?.responseType}
               tonalData={exam.tonalData || { right: {}, left: {} }}
               tonalMasking={exam.tonalMasking}
               freeField={exam.freeField}
               category={exam.examCategory}
-              standard={standard}
-              onChangeTonal={data => setExam({ ...exam, tonalData: data })}
-              onChangeMasking={data => setExam({ ...exam, tonalMasking: data })}
-              onChangeFreeField={data => setExam({ ...exam, freeField: data })}
+              standard={exam.header?.degreeStandard || 'OMS_2021'}
+              transducer={exam.header?.transducer || 'supra'}
+              onTransducerChange={transducer => updateHeader({ transducer })}
+              protocol={exam.header?.audiometryProtocol || undefined}
+              showAverages={exam.header?.responseType === 'threshold'}
+              allowInterpretation={eligibility.eligible}
+              allowDegree={degreeCheck.eligible}
+              isChild={degreeCheck.isChild}
+              interpretationBlockedReason={eligibility.reason}
+              onChangeTonal={data => updateExam({ tonalData: data })}
+              onChangeMasking={data => updateExam({ tonalMasking: data })}
+              onChangeFreeField={data => updateExam({ freeField: data })}
             />
           </section>
         )}
@@ -467,6 +485,7 @@ export default function NewExam() {
         {(activeTab === 'all' || activeTab === 'logo') && (
           <section id="sec-logo">
             <LogoAudiometryExam
+              allowConcordance={exam.header?.responseType === 'threshold' && exam.header?.reliability === 'good'}
               logoData={
                 exam.logoAudiometry || {
                   right: { srt: {}, irf: { mono: {}, dis: {}, tris: {} }, voiceDetection: {} },
@@ -474,7 +493,7 @@ export default function NewExam() {
                 }
               }
               tonalData={exam.tonalData}
-              onChange={data => setExam({ ...exam, logoAudiometry: data })}
+              onChange={data => updateExam({ logoAudiometry: data })}
             />
           </section>
         )}
@@ -483,8 +502,10 @@ export default function NewExam() {
         {(activeTab === 'all' || activeTab === 'tymp') && (
           <section id="sec-tymp">
             <TympanometryExam
+              ageMonths={age?.months}
+              adultProtocol={patientAge !== undefined && patientAge >= 18}
               tympanometry={exam.tympanometry || { right: {}, left: {} }}
-              onChange={data => setExam({ ...exam, tympanometry: data })}
+              onChange={data => updateExam({ tympanometry: data })}
             />
           </section>
         )}
@@ -495,7 +516,7 @@ export default function NewExam() {
             <StapedialReflexExam
               reflexes={exam.reflexes || { right: {}, left: {}, sondaOD: '', sondaOE: '' }}
               tonalData={exam.tonalData}
-              onChange={data => setExam({ ...exam, reflexes: data })}
+              onChange={data => updateExam({ reflexes: data })}
             />
           </section>
         )}
@@ -506,7 +527,7 @@ export default function NewExam() {
             <ComplementaryTestsExam
               complementary={exam.complementary}
               tonalData={exam.tonalData}
-              onChange={data => setExam({ ...exam, complementary: data })}
+              onChange={data => updateExam({ complementary: data })}
             />
           </section>
         )}
@@ -515,26 +536,9 @@ export default function NewExam() {
         {(activeTab === 'all' || activeTab === 'opinion') && (
           <section id="sec-opinion">
             <AudiologicalOpinionSummary
-              opinion={exam.opinion}
-              resultAndConduct={exam.resultAndConduct || ''}
-              standard={standard}
-              onStandardChange={std => setStandard(std)}
-              onChangeOpinion={op => setExam({ ...exam, opinion: op })}
-              onChangeConduct={text => setExam({ ...exam, resultAndConduct: text })}
-              examData={{
-                tonalData: exam.tonalData || { right: {}, left: {} },
-                logoAudiometry: exam.logoAudiometry || {
-                  right: { srt: {}, irf: { mono: {}, dis: {}, tris: {} }, voiceDetection: {} },
-                  left: { srt: {}, irf: { mono: {}, dis: {}, tris: {} }, voiceDetection: {} }
-                },
-                tympanometry: exam.tympanometry || { right: {}, left: {} },
-                reflexes: exam.reflexes || { right: {}, left: {} },
-                meatoscopy: exam.meatoscopy,
-                complementary: exam.complementary,
-                examCategory: exam.examCategory,
-                patientName: selectedPatient?.name,
-                patientAge: patientAge
-              }}
+              exam={reviewExam}
+              patientAge={patientAge}
+              onChange={updateExam}
             />
           </section>
         )}
@@ -554,13 +558,14 @@ export default function NewExam() {
         </Link>
         <Button
           variant="outline"
-          onClick={() => setIsPdfModalOpen(true)}
+          onClick={() => handleExport('pdf')}
           className="flex-1 gap-1.5 rounded-xl border-red-200 bg-red-50/50 text-red-700 font-bold h-10 text-xs shadow-xs"
         >
-          <FileText className="w-4 h-4 text-red-500" /> PDF Oficial
+          <FileText className="w-4 h-4 text-red-500" /> Exportar PDF
         </Button>
         <Button
           onClick={handleSave}
+          disabled={saveStatus === 'saving' || !!loadError}
           className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 rounded-xl h-10 text-xs shadow-md shadow-emerald-500/20"
         >
           <Save className="w-4 h-4" /> Salvar
@@ -568,7 +573,7 @@ export default function NewExam() {
       </div>
 
       {/* Modal de Personalização e Auto-detecção de Exames para PDF */}
-      {selectedPatient && getExamData() && (
+      {selectedPatient && isPdfModalOpen && getExamData() && (
         <ExportPdfModal
           isOpen={isPdfModalOpen}
           onClose={() => setIsPdfModalOpen(false)}

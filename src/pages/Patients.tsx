@@ -4,22 +4,18 @@ import { db, Patient } from '@/db/db';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Plus, FileText, Activity, Edit, Trash2, Calendar, X, MessageCircle } from 'lucide-react';
+import { Search, Plus, FileText, Activity, Edit, Trash2, Calendar, X, MessageCircle, Archive, ArchiveRestore } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { customAlert } from '@/lib/dialogs';
 import { syncManager } from '@/lib/syncManager';
 import { useAuth } from '@/contexts/AuthContext';
+import { examStatus } from '@/lib/clinicalOverview';
+import { lastRecordDate, permanentDeletionStatus, timestampToLocalDate } from '@/lib/recordRetention';
+import { localDate, ageAtExam } from '@/lib/examIntegrity';
 
+// "AAAA-MM-DD" interpretado como data local (new Date('AAAA-MM-DD') é UTC e, no Brasil, recua um dia).
 function calculateAge(birthDate: string) {
-  if (!birthDate) return '';
-  const today = new Date();
-  const birth = new Date(birthDate);
-  let age = today.getFullYear() - birth.getFullYear();
-  const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
-    age--;
-  }
-  return age;
+  return ageAtExam(birthDate, localDate())?.label || 'não informada';
 }
 
 const formatCPF = (value: string) => {
@@ -57,7 +53,7 @@ export default function Patients() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
   const [viewingAppointmentsFor, setViewingAppointmentsFor] = useState<Patient | null>(null);
-  const [patientFilter, setPatientFilter] = useState<'all' | 'with_exams' | 'no_exams'>('all');
+  const [patientFilter, setPatientFilter] = useState<'all' | 'with_exams' | 'no_exams' | 'archived'>('all');
 
   const patients = useLiveQuery(
     () =>
@@ -72,16 +68,46 @@ export default function Patients() {
   const allAnamneses = useLiveQuery(() => db.anamneses.toArray(), []);
   const allAppointments = useLiveQuery(() => db.appointments.toArray(), []);
 
+  const activePatients = useMemo(() => (patients || []).filter(p => !p.archivedAt), [patients]);
+  const archivedCount = (patients?.length || 0) - activePatients.length;
   const filteredPatients = useMemo(() => {
     if (!patients) return [];
+    if (patientFilter === 'archived') return patients.filter(p => !!p.archivedAt);
     if (patientFilter === 'with_exams') {
-      return patients.filter((p) => allExams?.some((e) => e.patientId === p.id));
+      return activePatients.filter((p) => allExams?.some((e) => e.patientId === p.id));
     }
     if (patientFilter === 'no_exams') {
-      return patients.filter((p) => !allExams?.some((e) => e.patientId === p.id));
+      return activePatients.filter((p) => !allExams?.some((e) => e.patientId === p.id));
     }
-    return patients;
-  }, [patients, patientFilter, allExams]);
+    return activePatients;
+  }, [patients, activePatients, patientFilter, allExams]);
+
+  // Res. CFFa 777/2025, art. 8º: eliminação só após 20 anos do último registro; antes disso, arquivamento.
+  const deletionStatus = useMemo(() => {
+    if (!editingPatientId) return null;
+    const patient = patients?.find(p => p.id === editingPatientId);
+    const dates = [
+      ...(allExams || []).filter(e => e.patientId === editingPatientId).map(e => e.examDate),
+      ...(allAnamneses || []).filter(a => a.patientId === editingPatientId).map(a => a.examDate),
+      timestampToLocalDate(patient?.createdAt)
+    ];
+    return permanentDeletionStatus(lastRecordDate(dates), localDate());
+  }, [editingPatientId, patients, allExams, allAnamneses]);
+
+  const setArchived = async (patientId: string, archived: boolean) => {
+    try {
+      await db.patients.update(patientId, { archivedAt: archived ? Date.now() : null, updatedAt: Date.now(), syncStatus: 'pending' });
+      syncManager.sync();
+      if (archived) {
+        setIsDeleteDialogOpen(false);
+        setIsFormOpen(false);
+        setEditingPatientId(null);
+        await customAlert('Paciente arquivado. O prontuário foi preservado e pode ser consultado no filtro "Arquivados".');
+      }
+    } catch {
+      await customAlert('Não foi possível atualizar o arquivamento do paciente.');
+    }
+  };
 
   const getPatientStatusBadge = (exams: any[]) => {
     if (!exams || exams.length === 0) {
@@ -92,24 +118,13 @@ export default function Patients() {
       );
     }
     const latest = exams[0];
-    const clinical = (latest.opinion?.clinical || '').toLowerCase();
-    if (clinical.includes('normal')) {
-      return (
-        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-          ● Audição Normal
-        </span>
-      );
-    }
-    if (clinical.includes('ocupacional') || clinical.includes('pair') || latest.examCategory === 'ocupacional') {
-      return (
-        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-          ● PAIR / Ocupacional
-        </span>
-      );
-    }
+    const status = examStatus(latest);
+    const occupational = latest.examCategory === 'ocupacional' ? ' · Ocupacional (NR-7)' : '';
+    const styles = { draft: 'text-slate-600 bg-slate-50 border-slate-200', normal: 'text-emerald-700 bg-emerald-50 border-emerald-200', altered: 'text-rose-700 bg-rose-50 border-rose-200', inconclusive: 'text-amber-700 bg-amber-50 border-amber-200' }[status];
+    const label = { draft: 'Último exame em rascunho', normal: 'Normalidade bilateral (revisado)', altered: 'Alteração audiológica (revisado)', inconclusive: 'Inconclusivo (revisado)' }[status];
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
-        ● Alterado / Perda
+      <span className={`inline-flex items-center gap-1 text-[10px] font-bold border px-2 py-0.5 rounded-full ${styles}`}>
+        ● {label}{occupational}
       </span>
     );
   };
@@ -145,6 +160,10 @@ export default function Patients() {
 
   const handleDelete = async () => {
     if (!editingPatientId) return;
+    if (!deletionStatus?.allowed) {
+      await customAlert(deletionStatus?.reason || 'Exclusão definitiva indisponível.');
+      return;
+    }
     if (deleteConfirmationText !== 'DELETAR') {
       await customAlert("A palavra não confere. Exclusão cancelada.");
       return;
@@ -225,7 +244,7 @@ export default function Patients() {
                   <div className="flex gap-2">
                     <Input type="date" value={newPatient.birthDate} onChange={e => setNewPatient({...newPatient, birthDate: e.target.value})} />
                     <div className="flex items-center justify-center bg-muted px-4 rounded-md border text-sm font-medium min-w-[80px]">
-                      {newPatient.birthDate ? `${calculateAge(newPatient.birthDate)} anos` : '--'}
+                      {newPatient.birthDate ? calculateAge(newPatient.birthDate) : '--'}
                     </div>
                   </div>
                 </div>
@@ -255,7 +274,7 @@ export default function Patients() {
                 <div>
                   {editingPatientId && (
                     <Button type="button" variant="destructive" onClick={() => setIsDeleteDialogOpen(true)} className="gap-2">
-                      <Trash2 className="w-4 h-4" /> Excluir
+                      <Archive className="w-4 h-4" /> Arquivar / excluir
                     </Button>
                   )}
                 </div>
@@ -281,7 +300,7 @@ export default function Patients() {
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              Todos ({patients?.length || 0})
+              Todos ({activePatients.length})
             </button>
             <button
               onClick={() => setPatientFilter('with_exams')}
@@ -302,6 +321,16 @@ export default function Patients() {
               }`}
             >
               Sem Exames Cadastrados
+            </button>
+            <button
+              onClick={() => setPatientFilter('archived')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                patientFilter === 'archived'
+                  ? 'bg-slate-700 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              Arquivados ({archivedCount})
             </button>
           </div>
 
@@ -327,11 +356,13 @@ export default function Patients() {
                     <div className="flex items-center gap-2.5 flex-wrap">
                       <h3 className="font-semibold text-lg text-slate-900">{p.name}</h3>
                       {getPatientStatusBadge(patientExams)}
+                      {p.archivedAt && <span className="inline-flex items-center gap-1 text-[10px] font-bold border px-2 py-0.5 rounded-full text-slate-600 bg-slate-100 border-slate-300">Arquivado</span>}
+                      {p.archivedAt && <button type="button" onClick={() => setArchived(p.id, false)} className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 hover:underline"><ArchiveRestore className="w-3.5 h-3.5" /> Restaurar</button>}
                     </div>
                     <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap">
                       <span>CPF: <strong className="text-slate-700">{p.cpf || 'Não informado'}</strong></span>
                       <span>•</span>
-                      <span>Idade: <strong className="text-slate-700">{calculateAge(p.birthDate)} anos</strong></span>
+                      <span>Idade: <strong className="text-slate-700">{calculateAge(p.birthDate)}</strong></span>
                       {p.phone && (
                         <>
                           <span>•</span>
@@ -478,13 +509,21 @@ export default function Patients() {
               <div className="bg-red-100 p-2 rounded-full">
                 <Trash2 className="w-6 h-6" />
               </div>
-              <h2 className="text-xl font-bold">Excluir Paciente Permanentemente</h2>
+              <h2 className="text-xl font-bold">Arquivar ou excluir paciente</h2>
             </div>
-            
-            <p className="text-slate-600 mb-4 font-medium">
-              ATENÇÃO: Ao excluir o paciente, <strong className="text-slate-900">TODOS</strong> os dados, laudos e exames vinculados a ele também serão deletados permanentemente e não poderão ser recuperados.
+
+            <p className="text-slate-600 mb-3 text-sm">
+              Arquivar oculta o paciente das listas e de novos exames e agendamentos, mantendo exames, anamneses e laudos guardados e sincronizados. O arquivamento pode ser desfeito.
             </p>
-            
+            <p className={`mb-4 text-sm rounded-xl p-3 border ${deletionStatus?.allowed ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>{deletionStatus?.reason}</p>
+            <Button type="button" onClick={() => editingPatientId && setArchived(editingPatientId, true)} className="w-full mb-4 gap-2 bg-slate-800 hover:bg-slate-900 text-white">
+              <Archive className="w-4 h-4" /> Arquivar paciente (recomendado)
+            </Button>
+
+            {deletionStatus?.allowed && <>
+            <p className="text-slate-600 mb-4 font-medium text-sm">
+              Exclusão definitiva: <strong className="text-slate-900">todos</strong> os dados, laudos e exames vinculados serão apagados e não poderão ser recuperados. Exporte os documentos antes, se precisar deles.
+            </p>
             <div className="space-y-2 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
               <label className="text-sm font-semibold text-slate-700 block">
                 Para confirmar, digite a palavra <span className="font-mono bg-white px-1 border rounded text-red-600">DELETAR</span> abaixo:
@@ -515,6 +554,8 @@ export default function Patients() {
                 Sim, excluir tudo
               </Button>
             </div>
+            </>}
+            {!deletionStatus?.allowed && <div className="flex justify-end"><Button type="button" variant="outline" onClick={() => { setIsDeleteDialogOpen(false); setDeleteConfirmationText(''); }}>Cancelar</Button></div>}
           </div>
         </div>
       )}

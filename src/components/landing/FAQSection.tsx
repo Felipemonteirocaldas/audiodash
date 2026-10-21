@@ -28,7 +28,7 @@ export default function FAQSection() {
     {
       question: "Como funciona o cancelamento do plano?",
       answer:
-        "Você tem total liberdade. Não há fidelidade ou contrato de longa permanência. Você pode cancelar sua assinatura com apenas um clique a qualquer momento no seu painel ou através da página de checkout.",
+        "Você tem total liberdade. Não há fidelidade ou contrato de longa permanência. Você pode cancelar a qualquer momento pelo portal do cliente do provedor de pagamento ou pelo e-mail contato@audiodash.com.br, e mantém o acesso até o fim do período pago.",
     },
   ];
 

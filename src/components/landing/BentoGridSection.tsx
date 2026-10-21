@@ -158,15 +158,15 @@ export default function BentoGridSection() {
             <div className="mt-8 pt-6 border-t border-slate-200 flex flex-col gap-3">
               <div className="flex items-center gap-2 text-xs text-slate-700 font-semibold">
                 <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                Criptografia Bancária
+                Conexão criptografada (TLS)
               </div>
               <div className="flex items-center gap-2 text-xs text-slate-700 font-semibold">
                 <Database className="w-4 h-4 text-blue-600" />
-                Backups Diários
+                Backup manual exportável (JSON)
               </div>
               <div className="flex items-center gap-2 text-xs text-slate-700 font-semibold">
                 <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                Conformidade LGPD
+                Política de privacidade (LGPD)
               </div>
             </div>
           </div>
