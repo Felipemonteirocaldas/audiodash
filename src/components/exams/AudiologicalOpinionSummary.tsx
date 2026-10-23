@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { generateLocalClinicalReport } from '@/services/aiAudiologyService';
 import { getReviewIssues, isReviewCurrent, reviewSignature, CLINICAL_RULES_VERSION } from '@/lib/examIntegrity';
 import { customConfirm } from '@/lib/dialogs';
+import { mergeSuggestedOpinion } from '@/lib/examForm';
 
 interface Props { exam: Partial<Audiometry>; patientAge?: number; onChange: (patch: Partial<Audiometry>) => void; }
 
@@ -15,10 +16,10 @@ export default function AudiologicalOpinionSummary({ exam, patientAge, onChange 
   const reviewed = isReviewCurrent(exam);
   const updateOpinion = (patch: Partial<AudiologicalOpinion>) => onChange({ opinion: { ...opinion, ...patch, workflowStatus: 'draft' } });
   const generate = async () => {
-    if (exam.resultAndConduct?.trim() && !await customConfirm('Substituir o texto atual por um novo resumo dos dados registrados?')) return;
+    if (exam.resultAndConduct?.trim() && !await customConfirm('Substituir o texto de "Parecer, limitações e conduta" por um novo resumo dos dados registrados? Situação clínica, síntese e classificações já preenchidas são mantidas.')) return;
     const result = generateLocalClinicalReport(exam, patientAge);
-    onChange({ resultAndConduct: result.fullLaudo, opinion: { ...opinion, ...result.opinion, clinicalStatus: undefined, clinical: '' } });
-    setMessage('Resumo gerado. Revise as informações e redija o parecer e a conduta.');
+    onChange({ resultAndConduct: result.fullLaudo, opinion: mergeSuggestedOpinion(opinion, result.opinion) });
+    setMessage('Resumo gerado. Tipo, grau e configuração só foram sugeridos onde estavam vazios. Revise as informações e redija o parecer e a conduta.');
   };
   const review = () => {
     const issues = getReviewIssues(exam);

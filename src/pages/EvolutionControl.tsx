@@ -66,7 +66,7 @@ export default function EvolutionControl() {
                   {exams.map((exam, i) => (
                     <th key={exam.id} className="p-3 border-r border-b font-semibold min-w-[120px]">
                       <div className="text-indigo-700">{exam.examDate.split('-').reverse().join('/')}</div>
-                      <div className="text-xs font-normal text-slate-500 uppercase">{exam.examPurpose || 'Referencial'}</div>
+                      <div className="text-xs font-normal text-slate-500 uppercase">{exam.examPurpose || 'não informada'}</div>
                       <div className="text-xs font-normal text-slate-500">#{i + 1}</div>
                     </th>
                   ))}

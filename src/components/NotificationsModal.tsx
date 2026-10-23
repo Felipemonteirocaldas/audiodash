@@ -14,6 +14,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useSyncStatus } from '@/hooks/useSyncStatus';
 
 export interface NotificationItem {
   id: string;
@@ -60,6 +61,7 @@ export function NotificationsModal() {
     };
   }, [isOpen]);
 
+  const { isOnline, syncStatus, lastError } = useSyncStatus();
   const todayStr = localDate();
 
   // 1. Fetch Today's Appointments
@@ -87,9 +89,8 @@ export function NotificationsModal() {
 
   // 3. Fetch Sync Pending Count
   const pendingSyncCount = useLiveQuery(async () => {
-    const pendingPatients = await db.patients.where('syncStatus').equals('pending').count();
-    const pendingAudiometries = await db.audiometries.where('syncStatus').equals('pending').count();
-    return pendingPatients + pendingAudiometries;
+    const counts = await Promise.all([db.patients, db.audiometries, db.anamneses, db.appointments, db.settings].map(table => table.where('syncStatus').equals('pending').count()));
+    return counts.reduce((total, count) => total + count, 0);
   }, []) || 0;
 
   // Build notifications array dynamically
@@ -101,7 +102,7 @@ export function NotificationsModal() {
     notifications.push({
       id: notifId,
       title: `Consulta Agendada (${app.time})`,
-      description: `Paciente ${app.patientName} - ${app.type || 'Exame Fonoaudiológico'}`,
+      description: `Paciente ${app.patientName} - ${app.type || 'tipo não informado'}`,
       time: `Hoje às ${app.time}`,
       type: 'appointment',
       read: readIds.has(notifId),
@@ -134,16 +135,14 @@ export function NotificationsModal() {
       type: 'sync',
       read: readIds.has(notifId)
     });
+  } else if (!isOnline) {
+    notifications.push({ id: 'sync-offline', title: `Sem conexão`, description: `Sem pendências locais, mas não foi possível confirmar a nuvem sem internet.`, time: `Agora`, type: 'info', read: readIds.has('sync-offline') });
+  } else if (syncStatus === 'error') {
+    notifications.push({ id: 'sync-error', title: `Falha na sincronização`, description: lastError || `A última tentativa de sincronizar com a nuvem falhou.`, time: `Agora`, type: 'sync', read: readIds.has('sync-error') });
+  } else if (syncStatus === 'unconfigured') {
+    notifications.push({ id: 'sync-unconfigured', title: `Nuvem não configurada`, description: `Os dados estão salvos apenas neste aparelho. Faça backup em Configurações.`, time: `Agora`, type: 'info', read: readIds.has('sync-unconfigured') });
   } else {
-    const notifId = `sync-ok`;
-    notifications.push({
-      id: notifId,
-      title: `Sistema 100% Sincronizado`,
-      description: `Todos os exames e prontuários estão salvos com segurança.`,
-      time: `Hoje`,
-      type: 'info',
-      read: readIds.has(notifId)
-    });
+    notifications.push({ id: 'sync-ok', title: `Sem pendências de sincronização`, description: `Nenhum registro aguardando envio à nuvem.`, time: `Agora`, type: 'info', read: readIds.has('sync-ok') });
   }
 
   const unreadCount = notifications.filter(n => !n.read).length;

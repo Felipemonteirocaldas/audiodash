@@ -521,8 +521,8 @@ export default function Agenda() {
     patientName: '',
     patientId: '',
     phone: '',
-    time: '08:00',
-    type: 'Audiometria Ocupacional',
+    time: '',
+    type: '',
     notes: '',
   });
   const [showDropdown, setShowDropdown] = useState(false);
@@ -635,8 +635,8 @@ export default function Agenda() {
         patientName: '',
         patientId: '',
         phone: '',
-        time: '08:00',
-        type: 'Audiometria Ocupacional',
+        time: '',
+        type: '',
         notes: '',
       });
     } catch (error) {
@@ -997,6 +997,7 @@ export default function Agenda() {
                     onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                     className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"
                   >
+                    <option value="">Selecione o tipo</option>
                     {EXAM_TYPES.map((t) => (
                       <option key={t}>{t}</option>
                     ))}
@@ -1023,7 +1024,7 @@ export default function Agenda() {
                 <span
                   className={`w-3 h-3 rounded-full ${getAppointmentColor(formData.type).dot}`}
                 />
-                Cor: {formData.type}
+                Cor: {formData.type || 'selecione o tipo'}
               </div>
 
               {/* Actions */}

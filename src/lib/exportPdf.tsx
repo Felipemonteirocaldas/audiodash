@@ -8,6 +8,8 @@ import { Document, Page, Text, View, StyleSheet, pdf, Svg, Line, Path, Circle, P
 import { Audiometry, Patient, Settings, db, EarTonalData, TonalFrequency } from '@/db/db';
 import { customAlert } from '@/lib/dialogs';
 import { calculatePTA, classifyTympanometry, compareNR7, degreeStandardLabel } from '@/lib/audiologyCalculations';
+import { letterheadLines } from '@/lib/letterhead';
+import { ENT_REFERRAL_TEXT, meatoscopyText, reflexConventionText } from '@/lib/examForm';
 
 const METHOD_LABELS: Record<string, string> = { conventional: 'audiometria convencional', play: 'audiometria lúdica condicionada', vra: 'reforço visual (VRA)', observation: 'observação comportamental' };
 const RESPONSE_LABELS: Record<string, string> = { threshold: 'limiar auditivo', minimum_response: 'nível mínimo de resposta' };
@@ -386,8 +388,8 @@ const AudiogramPdfSVG = ({ rightData, leftData, freeFieldData }: { rightData: Pa
   };
 
   return (
-    <View style={styles.chartContainer}>
-      <Svg viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`} style={{ width: 245, height: 245 }}>
+    <View style={{ alignItems: 'center', width: '100%' }}>
+      <Svg viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`} style={{ width: 240, height: 240 }}>
         <Text x={SVG_WIDTH / 2 - 35} y={MARGIN.top - 20} style={{ fontSize: 10, fontWeight: 'bold' }} fill="#0f172a">Frequência (Hz)</Text>
         <Text x={10} y={SVG_HEIGHT / 2 + 40} style={{ fontSize: 10, fontWeight: 'bold' }} fill="#0f172a" transform="rotate(-90 10 300)">Nível de audição (dB NA)</Text>
         
@@ -397,7 +399,7 @@ const AudiogramPdfSVG = ({ rightData, leftData, freeFieldData }: { rightData: Pa
         {renderPath(freeFieldData, '#10b981', '0')}
         {renderDataPoints()}
       </Svg>
-      <Text style={{ fontSize: 6, marginTop: 4 }}>OD: O / triângulo mascarado. OE: X / quadrado mascarado. VO: chevron / colchete mascarado. S: campo livre, sem lateralidade. Seta: ausência de resposta no nível registrado. VO sem mascaramento não identifica isoladamente a cóclea respondente.</Text>
+      <Text style={{ fontSize: 6.5, marginTop: 5, width: '100%', color: '#475569', lineHeight: 1.3 }}>OD: O / triângulo mascarado. OE: X / quadrado mascarado. VO: chevron / colchete mascarado. S: campo livre, sem lateralidade. Seta: ausência de resposta no nível registrado. VO sem mascaramento não identifica isoladamente a cóclea respondente.</Text>
     </View>
   );
 };
@@ -405,20 +407,22 @@ const AudiogramPdfSVG = ({ rightData, leftData, freeFieldData }: { rightData: Pa
 function SpeechRecognitionPdf({ data }: { data?: Audiometry['logoAudiometry'] }) {
   const plots = speechRecognitionPlots(data);
   if (!plots.length) return null;
-  return <View style={{ marginVertical: 8 }}>
-    <Text style={styles.sectionTitle}>Reconhecimento de palavras por nível de apresentação</Text>
-    {plots.map(plot => <View key={plot.material} wrap={false} style={{ marginBottom: 6 }}>
-      <Text style={{ fontSize: 8 }}>{plot.label} · OD: círculo · OE: X</Text>
-      <Svg viewBox={`0 0 ${SP.width} ${SP.height}`} style={{ width: 360, height: 180 }}>
-        {[0, 20, 40, 60, 80, 100].map(value => <G key={value}><Line x1={SP.left} x2={SP.right} y1={speechY(value)} y2={speechY(value)} stroke="#cbd5e1" strokeWidth={0.75}/><Text x={SP.left-22} y={speechY(value)+4} style={{ fontSize: 12 }}>{value}</Text></G>)}
-        {[-10, 0, 20, 40, 60, 80, 100, 120].map(value => <G key={value}><Line x1={speechX(value)} x2={speechX(value)} y1={SP.top} y2={SP.bottom} stroke="#cbd5e1" strokeWidth={0.75}/><Text x={speechX(value)-8} y={SP.bottom+20} style={{ fontSize: 12 }}>{value}</Text></G>)}
-        <Text x={185} y={288} style={{ fontSize: 13 }}>Nível de apresentação (dB NA)</Text>
-        <Text x={14} y={160} transform="rotate(-90 14 160)" style={{ fontSize: 13 }}>Acertos (%)</Text>
-        {plot.points.map(point => point.ear === 'right' ? <Circle key={point.ear} cx={speechX(point.level)} cy={speechY(point.percent)} r={6} fill="none" stroke={point.color} strokeWidth={2}/> : <G key={point.ear} stroke={point.color} strokeWidth={2}><Line x1={speechX(point.level)-6} x2={speechX(point.level)+6} y1={speechY(point.percent)-6} y2={speechY(point.percent)+6}/><Line x1={speechX(point.level)-6} x2={speechX(point.level)+6} y1={speechY(point.percent)+6} y2={speechY(point.percent)-6}/></G>)}
-      </Svg>
-      {plot.points.map(point => <Text key={point.ear} style={{ fontSize: 7 }}>{point.label}: {point.percent}% a {point.level} dB NA · lista {point.list}.</Text>)}
-    </View>)}
-    <Text style={{ fontSize: 7 }}>Pontos registrados, separados por material. Não estabelecem função desempenho–intensidade, PB máx ou rollover.</Text>
+  return <View style={{ marginTop: 10 }}>
+    <Text style={S.subTitle}>Reconhecimento de palavras por nível de apresentação</Text>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+      {plots.map(plot => <View key={plot.material} wrap={false} style={{ width: '50%', paddingRight: 8, marginBottom: 8 }}>
+        <Text style={{ fontSize: 7.5, color: '#475569', marginBottom: 2 }}>{plot.label} · OD: círculo · OE: X</Text>
+        <Svg viewBox={`0 0 ${SP.width} ${SP.height}`} style={{ width: 240, height: 120 }}>
+          {[0, 20, 40, 60, 80, 100].map(value => <G key={value}><Line x1={SP.left} x2={SP.right} y1={speechY(value)} y2={speechY(value)} stroke="#cbd5e1" strokeWidth={0.75}/><Text x={SP.left-22} y={speechY(value)+4} style={{ fontSize: 12 }}>{value}</Text></G>)}
+          {[-10, 0, 20, 40, 60, 80, 100, 120].map(value => <G key={value}><Line x1={speechX(value)} x2={speechX(value)} y1={SP.top} y2={SP.bottom} stroke="#cbd5e1" strokeWidth={0.75}/><Text x={speechX(value)-8} y={SP.bottom+20} style={{ fontSize: 12 }}>{value}</Text></G>)}
+          <Text x={185} y={288} style={{ fontSize: 13 }}>Nível de apresentação (dB NA)</Text>
+          <Text x={14} y={160} transform="rotate(-90 14 160)" style={{ fontSize: 13 }}>Acertos (%)</Text>
+          {plot.points.map(point => point.ear === 'right' ? <Circle key={point.ear} cx={speechX(point.level)} cy={speechY(point.percent)} r={6} fill="none" stroke={point.color} strokeWidth={2}/> : <G key={point.ear} stroke={point.color} strokeWidth={2}><Line x1={speechX(point.level)-6} x2={speechX(point.level)+6} y1={speechY(point.percent)-6} y2={speechY(point.percent)+6}/><Line x1={speechX(point.level)-6} x2={speechX(point.level)+6} y1={speechY(point.percent)+6} y2={speechY(point.percent)-6}/></G>)}
+        </Svg>
+        {plot.points.map(point => <Text key={point.ear} style={{ fontSize: 7, color: '#334155' }}>{point.label}: {point.percent}% a {point.level} dB NA · lista {point.list}.</Text>)}
+      </View>)}
+    </View>
+    <Text style={S.note}>Pontos registrados, separados por material. Não estabelecem função desempenho–intensidade, PB máx ou rollover.</Text>
   </View>;
 }
 
@@ -433,21 +437,106 @@ export interface PdfExportOptions {
   includeOpinion?: boolean;
 }
 
-const AudiometryPDF = ({ 
-  exam, 
-  patient, 
-  settings, 
-  options 
-}: { 
-  exam: Audiometry; 
-  patient: Patient; 
-  settings?: Settings; 
-  options?: PdfExportOptions; 
+// ---------------------------------------------------------------------------------------------
+// Laudo (A4 retrato). Grade de 8 pt: margens de 36 pt, seções separadas por 14 pt, rótulos em
+// caixa-alta pequena e valores em 8,5-9 pt. Só entram seções com dados registrados.
+// ---------------------------------------------------------------------------------------------
+const INK = '#0f172a', MUTED = '#475569', FAINT = '#94a3b8', LINE = '#e2e8f0', BORDER = '#cbd5e1', BRAND = '#1e3a8a', OD = '#dc2626', OE = '#2563eb';
+
+const S = StyleSheet.create({
+  page: { paddingTop: 40, paddingBottom: 58, paddingHorizontal: 36, fontFamily: 'Helvetica', fontSize: 8.5, lineHeight: 1.35, color: INK, backgroundColor: '#ffffff' },
+  runningHeader: { position: 'absolute', top: 20, left: 36, right: 36, fontSize: 7, color: FAINT },
+  pageFooter: { position: 'absolute', bottom: 24, left: 36, right: 36, flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 0.5, borderTopStyle: 'solid', borderTopColor: BORDER, paddingTop: 5, fontSize: 6.5, color: FAINT },
+  letterhead: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1.5, borderBottomStyle: 'solid', borderBottomColor: BRAND, paddingBottom: 10, marginBottom: 14 },
+  logo: { width: 64, height: 44, objectFit: 'contain' },
+  logoSpacer: { width: 64 },
+  letterheadCenter: { flex: 1, alignItems: 'center', paddingHorizontal: 10 },
+  clinicName: { fontSize: 14, fontWeight: 'bold', color: BRAND, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' },
+  letterheadLine: { fontSize: 8, color: MUTED, marginTop: 2, textAlign: 'center' },
+  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
+  docTitle: { fontSize: 15, fontWeight: 'bold', color: INK },
+  docSubtitle: { fontSize: 8, color: MUTED, marginTop: 2 },
+  pill: { borderWidth: 0.75, borderStyle: 'solid', borderRadius: 10, paddingVertical: 3, paddingHorizontal: 8, fontSize: 7, fontWeight: 'bold' },
+  card: { backgroundColor: '#f8fafc', borderWidth: 0.75, borderStyle: 'solid', borderColor: BORDER, borderRadius: 4, paddingTop: 9, paddingBottom: 3, paddingHorizontal: 10, marginBottom: 14 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  fieldLabel: { fontSize: 6.5, color: MUTED, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 1.5 },
+  fieldValue: { fontSize: 9, color: INK },
+  cardDivider: { borderTopWidth: 0.5, borderTopStyle: 'solid', borderTopColor: BORDER, marginTop: 2, paddingTop: 7 },
+  section: { marginBottom: 14 },
+  sectionTitle: { fontSize: 9.5, fontWeight: 'bold', color: BRAND, textTransform: 'uppercase', letterSpacing: 0.4, borderBottomWidth: 0.75, borderBottomStyle: 'solid', borderBottomColor: BORDER, paddingBottom: 3, marginBottom: 8 },
+  subTitle: { fontSize: 8, fontWeight: 'bold', color: INK, marginBottom: 3 },
+  note: { fontSize: 7, color: MUTED, marginTop: 4, lineHeight: 1.3 },
+  columns: { flexDirection: 'row', justifyContent: 'space-between' },
+  chartBox: { width: 255, borderWidth: 0.75, borderStyle: 'solid', borderColor: BORDER, borderRadius: 4, padding: 5, alignItems: 'center' },
+  table: { borderWidth: 0.75, borderStyle: 'solid', borderColor: BORDER, borderRadius: 2 },
+  tr: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomStyle: 'solid', borderBottomColor: LINE },
+  trLast: { flexDirection: 'row' },
+  th: { backgroundColor: '#f1f5f9' },
+  td: { paddingVertical: 3.5, paddingHorizontal: 5, fontSize: 8, textAlign: 'center' },
+  tdLabel: { backgroundColor: '#f8fafc', fontWeight: 'bold', textAlign: 'left' },
+  statBox: { flex: 1, borderWidth: 0.75, borderStyle: 'solid', borderColor: BORDER, borderRadius: 3, paddingVertical: 5, paddingHorizontal: 7 },
+  kvRow: { flexDirection: 'row', marginBottom: 3 },
+  kvLabel: { width: 78, fontWeight: 'bold', fontSize: 8 },
+  kvValue: { flex: 1, fontSize: 8, color: '#334155' },
+  opinionBox: { borderLeftWidth: 2.5, borderLeftStyle: 'solid', borderLeftColor: '#2563eb', backgroundColor: '#f8fafc', paddingVertical: 7, paddingHorizontal: 10, marginTop: 4 },
+  signature: { alignItems: 'center', marginTop: 26 },
+  signatureLine: { width: 230, borderBottomWidth: 1, borderBottomStyle: 'solid', borderBottomColor: INK, marginBottom: 3 }
+});
+
+const fmtDate = (date?: string) => date ? date.split('T')[0].split('-').reverse().join('/') : '—';
+const PURPOSE_LABELS: Record<string, string> = { referencial: 'Referencial', sequencial: 'Sequencial', admissional: 'Admissional', demissional: 'Demissional', periodico: 'Periódico', outro: 'Outro' };
+const dash = (value: unknown, suffix = '') => value === undefined || value === null || value === '' ? '-' : `${value}${suffix}`;
+
+const Field = ({ label, value, width = '33.33%', bold }: { label: string; value: string; width?: string; bold?: boolean }) => (
+  <View style={{ width, paddingRight: 8, marginBottom: 7 }}>
+    <Text style={S.fieldLabel}>{label}</Text>
+    <Text style={[S.fieldValue, bold ? { fontWeight: 'bold' } : {}]}>{value}</Text>
+  </View>
+);
+
+const Section = ({ number, title, children, wrap = false }: { number: string; title: string; children: React.ReactNode; wrap?: boolean }) => (
+  <View style={S.section} wrap={wrap}>
+    <Text style={S.sectionTitle} minPresenceAhead={60}>{number} {title}</Text>
+    {children}
+  </View>
+);
+
+const DataTable = ({ head, rows, widths, headColors }: { head: string[]; rows: (string | number)[][]; widths: number[]; headColors?: (string | undefined)[] }) => (
+  <View style={S.table}>
+    <View style={[S.tr, S.th]}>
+      {head.map((text, i) => <Text key={i} style={[S.td, { flex: widths[i], fontWeight: 'bold', color: headColors?.[i] || INK, textAlign: i === 0 ? 'left' : 'center' }]}>{text}</Text>)}
+    </View>
+    {rows.map((row, r) => (
+      <View key={r} style={r === rows.length - 1 ? S.trLast : S.tr} wrap={false}>
+        {row.map((cell, i) => <Text key={i} style={[S.td, i === 0 ? S.tdLabel : {}, { flex: widths[i] }]}>{String(cell)}</Text>)}
+      </View>
+    ))}
+  </View>
+);
+
+const KeyValue = ({ label, value, color }: { label: string; value: string; color?: string }) => (
+  <View style={S.kvRow} wrap={false}>
+    <Text style={[S.kvLabel, color ? { color } : {}]}>{label}</Text>
+    <Text style={S.kvValue}>{value}</Text>
+  </View>
+);
+
+const AudiometryPDF = ({
+  exam,
+  patient,
+  settings,
+  options
+}: {
+  exam: Audiometry;
+  patient: Patient;
+  settings?: Settings;
+  options?: PdfExportOptions;
 }) => {
   const rightPTA = calculatePTA(exam.tonalData?.right);
   const leftPTA = calculatePTA(exam.tonalData?.left);
   const rightTymp = classifyTympanometry(exam.tympanometry?.right);
   const leftTymp = classifyTympanometry(exam.tympanometry?.left);
+  const tympR = exam.tympanometry?.right, tympL = exam.tympanometry?.left;
 
   const hasTymp = hasRecordedValue(exam.tympanometry);
   const hasReflex = hasRecordedValue(exam.reflexes);
@@ -458,355 +547,252 @@ const AudiometryPDF = ({
   const showMeatoscopy = options?.includeMeatoscopy ?? hasMeatoscopy;
   const showTonalChart = options?.includeTonalChart ?? true;
   const showTonalTable = options?.includeTonalTable ?? true;
+  const showTonal = showTonalChart || showTonalTable;
   const showPTA = exam.header?.responseType === 'threshold' && (options?.includePTA ?? true);
   const showLogo = options?.includeLogo ?? hasLogo;
   const showImmitance = options?.includeImmitance ?? (hasTymp || hasReflex);
-  const showComplementary = options?.includeComplementary ?? hasComplementary;
+  const showComplementary = (options?.includeComplementary ?? hasComplementary) && hasComplementary;
   const showOpinion = options?.includeOpinion ?? true;
 
-  const emissionDate = new Date().toLocaleDateString('pt-BR');
-  const emissionTime = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  // Numeração dinâmica: só as seções impressas entram, sem lacunas.
+  const order = [showMeatoscopy && 'meatoscopy', showTonal && 'tonal', showLogo && 'logo', showImmitance && 'immitance', showComplementary && 'complementary', showOpinion && 'opinion'].filter(Boolean) as string[];
+  const num = (key: string) => `${order.indexOf(key) + 1}.`;
+  const performed = [showMeatoscopy && 'Meatoscopia', showTonal && 'Audiometria tonal', showLogo && 'Logoaudiometria', showImmitance && 'Imitanciometria', showComplementary && 'Testes complementares'].filter(Boolean) as string[];
+
+  const reviewed = isReviewCurrent(exam);
+  const now = new Date();
+  const emissionDate = now.toLocaleDateString('pt-BR');
+  const emissionTime = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+  const letterhead = letterheadLines(settings);
+  const professionalLine = [settings?.professionalName, settings?.crfaNumber ? `CRFa ${settings.crfaNumber}` : '', settings?.specialty].filter(Boolean).join(' • ');
+  const hasLetterhead = !!(settings?.logoUrl || settings?.clinicName || professionalLine || letterhead.legal || letterhead.address || letterhead.contact);
+
+  const tonalRows = FREQUENCIES.filter(f => OCTAVE_FREQUENCIES.has(f) || ([exam.tonalData?.right?.[f], exam.tonalData?.left?.[f]].some(point => point?.va !== undefined || point?.vo !== undefined)));
+  const hasNR = [exam.tonalData?.right, exam.tonalData?.left, exam.freeField].some(ear => FREQUENCIES.some(f => ear?.[f]?.va === 'NR' || ear?.[f]?.vo === 'NR'));
+  const age = ageAtExam(patient.birthDate, exam.examDate)?.label;
+  const transducer = exam.header?.transducer === 'insert' ? 'Inserção' : exam.header?.transducer === 'supra' ? 'Supra-aural' : 'Não registrado';
+  const avg = (value: number | null) => value !== null ? `${value} dB` : '—';
+  const freeFieldLevels = FREQUENCIES.filter(f => exam.freeField?.[f]?.va !== undefined).map(f => `${f} Hz: ${formatTonalValue(exam.freeField?.[f], 'va')}`);
 
   return (
-    <Document>
-      <Page size="A4" style={styles.page}>
-        <Text style={{ fontSize: 10, color: isReviewCurrent(exam) ? '#166534' : '#92400e', marginBottom: 8 }}>{isReviewCurrent(exam) ? 'EXAME REVISADO' : 'RASCUNHO — AGUARDANDO REVISÃO PROFISSIONAL'}</Text>
-        <Text style={{ fontSize: 8, marginBottom: 8 }}>Método: {METHOD_LABELS[exam.header?.assessmentMethod || ''] || 'não informado'} · Resposta: {RESPONSE_LABELS[exam.header?.responseType || ''] || 'não informada'} · Confiabilidade: {RELIABILITY_LABELS[exam.header?.reliability || ''] || 'não informada'} · Classificação de grau adotada: {degreeStandardLabel(exam.header?.degreeStandard)} · Transdutor: {exam.header?.transducer === 'insert' ? 'inserção' : exam.header?.transducer === 'supra' ? 'supra-aural' : 'não registrado'} · Idade no exame: {ageAtExam(patient.birthDate, exam.examDate)?.label || 'não informada'}</Text>
-        <Text style={{ fontSize: 7, marginBottom: 8 }}>NR é ausência de resposta no nível informado. Registros sem nível apresentado constam na tabela e não são posicionados no gráfico.</Text>
-        
-        {/* CABEÇALHO CLÍNICO INSTITUCIONAL */}
-        <View style={styles.headerBox} wrap={false}>
-          {settings?.logoUrl ? (
-            <Image src={settings.logoUrl} style={styles.headerLogo} />
-          ) : (
-            <View style={{ width: 45 }} />
-          )}
-
-          <View style={styles.headerCenter}>
-            <Text style={styles.clinicName}>{settings?.clinicName || 'Clínica de Fonoaudiologia & Audiologia'}</Text>
-            <Text style={styles.headerSub}>
-              {settings?.professionalName ? `${settings.professionalName} ${settings.crfaNumber ? `• CRFa: ${settings.crfaNumber}` : ''}` : 'Fonoaudiologia Clínica e Ocupacional'}
-              {settings?.specialty ? ` • ${settings.specialty}` : ''}
-            </Text>
-            <Text style={styles.headerSub}>
-              {[settings?.phone, settings?.email, settings?.address].filter(Boolean).join(' | ') || 'Laudo Audiológico Digital'}
-            </Text>
-          </View>
-
-          <View style={{ width: 45, alignItems: 'flex-end' }}>
-            <Text style={{ fontSize: 6.5, color: '#94a3b8' }}>LAUDO</Text>
-            <Text style={{ fontSize: 7, fontWeight: 'bold', color: '#1e3a8a' }}>OFICIAL</Text>
-          </View>
+    <Document title={`Avaliação audiológica - ${patient.name}`} author={examProfessional(exam, settings)}>
+      <Page size="A4" style={S.page}>
+        {/* Cabeçalho corrido (a partir da página 2) e rodapé em todas as páginas */}
+        <Text fixed style={S.runningHeader} render={({ pageNumber }) => pageNumber > 1 ? `${patient.name} · Avaliação audiológica de ${fmtDate(exam.examDate)}` : ''} />
+        <View fixed style={S.pageFooter}>
+          <Text>Documento gerado em {emissionDate} às {emissionTime} pelo AudioDash</Text>
+          <Text render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`} />
         </View>
 
-        {/* IDENTIFICAÇÃO DO PACIENTE E PROTOCOLO */}
-        <View style={styles.patientBox} wrap={false}>
-          <View style={styles.row}>
-            <Text style={[styles.label, { width: 55 }]}>Paciente:</Text>
-            <Text style={[styles.val, { flex: 2, fontWeight: 'bold', color: '#0f172a' }]}>{patient.name}</Text>
-            <Text style={[styles.label, { width: 55 }]}>Nascimento:</Text>
-            <Text style={[styles.val, { width: 70 }]}>
-              {patient.birthDate ? patient.birthDate.split('T')[0].split('-').reverse().join('/') : '---'}
-            </Text>
-            <Text style={[styles.label, { width: 30 }]}>Sexo:</Text>
-            <Text style={[styles.val, { width: 40 }]}>{patient.gender || '---'}</Text>
-          </View>
-
-          <View style={styles.row}>
-            <Text style={[styles.label, { width: 55 }]}>CPF / RG:</Text>
-            <Text style={[styles.val, { flex: 2 }]}>{patient.cpf || patient.rg || '---'}</Text>
-            <Text style={[styles.label, { width: 55 }]}>Data Exame:</Text>
-            <Text style={[styles.val, { width: 70 }]}>
-              {exam.examDate ? exam.examDate.split('T')[0].split('-').reverse().join('/') : '---'}
-            </Text>
-            <Text style={[styles.label, { width: 30 }]}>Tipo:</Text>
-            <Text style={[styles.val, { width: 60, textTransform: 'capitalize' }]}>{exam.examPurpose || 'Referencial'}</Text>
-          </View>
-
-          {(exam.header?.requestingPhysician || exam.header?.audiometer || exam.header?.impedanciometer) && (
-            <View style={[styles.row, { marginTop: 1.5, paddingTop: 1.5, borderTopWidth: 1, borderTopColor: '#e2e8f0' }]}>
-              {exam.header?.requestingPhysician && (
-                <Text style={[styles.val, { flex: 1.2 }]}>
-                  <Text style={styles.label}>Solicitante: </Text>{exam.header.requestingPhysician}
-                </Text>
-              )}
-              {exam.header?.audiometer && (
-                <Text style={[styles.val, { flex: 1 }]}>
-                  <Text style={styles.label}>Audiômetro: </Text>{exam.header.audiometer}
-                </Text>
-              )}
-              {exam.header?.impedanciometer && (
-                <Text style={[styles.val, { flex: 1 }]}>
-                  <Text style={styles.label}>Impedanciômetro: </Text>{exam.header.impedanciometer}
-                </Text>
-              )}
+        {/* Timbre da clínica */}
+        {hasLetterhead && (
+          <View style={S.letterhead} wrap={false}>
+            {settings?.logoUrl ? <Image src={settings.logoUrl} style={S.logo} /> : <View style={S.logoSpacer} />}
+            <View style={S.letterheadCenter}>
+              {settings?.clinicName ? <Text style={S.clinicName}>{settings.clinicName}</Text> : null}
+              {professionalLine ? <Text style={S.letterheadLine}>{professionalLine}</Text> : null}
+              {letterhead.legal ? <Text style={S.letterheadLine}>{letterhead.legal}</Text> : null}
+              {letterhead.address ? <Text style={S.letterheadLine}>{letterhead.address}</Text> : null}
+              {letterhead.contact ? <Text style={S.letterheadLine}>{letterhead.contact}</Text> : null}
             </View>
-          )}
-        </View>
-
-        {/* MEATOSCOPIA */}
-        {showMeatoscopy && (
-          <View style={{ marginBottom: 4 }} wrap={false}>
-            <Text style={styles.sectionTitle}>1. Inspeção do Meato Acústico Externo (Meatoscopia)</Text>
-            <View style={[styles.patientBox, { padding: 3.5, marginBottom: 0 }]}>
-              <View style={styles.row}>
-                <Text style={[styles.label, { width: 25, color: '#dc2626' }]}>OD:</Text>
-                <Text style={[styles.val, { flex: 1 }]}>{exam.meatoscopy?.rightDescription || (exam.meatoscopy?.right === 'normal' ? 'Conduto livre e membrana timpânica íntegra.' : exam.meatoscopy?.right || 'Não realizado')}</Text>
-                <Text style={[styles.label, { width: 25, color: '#2563eb' }]}>OE:</Text>
-                <Text style={[styles.val, { flex: 1 }]}>{exam.meatoscopy?.leftDescription || (exam.meatoscopy?.left === 'normal' ? 'Conduto livre e membrana timpânica íntegra.' : exam.meatoscopy?.left || 'Não realizado')}</Text>
-              </View>
-            </View>
+            <View style={S.logoSpacer} />
           </View>
         )}
 
-        {/* 2 COLUNAS: GRÁFICO AUDIOGRAMA + TABELAS DE LIMIARES E FALA */}
-        <View style={styles.mainLayout} wrap={false}>
-          
-          {/* COLUNA ESQUERDA: AUDIOGRAMA */}
-          {showTonalChart && (
-            <View style={showTonalTable ? styles.leftCol : { width: '100%' }}>
-              <Text style={styles.sectionTitle}>{exam.header?.responseType === 'minimum_response' ? '2. Audiograma · níveis mínimos de resposta' : exam.header?.responseType === 'threshold' ? '2. Audiograma tonal · limiares' : '2. Audiograma · tipo de resposta não informado'}</Text>
-              <AudiogramPdfSVG 
-                rightData={exam.tonalData?.right || {}} 
-                leftData={exam.tonalData?.left || {}} 
-                freeFieldData={exam.freeField}
-              />
-              <Text style={{ fontSize: 6.5, color: '#475569', marginTop: 2, textAlign: 'center' }}>
-                OD: VA(O), VO(&lt;) [Masc: Δ, [] | OE: VA(X), VO(&gt;) [Masc: □, ]] | Campo Livre (S)
-              </Text>
-            </View>
-          )}
-
-          {/* COLUNA DIREITA: TABELA TONAL + MÉDIAS + LOGOAUDIOMETRIA */}
-          {(showTonalTable || showLogo) && (
-            <View style={showTonalChart ? styles.rightCol : { width: '100%' }}>
-              {showTonalTable && (
-                <>
-                  <Text style={styles.sectionTitle}>3. Limiares Tonais (dB NA)</Text>
-                  <View style={styles.table}>
-                    <View style={[styles.tableRow, styles.tableHeader]}>
-                      <Text style={styles.tableCellFreq}>Hz</Text>
-                      <Text style={[styles.tableCell, { color: '#dc2626', fontWeight: 'bold' }]}>VA(OD)</Text>
-                      <Text style={[styles.tableCell, { color: '#dc2626' }]}>VO(OD)</Text>
-                      <Text style={[styles.tableCell, { color: '#2563eb', fontWeight: 'bold' }]}>VA(OE)</Text>
-                      <Text style={[styles.tableCell, { color: '#2563eb' }]}>VO(OE)</Text>
-                    </View>
-                    {FREQUENCIES.map(f => (
-                      <View key={`tbl_${f}`} style={styles.tableRow}>
-                        <Text style={styles.tableCellFreq}>{f}</Text>
-                        <Text style={styles.tableCell}>{formatTonalValue(exam.tonalData?.right?.[f], 'va')}</Text>
-                        <Text style={styles.tableCell}>{formatTonalValue(exam.tonalData?.right?.[f], 'vo')}</Text>
-                        <Text style={styles.tableCell}>{formatTonalValue(exam.tonalData?.left?.[f], 'va')}</Text>
-                        <Text style={styles.tableCell}>{formatTonalValue(exam.tonalData?.left?.[f], 'vo')}</Text>
-                      </View>
-                    ))}
-                  </View>
-
-                  {hasRecordedValue(exam.freeField) && <View style={{ marginVertical: 5 }}><Text style={{ fontSize: 8 }}>Campo livre: {exam.header?.freeFieldCondition || 'condição não informada'} · sem lateralidade</Text>{FREQUENCIES.filter(f => exam.freeField?.[f]?.va !== undefined).map(f => <Text key={`ff-table-${f}`} style={{ fontSize: 7 }}>{f} Hz: {formatTonalValue(exam.freeField?.[f], 'va')}</Text>)}</View>}
-
-                  {/* MÉDIAS AUDIOMÉTRICAS */}
-                  {showPTA && (
-                    <View style={styles.ptaBox}>
-                      <View>
-                        <Text style={[styles.label, { color: '#dc2626' }]}>Médias OD:</Text>
-                        <Text style={{ fontSize: 6.5, color: '#475569' }}>
-                          Tritonal: {rightPTA.tritonal !== null ? `${rightPTA.tritonal} dB` : '--'} | Quadritonal: {rightPTA.quadritonal !== null ? `${rightPTA.quadritonal} dB` : '--'}
-                        </Text>
-                      </View>
-                      <View>
-                        <Text style={[styles.label, { color: '#2563eb' }]}>Médias OE:</Text>
-                        <Text style={{ fontSize: 6.5, color: '#475569' }}>
-                          Tritonal: {leftPTA.tritonal !== null ? `${leftPTA.tritonal} dB` : '--'} | Quadritonal: {leftPTA.quadritonal !== null ? `${leftPTA.quadritonal} dB` : '--'}
-                        </Text>
-                      </View>
-                    </View>
-                  )}
-                </>
-              )}
-
-              {/* LOGOAUDIOMETRIA */}
-              {showLogo && (
-                <>
-                  <Text style={styles.sectionTitle}>4. Logoaudiometria</Text>
-                  <View style={styles.table}>
-                    <View style={[styles.tableRow, styles.tableHeader]}>
-                      <Text style={styles.tableCellFreq}>Teste de Fala</Text>
-                      <Text style={[styles.tableCell, { color: '#dc2626', fontWeight: 'bold' }]}>OD</Text>
-                      <Text style={[styles.tableCell, { color: '#2563eb', fontWeight: 'bold' }]}>OE</Text>
-                    </View>
-                    <View style={styles.tableRow}>
-                      <Text style={styles.tableCellFreq}>LRF / SRT (dB)</Text>
-                      <Text style={styles.tableCell}>{exam.logoAudiometry?.right?.srt?.db ?? '-'}</Text>
-                      <Text style={styles.tableCell}>{exam.logoAudiometry?.left?.srt?.db ?? '-'}</Text>
-                    </View>
-                    <View style={styles.tableRow}>
-                      <Text style={styles.tableCellFreq}>LDV / SDT (dB)</Text>
-                      <Text style={styles.tableCell}>{exam.logoAudiometry?.right?.voiceDetection?.db ?? '-'}</Text>
-                      <Text style={styles.tableCell}>{exam.logoAudiometry?.left?.voiceDetection?.db ?? '-'}</Text>
-                    </View>
-                    <View style={styles.tableRow}>
-                      <Text style={styles.tableCellFreq}>IPRF (%) Monossílabos</Text>
-                      <Text style={styles.tableCell}>{recognitionPercentage(exam.logoAudiometry?.right?.irf?.mono) !== null ? `${recognitionPercentage(exam.logoAudiometry?.right?.irf?.mono)}%` : '-'}</Text>
-                      <Text style={styles.tableCell}>{recognitionPercentage(exam.logoAudiometry?.left?.irf?.mono) !== null ? `${recognitionPercentage(exam.logoAudiometry?.left?.irf?.mono)}%` : '-'}</Text>
-                    </View>
-                  </View>
-                </>
-              )}
-
-            </View>
-          )}
-        </View>
-
-        {showLogo && <View style={{ marginBottom: 8 }}>{(['right', 'left'] as const).map(ear => {
-          const logo = exam.logoAudiometry?.[ear];
-          if (!hasRecordedValue(logo)) return null;
-          return <View key={ear} style={{ marginBottom: 5 }}><Text style={{ fontSize: 7 }}>Fala {ear === 'right' ? 'OD' : 'OE'}: idioma {logo?.language || 'não informado'}; material {logo?.materialReference || 'não informado'}; apresentação {logo?.presentation === 'recorded' ? 'gravada' : logo?.presentation === 'live' ? 'voz viva monitorada' : 'não informada'}; resposta {logo?.responseMode || 'não informada'}.</Text>{Object.entries(logo?.irf || {}).filter(([, p]) => hasRecordedValue(p)).map(([key, point]) => <Text key={key} style={{ fontSize: 7 }}>IPRF ({key}): lista {point.listId || 'não informada'}; acertos {point.correctItems ?? '?'}/{point.totalItems ?? '?'}; {recognitionPercentage(point) ?? 'não calculável'}%; apresentação {point.db ?? '?'} dB NA; mascaramento {point.masking || 'não informado'}.</Text>)}</View>;
-        })}</View>}
-
-        {showLogo && <SpeechRecognitionPdf data={exam.logoAudiometry} />}
-
-        {/* IMITANCIOMETRIA */}
-        {showImmitance && (
-          <View style={{ marginBottom: 4 }} wrap={false}>
-            <Text style={styles.sectionTitle}>5. Medidas de Imitância Acústica (Imitanciometria)</Text>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              {/* Timpanometria */}
-              <View style={{ flex: 1 }}>
-                <View style={styles.table}>
-                  <View style={[styles.tableRow, styles.tableHeader]}>
-                    <Text style={styles.tableCellFreq}>Timpanometria</Text>
-                    <Text style={[styles.tableCell, { color: '#dc2626' }]}>OD</Text>
-                    <Text style={[styles.tableCell, { color: '#2563eb' }]}>OE</Text>
-                  </View>
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableCellFreq}>Curva</Text>
-                    <Text style={[styles.tableCell, { fontWeight: 'bold' }]}>{tympLabel(rightTymp.type)}</Text>
-                    <Text style={[styles.tableCell, { fontWeight: 'bold' }]}>{tympLabel(leftTymp.type)}</Text>
-                  </View>
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableCellFreq}>Pressão (daPa)</Text>
-                    <Text style={styles.tableCell}>{exam.tympanometry?.right?.curveShape === 'flat' ? 'Sem pico' : exam.tympanometry?.right?.peak ?? '-'}</Text>
-                    <Text style={styles.tableCell}>{exam.tympanometry?.left?.curveShape === 'flat' ? 'Sem pico' : exam.tympanometry?.left?.peak ?? '-'}</Text>
-                  </View>
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableCellFreq}>Admitância</Text>
-                    <Text style={styles.tableCell}>{exam.tympanometry?.right?.compliance200 ?? '-'} {exam.tympanometry?.right?.admittanceUnit || '(unidade não informada)'} ({exam.tympanometry?.right?.probeFrequency || '?'} Hz)</Text>
-                    <Text style={styles.tableCell}>{exam.tympanometry?.left?.compliance200 ?? '-'} {exam.tympanometry?.left?.admittanceUnit || '(unidade não informada)'} ({exam.tympanometry?.left?.probeFrequency || '?'} Hz)</Text>
-                  </View>
-                  <View style={styles.tableRow}><Text style={styles.tableCellFreq}>Volume (ml)</Text><Text style={styles.tableCell}>{exam.tympanometry?.right?.volume ?? '-'}</Text><Text style={styles.tableCell}>{exam.tympanometry?.left?.volume ?? '-'}</Text></View>
-                </View>
-                <TympanogramPdf right={exam.tympanometry?.right} left={exam.tympanometry?.left} />
-              </View>
-
-              {/* Reflexos */}
-              <View style={{ flex: 1 }}>
-                <View style={styles.table}>
-                  <View style={[styles.tableRow, styles.tableHeader]}>
-                    <Text style={styles.tableCellFreq}>Reflexo (Ipsi/Contra)</Text>
-                    <Text style={[styles.tableCell, { color: '#dc2626' }]}>OD</Text>
-                    <Text style={[styles.tableCell, { color: '#2563eb' }]}>OE</Text>
-                  </View>
-                  {(['500', '1000', '2000', '4000'] as const).map(freq => (
-                    <View key={`ref_tbl_${freq}`} style={styles.tableRow}>
-                      <Text style={styles.tableCellFreq}>{freq} Hz</Text>
-                      <Text style={styles.tableCell}>
-                        {`${exam.reflexes?.right?.[freq]?.ipsi ?? exam.reflexes?.right?.[freq]?.limiar ?? '-'}/${exam.reflexes?.right?.[freq]?.contra ?? '-'}`}
-                      </Text>
-                      <Text style={styles.tableCell}>
-                        {`${exam.reflexes?.left?.[freq]?.ipsi ?? exam.reflexes?.left?.[freq]?.limiar ?? '-'}/${exam.reflexes?.left?.[freq]?.contra ?? '-'}`}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            </View>
+        {/* Título e situação do documento */}
+        <View style={S.titleRow} wrap={false}>
+          <View style={{ flex: 1, paddingRight: 10 }}>
+            <Text style={S.docTitle}>Avaliação Audiológica</Text>
+            {performed.length > 0 && <Text style={S.docSubtitle}>{performed.join(' · ')}</Text>}
           </View>
-        )}
-
-        {/* TESTES COMPLEMENTARES */}
-        {showComplementary && hasComplementary && (
-          <View style={{ marginBottom: 4 }} wrap={false}>
-            <Text style={styles.sectionTitle}>6. Testes Audiológicos Especiais / Complementares</Text>
-            <View style={[styles.patientBox, { padding: 3.5, marginBottom: 0 }]}>
-              {exam.complementary?.weber && (
-                <View style={styles.row}>
-                  <Text style={[styles.label, { width: 50 }]}>Weber: </Text>
-                  <Text style={[styles.val, { flex: 1 }]}>{exam.complementary.weber}</Text>
-                </View>
-              )}
-              {(exam.complementary?.eoa?.right || exam.complementary?.eoa?.left) && (
-                <View style={styles.row}>
-                  <Text style={[styles.label, { width: 50 }]}>EOA: </Text>
-                  <Text style={[styles.val, { flex: 1 }]}>
-                    OD: {exam.complementary?.eoa?.right || 'Não realizado'} | OE: {exam.complementary?.eoa?.left || 'Não realizado'} {exam.complementary?.eoa?.notes ? `(${exam.complementary.eoa.notes})` : ''}
-                  </Text>
-                </View>
-              )}
-              {(exam.complementary?.toneDecayDetails?.right || exam.complementary?.toneDecayDetails?.left) && (
-                <View style={styles.row}>
-                  <Text style={[styles.label, { width: 50 }]}>Tone decay: </Text>
-                  <Text style={[styles.val, { flex: 1 }]}>OD: {exam.complementary?.toneDecayDetails?.right || '-'} | OE: {exam.complementary?.toneDecayDetails?.left || '-'}</Text>
-                </View>
-              )}
-              {(exam.complementary?.sisi?.right || exam.complementary?.sisi?.left) && (
-                <View style={styles.row}>
-                  <Text style={[styles.label, { width: 50 }]}>SISI: </Text>
-                  <Text style={[styles.val, { flex: 1 }]}>OD: {exam.complementary?.sisi?.right || '-'} | OE: {exam.complementary?.sisi?.left || '-'}</Text>
-                </View>
-              )}
-              {(exam.complementary?.bera?.right || exam.complementary?.bera?.left) && (
-                <View style={styles.row}>
-                  <Text style={[styles.label, { width: 50 }]}>PEATE: </Text>
-                  <Text style={[styles.val, { flex: 1 }]}>
-                    OD: {exam.complementary?.bera?.right || '-'} | OE: {exam.complementary?.bera?.left || '-'} {exam.complementary?.bera?.notes ? `(${exam.complementary.bera.notes})` : ''}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
-        )}
-
-        {showImmitance && <View style={{ marginBottom: 6 }}>{(['right', 'left'] as const).map(ear => hasRecordedValue(exam.tympanometry?.[ear]) && <Text key={ear} style={{ fontSize: 7 }}>Timpanometria {ear === 'right' ? 'OD' : 'OE'}: referência {exam.tympanometry?.[ear]?.normativeReference || 'não informada'}; observações {exam.tympanometry?.[ear]?.protocolNotes || 'não informadas'}.</Text>)}</View>}
-        {showComplementary && (hasRecordedValue(exam.complementary?.eoa) || hasRecordedValue(exam.complementary?.bera)) && <View style={{ marginBottom: 6 }}><Text style={{ fontSize: 7 }}>EOA: {exam.complementary?.eoa?.type || 'tipo não informado'}; protocolo {exam.complementary?.eoa?.protocol || 'não informado'}; qualidade {exam.complementary?.eoa?.quality || 'não informada'}.</Text><Text style={{ fontSize: 7 }}>PEATE: protocolo {exam.complementary?.bera?.protocol || 'não informado'}; estímulo {exam.complementary?.bera?.stimulus || 'não informado'}; nível/unidade {exam.complementary?.bera?.levelAndUnit || 'não informado'}. Sem conversão automática nHL/eHL.</Text></View>}
-
-        {/* PARECER AUDIOLÓGICO & CONDUTA */}
-        {showOpinion && (
-          <View>
-            <Text style={styles.sectionTitle}>7. Parecer Fonoaudiológico e Conduta</Text>
-            {(isReviewCurrent(exam) && exam.opinion?.clinicalStatus || professionalClassificationLines(exam).length > 0) && <View style={{ marginBottom: 4 }}>
-              {isReviewCurrent(exam) && exam.opinion?.clinicalStatus && <Text style={{ fontSize: 7.5, fontWeight: 'bold' }}>Situação clínica: {CLINICAL_STATUS_LABELS[exam.opinion.clinicalStatus]}</Text>}
-              {professionalClassificationLines(exam).map(line => <Text key={line} style={{ fontSize: 7 }}>{line}</Text>)}
-              <Text style={{ fontSize: 6.5, color: '#475569' }}>Classificação de grau adotada: {degreeStandardLabel(exam.header?.degreeStandard)}.</Text>
-            </View>}
-            <View style={styles.reportBox}>
-              <Text style={{ lineHeight: 1.35, fontSize: 7, color: '#0f172a' }}>
-                {exam.resultAndConduct || exam.opinion?.clinical || 'Parecer não registrado.'}
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* ASSINATURA E CARIMBO OFICIAL */}
-        <View style={styles.footer} wrap={false}>
-          <View style={{ alignItems: 'center', marginBottom: 4 }}>
-            <View style={styles.signatureLine}></View>
-            <Text style={{ fontSize: 8, fontWeight: 'bold', color: '#0f172a' }}>
-              {examProfessional(exam, settings)}
-            </Text>
-            <Text style={{ fontSize: 7, color: '#475569' }}>Fonoaudiólogo(a) responsável pelo exame</Text>
-          </View>
-          <Text style={styles.emissionStamp}>
-            Documento gerado em {emissionDate} às {emissionTime} pelo AudioDash. Validade condicionada à assinatura do fonoaudiólogo responsável (manuscrita ou eletrônica avançada/qualificada — Res. CFFa 777/2025, art. 6º).
+          <Text style={[S.pill, reviewed ? { color: '#166534', borderColor: '#86efac', backgroundColor: '#f0fdf4' } : { color: '#92400e', borderColor: '#fcd34d', backgroundColor: '#fffbeb' }]}>
+            {reviewed ? 'EXAME REVISADO' : 'RASCUNHO — AGUARDANDO REVISÃO PROFISSIONAL'}
           </Text>
         </View>
 
-        {/* NUMERAÇÃO DINÂMICA DE PÁGINA */}
-        <Text 
-          style={styles.pageNumber} 
-          render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`} 
-          fixed 
-        />
+        {/* Identificação e protocolo */}
+        <View style={S.card} wrap={false}>
+          <View style={S.grid}>
+            <Field label="Paciente" value={patient.name} width="66.66%" bold />
+            <Field label="Data do exame" value={fmtDate(exam.examDate)} />
+            <Field label="Nascimento" value={`${fmtDate(patient.birthDate)}${age ? ` (${age})` : ''}`} />
+            <Field label="Sexo" value={patient.gender || '—'} />
+            <Field label="CPF / RG" value={patient.cpf || patient.rg || '—'} />
+            {exam.examPurpose ? <Field label="Finalidade" value={PURPOSE_LABELS[exam.examPurpose] || exam.examPurpose} /> : null}
+            {exam.header?.requestingPhysician ? <Field label="Solicitante" value={exam.header.requestingPhysician} /> : null}
+            {exam.header?.audiometer ? <Field label="Audiômetro" value={exam.header.audiometer} /> : null}
+            {exam.header?.impedanciometer ? <Field label="Impedanciômetro" value={exam.header.impedanciometer} /> : null}
+          </View>
+          <View style={[S.grid, S.cardDivider]}>
+            <Field label="Método" value={METHOD_LABELS[exam.header?.assessmentMethod || ''] || 'Não informado'} />
+            <Field label="Tipo de resposta" value={RESPONSE_LABELS[exam.header?.responseType || ''] || 'Não informado'} />
+            <Field label="Confiabilidade" value={RELIABILITY_LABELS[exam.header?.reliability || ''] || 'Não informada'} />
+            <Field label="Transdutor" value={transducer} />
+            <Field label="Critério de classificação" value={degreeStandardLabel(exam.header?.degreeStandard)} width="66.66%" />
+          </View>
+        </View>
 
+        {/* Meatoscopia */}
+        {showMeatoscopy && (
+          <Section number={num('meatoscopy')} title="Meatoscopia">
+            <KeyValue label="Orelha direita" value={meatoscopyText(exam.meatoscopy, 'right')} color={OD} />
+            <KeyValue label="Orelha esquerda" value={meatoscopyText(exam.meatoscopy, 'left')} color={OE} />
+            {exam.meatoscopy?.referToENT && <Text style={S.note}>{ENT_REFERRAL_TEXT}</Text>}
+          </Section>
+        )}
+
+        {/* Audiometria tonal */}
+        {showTonal && (
+          <Section number={num('tonal')} title={exam.header?.responseType === 'minimum_response' ? 'Audiograma · níveis mínimos de resposta' : exam.header?.responseType === 'threshold' ? 'Audiometria tonal · limiares' : 'Audiograma · tipo de resposta não informado'}>
+            <View style={S.columns}>
+              {showTonalChart && (
+                <View style={showTonalTable ? S.chartBox : { width: '100%', alignItems: 'center' }}>
+                  <AudiogramPdfSVG rightData={exam.tonalData?.right || {}} leftData={exam.tonalData?.left || {}} freeFieldData={exam.freeField} />
+                </View>
+              )}
+              {showTonalTable && (
+                <View style={{ flex: 1, marginLeft: showTonalChart ? 14 : 0 }}>
+                  <Text style={S.subTitle}>Níveis registrados (dB NA)</Text>
+                  <DataTable
+                    head={['Hz', 'VA · OD', 'VO · OD', 'VA · OE', 'VO · OE']}
+                    headColors={[undefined, OD, OD, OE, OE]}
+                    widths={[0.8, 1, 1, 1, 1]}
+                    rows={tonalRows.map(f => [f, formatTonalValue(exam.tonalData?.right?.[f], 'va'), formatTonalValue(exam.tonalData?.right?.[f], 'vo'), formatTonalValue(exam.tonalData?.left?.[f], 'va'), formatTonalValue(exam.tonalData?.left?.[f], 'vo')])}
+                  />
+                  {freeFieldLevels.length > 0 && (
+                    <Text style={S.note}>Campo livre (S, sem lateralidade; {exam.header?.freeFieldCondition || 'condição não informada'}): {freeFieldLevels.join(' · ')}.</Text>
+                  )}
+                  {showPTA && (
+                    <View style={{ flexDirection: 'row', marginTop: 8 }}>
+                      {([['OD', OD, rightPTA], ['OE', OE, leftPTA]] as const).map(([ear, color, pta], i) => (
+                        <View key={ear} style={[S.statBox, i === 0 ? { marginRight: 6 } : {}]}>
+                          <Text style={{ fontSize: 7.5, fontWeight: 'bold', color }}>Médias · {ear}</Text>
+                          <Text style={{ fontSize: 7.5, color: MUTED, marginTop: 2 }}>Tritonal (500–2000 Hz): {avg(pta.tritonal)}</Text>
+                          <Text style={{ fontSize: 7.5, color: MUTED }}>Quadritonal (500–4000 Hz): {avg(pta.quadritonal)}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
+            {showTonalTable && showPTA && [rightPTA, leftPTA].some(pta => pta.tritonal === null || pta.quadritonal === null) && <Text style={S.note}>— : média não calculável (falta limiar numérico em alguma frequência da média, ou há NR). NR nunca é substituído por valor numérico.</Text>}
+            {hasNR && <Text style={S.note}>NR é ausência de resposta no nível informado. Registros sem nível apresentado constam na tabela e não são posicionados no gráfico.</Text>}
+          </Section>
+        )}
+
+        {/* Logoaudiometria */}
+        {showLogo && (
+          <Section number={num('logo')} title="Logoaudiometria" wrap>
+            <DataTable
+              head={['Teste de fala', 'OD', 'OE']}
+              headColors={[undefined, OD, OE]}
+              widths={[2, 1, 1]}
+              rows={[
+                ['LRF / SRT (dB)', dash(exam.logoAudiometry?.right?.srt?.db), dash(exam.logoAudiometry?.left?.srt?.db)],
+                ['LDV / SDT (dB)', dash(exam.logoAudiometry?.right?.voiceDetection?.db), dash(exam.logoAudiometry?.left?.voiceDetection?.db)],
+                ['IPRF monossílabos (%)', dash(recognitionPercentage(exam.logoAudiometry?.right?.irf?.mono), '%'), dash(recognitionPercentage(exam.logoAudiometry?.left?.irf?.mono), '%')]
+              ]}
+            />
+            {(['right', 'left'] as const).map(ear => {
+              const logo = exam.logoAudiometry?.[ear];
+              if (!hasRecordedValue(logo)) return null;
+              return (
+                <View key={ear} style={{ marginTop: 6 }} wrap={false}>
+                  <Text style={{ fontSize: 7.5, color: ear === 'right' ? OD : OE, fontWeight: 'bold' }}>{ear === 'right' ? 'Orelha direita' : 'Orelha esquerda'}</Text>
+                  <Text style={{ fontSize: 7.5, color: MUTED }}>Idioma {logo?.language || 'não informado'}; material {logo?.materialReference || 'não informado'}; apresentação {logo?.presentation === 'recorded' ? 'gravada' : logo?.presentation === 'live' ? 'voz viva monitorada' : 'não informada'}; resposta {logo?.responseMode || 'não informada'}.</Text>
+                  {Object.entries(logo?.irf || {}).filter(([, p]) => hasRecordedValue(p)).map(([key, point]) => (
+                    <Text key={key} style={{ fontSize: 7.5, color: MUTED }}>IPRF ({key}): lista {point.listId || 'não informada'}; acertos {point.correctItems ?? '?'}/{point.totalItems ?? '?'}; {recognitionPercentage(point) ?? 'não calculável'}%; apresentação {point.db ?? '?'} dB NA; mascaramento {point.masking || 'não informado'}.</Text>
+                  ))}
+                </View>
+              );
+            })}
+            <SpeechRecognitionPdf data={exam.logoAudiometry} />
+          </Section>
+        )}
+
+        {/* Imitanciometria */}
+        {showImmitance && (
+          <Section number={num('immitance')} title="Imitanciometria">
+            <View style={S.columns}>
+              <View style={{ flex: 1, marginRight: 14 }}>
+                <Text style={S.subTitle}>Timpanometria</Text>
+                <DataTable
+                  head={['', 'OD', 'OE']}
+                  headColors={[undefined, OD, OE]}
+                  widths={[1.1, 1, 1]}
+                  rows={[
+                    ['Curva', tympLabel(rightTymp.type), tympLabel(leftTymp.type)],
+                    ['Pressão (daPa)', tympR?.curveShape === 'flat' ? 'Sem pico' : dash(tympR?.peak), tympL?.curveShape === 'flat' ? 'Sem pico' : dash(tympL?.peak)],
+                    ['Admitância', tympR?.compliance200 != null ? `${tympR.compliance200} ${tympR.admittanceUnit || '(unidade não informada)'}` : '-', tympL?.compliance200 != null ? `${tympL.compliance200} ${tympL.admittanceUnit || '(unidade não informada)'}` : '-'],
+                    ['Volume (ml)', dash(tympR?.volume), dash(tympL?.volume)],
+                    ['Sonda (Hz)', dash(tympR?.probeFrequency), dash(tympL?.probeFrequency)]
+                  ]}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={S.subTitle}>Reflexos acústicos (ipsilateral / contralateral, dB)</Text>
+                <DataTable
+                  head={['Hz', 'OD', 'OE']}
+                  headColors={[undefined, OD, OE]}
+                  widths={[0.8, 1, 1]}
+                  rows={(['500', '1000', '2000', '4000'] as const).map(freq => [
+                    freq,
+                    `${exam.reflexes?.right?.[freq]?.ipsi ?? exam.reflexes?.right?.[freq]?.limiar ?? '-'} / ${exam.reflexes?.right?.[freq]?.contra ?? '-'}`,
+                    `${exam.reflexes?.left?.[freq]?.ipsi ?? exam.reflexes?.left?.[freq]?.limiar ?? '-'} / ${exam.reflexes?.left?.[freq]?.contra ?? '-'}`
+                  ])}
+                />
+                {hasReflex && <Text style={S.note}>{reflexConventionText(exam.reflexes?.earConvention)}</Text>}
+              </View>
+            </View>
+            <TympanogramPdf right={tympR} left={tympL} />
+            {(['right', 'left'] as const).map(ear => hasRecordedValue(exam.tympanometry?.[ear]) && (
+              <Text key={ear} style={S.note}>Timpanometria {ear === 'right' ? 'OD' : 'OE'}: referência {exam.tympanometry?.[ear]?.normativeReference || 'não informada'}; observações {exam.tympanometry?.[ear]?.protocolNotes || 'não informadas'}.</Text>
+            ))}
+          </Section>
+        )}
+
+        {/* Testes complementares */}
+        {showComplementary && (
+          <Section number={num('complementary')} title="Testes audiológicos complementares">
+            {exam.complementary?.weber && <KeyValue label="Weber" value={exam.complementary.weber} />}
+            {(exam.complementary?.eoa?.right || exam.complementary?.eoa?.left) && (
+              <KeyValue label="EOA" value={`OD: ${exam.complementary?.eoa?.right || 'Não realizado'} | OE: ${exam.complementary?.eoa?.left || 'Não realizado'}${exam.complementary?.eoa?.notes ? ` (${exam.complementary.eoa.notes})` : ''}`} />
+            )}
+            {(exam.complementary?.toneDecayDetails?.right || exam.complementary?.toneDecayDetails?.left) && (
+              <KeyValue label="Tone decay" value={`OD: ${exam.complementary?.toneDecayDetails?.right || '-'} | OE: ${exam.complementary?.toneDecayDetails?.left || '-'}`} />
+            )}
+            {(exam.complementary?.sisi?.right || exam.complementary?.sisi?.left) && (
+              <KeyValue label="SISI" value={`OD: ${exam.complementary?.sisi?.right || '-'} | OE: ${exam.complementary?.sisi?.left || '-'}`} />
+            )}
+            {(exam.complementary?.bera?.right || exam.complementary?.bera?.left) && (
+              <KeyValue label="PEATE" value={`OD: ${exam.complementary?.bera?.right || '-'} | OE: ${exam.complementary?.bera?.left || '-'}${exam.complementary?.bera?.notes ? ` (${exam.complementary.bera.notes})` : ''}`} />
+            )}
+            {hasRecordedValue(exam.complementary?.eoa) && <Text style={S.note}>EOA: {exam.complementary?.eoa?.type || 'tipo não informado'}; protocolo {exam.complementary?.eoa?.protocol || 'não informado'}; qualidade {exam.complementary?.eoa?.quality || 'não informada'}.</Text>}
+            {hasRecordedValue(exam.complementary?.bera) && <Text style={S.note}>PEATE: protocolo {exam.complementary?.bera?.protocol || 'não informado'}; estímulo {exam.complementary?.bera?.stimulus || 'não informado'}; nível/unidade {exam.complementary?.bera?.levelAndUnit || 'não informado'}. Sem conversão automática nHL/eHL.</Text>}
+          </Section>
+        )}
+
+        {/* Parecer */}
+        {showOpinion && (
+          <Section number={num('opinion')} title="Parecer fonoaudiológico e conduta" wrap>
+            {(reviewed && exam.opinion?.clinicalStatus) ? <Text style={{ fontSize: 9, fontWeight: 'bold', marginBottom: 3 }}>Situação clínica: {CLINICAL_STATUS_LABELS[exam.opinion.clinicalStatus]}</Text> : null}
+            {professionalClassificationLines(exam).map(line => <Text key={line} style={{ fontSize: 8, color: '#334155' }}>{line}</Text>)}
+            {(reviewed && exam.opinion?.clinicalStatus) || professionalClassificationLines(exam).length > 0 ? <Text style={S.note}>Classificação de grau adotada: {degreeStandardLabel(exam.header?.degreeStandard)}.</Text> : null}
+            <View style={S.opinionBox}>
+              <Text style={{ fontSize: 9, lineHeight: 1.45 }}>{exam.resultAndConduct || exam.opinion?.clinical || 'Parecer não registrado.'}</Text>
+            </View>
+          </Section>
+        )}
+
+        {/* Assinatura */}
+        <View style={S.signature} wrap={false}>
+          <View style={S.signatureLine} />
+          <Text style={{ fontSize: 9, fontWeight: 'bold' }}>{examProfessional(exam, settings)}</Text>
+          <Text style={{ fontSize: 7.5, color: MUTED }}>Fonoaudiólogo(a) responsável pelo exame</Text>
+          <Text style={[S.note, { textAlign: 'center', marginTop: 8, width: 400 }]}>Validade condicionada à assinatura do fonoaudiólogo responsável (manuscrita ou eletrônica avançada/qualificada — Res. CFFa 777/2025, art. 6º).</Text>
+        </View>
       </Page>
     </Document>
   );
@@ -850,7 +836,7 @@ const AudiometryComparativePDF = ({ baseline, current, patient, settings }: { ba
             <View style={{ width: 45 }} />
           )}
           <View style={styles.headerCenter}>
-            <Text style={styles.clinicName}>{settings?.clinicName || 'Clínica de Audiologia'}</Text>
+            <Text style={styles.clinicName}>{settings?.clinicName || ''}</Text>
             <Text style={{ fontSize: 9, fontWeight: 'bold', color: '#2563eb', marginTop: 2 }}>
               LAUDO COMPARATIVO DE AUDIOMETRIA EVOLUTIVA (PCA / NR-7 ANEXO II)
             </Text>
@@ -866,9 +852,9 @@ const AudiometryComparativePDF = ({ baseline, current, patient, settings }: { ba
             <Text style={styles.label}>CPF: </Text>
             <Text style={[styles.val, { marginRight: 20 }]}>{patient.cpf || '---'}</Text>
             <Text style={styles.label}>Exame Base: </Text>
-            <Text style={[styles.val, { marginRight: 15 }]}>{baseline.examDate.split('T')[0].split('-').reverse().join('/')} ({baseline.examPurpose || 'Referencial'})</Text>
+            <Text style={[styles.val, { marginRight: 15 }]}>{baseline.examDate.split('T')[0].split('-').reverse().join('/')} ({PURPOSE_LABELS[baseline.examPurpose || ''] || 'finalidade não informada'})</Text>
             <Text style={styles.label}>Exame Atual: </Text>
-            <Text style={styles.val}>{current.examDate.split('T')[0].split('-').reverse().join('/')} ({current.examPurpose || 'Sequencial'})</Text>
+            <Text style={styles.val}>{current.examDate.split('T')[0].split('-').reverse().join('/')} ({PURPOSE_LABELS[current.examPurpose || ''] || 'finalidade não informada'})</Text>
           </View>
         </View>
 

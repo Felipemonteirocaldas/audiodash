@@ -14,6 +14,7 @@ import {
   classifyWHOGlobal,
   DegreeStandard
 } from '@/lib/audiologyCalculations';
+import { quickEntryTarget, setFreeFieldValue, type AudiogramTool } from '@/lib/examForm';
 import {
   ChevronDown,
   ChevronUp,
@@ -39,8 +40,8 @@ interface Props {
   onChangeFreeField: (data: Partial<EarTonalData>) => void;
   category?: 'clinico' | 'ocupacional';
   standard?: DegreeStandard;
-  transducer: 'supra' | 'insert';
-  onTransducerChange: (value: 'supra' | 'insert') => void;
+  transducer?: 'supra' | 'insert';
+  onTransducerChange: (value: 'supra' | 'insert' | undefined) => void;
   allowInterpretation?: boolean;
   allowDegree?: boolean;
   isChild?: boolean;
@@ -58,7 +59,7 @@ export default function TonalAudiometryExam({
   onChangeMasking,
   onChangeFreeField,
   category = 'clinico',
-  standard = 'OMS_2021',
+  standard,
   transducer,
   onTransducerChange,
   allowInterpretation = false,
@@ -69,8 +70,7 @@ export default function TonalAudiometryExam({
   protocol,
   responseType
 }: Props) {
-  type DrawingTool = 'OD_VA' | 'OD_VO' | 'OE_VA' | 'OE_VO' | 'FREE_FIELD' | null;
-  const [activeTool, setActiveTool] = useState<DrawingTool>('OD_VA');
+  const [activeTool, setActiveTool] = useState<AudiogramTool>('OD_VA');
   const [isMasked, setIsMasked] = useState(false);
   const [isNR, setIsNR] = useState(false);
   const [inputDrafts, setInputDrafts] = useState<Record<string, string>>({});
@@ -82,8 +82,8 @@ export default function TonalAudiometryExam({
   const rightPTA = useMemo(() => calculatePTA(showAverages ? tonalData.right : undefined), [tonalData.right, showAverages]);
   const leftPTA = useMemo(() => calculatePTA(showAverages ? tonalData.left : undefined), [tonalData.left, showAverages]);
 
-  const rightDegree = useMemo(() => allowDegree ? classifyDegree(rightPTA, standard, isChild) : { degree: 'Definido pelo profissional', code: 'NA' }, [rightPTA, standard, allowDegree, isChild]);
-  const leftDegree = useMemo(() => allowDegree ? classifyDegree(leftPTA, standard, isChild) : { degree: 'Definido pelo profissional', code: 'NA' }, [leftPTA, standard, allowDegree, isChild]);
+  const rightDegree = useMemo(() => allowDegree && standard ? classifyDegree(rightPTA, standard, isChild) : { degree: standard ? 'Definido pelo profissional' : 'Selecione a referência de grau', code: 'NA' }, [rightPTA, standard, allowDegree, isChild]);
+  const leftDegree = useMemo(() => allowDegree && standard ? classifyDegree(leftPTA, standard, isChild) : { degree: standard ? 'Definido pelo profissional' : 'Selecione a referência de grau', code: 'NA' }, [leftPTA, standard, allowDegree, isChild]);
   const whoGlobal = useMemo(() => allowDegree && standard === 'OMS_2021' ? classifyWHOGlobal(rightPTA, leftPTA) : null, [allowDegree, standard, rightPTA, leftPTA]);
 
   const rightType = useMemo(() => allowInterpretation ? classifyType(tonalData.right) : 'A interpretar', [tonalData.right, allowInterpretation]);
@@ -214,6 +214,22 @@ export default function TonalAudiometryExam({
       ...tonalData,
       [ear]: updatedEarData
     });
+  };
+
+  // Entrada por toque: grava na orelha/via da ferramenta ativa ou, com "Campo Livre", no campo livre.
+  const quickTarget = quickEntryTarget(activeTool);
+  const quickCurrent = () => {
+    if (!quickTarget) return undefined;
+    return quickTarget.kind === 'freeField' ? freeField?.[quickFreq]?.va : tonalData[quickTarget.ear]?.[quickFreq]?.[quickTarget.via];
+  };
+  const applyQuick = (value: string) => {
+    if (!quickTarget) return;
+    if (quickTarget.kind === 'freeField') onChangeFreeField(setFreeFieldValue(freeField, quickFreq, value));
+    else handleThresholdChange(quickTarget.ear, quickFreq, quickTarget.via, value);
+  };
+  const stepQuick = (delta: number) => {
+    const cur = quickCurrent();
+    applyQuick(String(Math.min(120, Math.max(-10, (typeof cur === 'number' ? cur : 20) + delta))));
   };
 
   const clearEarData = (ear: 'right' | 'left' | 'freeField', field?: 'va' | 'vo') => {
@@ -385,6 +401,9 @@ export default function TonalAudiometryExam({
       {(['right', 'left'] as const).map(ear => Object.entries(tonalData[ear]).map(([freq, point]) => (['va', 'vo'] as const).map(via => point[via] === 'NR' ? <label key={`${ear}-${freq}-${via}`} className="block text-xs font-semibold bg-amber-50 border border-amber-200 rounded-lg p-3">Sem resposta · {ear === 'right' ? 'OD' : 'OE'} · {freq} Hz · {via.toUpperCase()} — nível apresentado (dB NA)
         <Input type="number" min={-10} max={120} step={5} aria-label={`Nível sem resposta ${ear} ${freq} ${via}`} value={point[via === 'va' ? 'nrLevelVa' : 'nrLevelVo'] ?? ''} onChange={e => onChangeTonal({ ...tonalData, [ear]: { ...tonalData[ear], [freq]: { ...point, [via === 'va' ? 'nrLevelVa' : 'nrLevelVo']: e.target.value === '' ? undefined : Number(e.target.value) } } })} />
       </label> : null)))}
+      {Object.entries(freeField || {}).map(([freq, point]) => point.va === 'NR' ? <label key={`ff-${freq}`} className="block text-xs font-semibold bg-amber-50 border border-amber-200 rounded-lg p-3">Sem resposta · Campo livre · {freq} Hz — nível apresentado (dB NA)
+        <Input type="number" min={-10} max={120} step={5} aria-label={`Nível sem resposta campo livre ${freq}`} value={point.nrLevelVa ?? ''} onChange={e => onChangeFreeField({ ...freeField, [freq]: { ...point, nrLevelVa: e.target.value === '' ? undefined : Number(e.target.value) } })} />
+      </label> : null)}
 
       {/* Tabela de Lançamento Tonal + Audiograma Interativo */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -430,9 +449,10 @@ export default function TonalAudiometryExam({
                 <label className="text-slate-600 font-medium hidden sm:inline">Transdutor:</label>
                 <select
                   className="h-7 text-xs rounded border border-slate-300 bg-white px-2 py-0.5"
-                  value={transducer}
-                  onChange={e => onTransducerChange(e.target.value as any)}
+                  value={transducer || ''}
+                  onChange={e => onTransducerChange((e.target.value || undefined) as any)}
                 >
+                  <option value="">Selecione</option>
                   <option value="supra">Supra-aural</option>
                   <option value="insert">Inserção (registrar modelo)</option>
                 </select>
@@ -609,11 +629,9 @@ export default function TonalAudiometryExam({
                   {quickFreq} Hz • {activeTool?.replace('_', ' ')}: {' '}
                   <strong className="text-slate-800">
                     {(() => {
-                      if (!activeTool) return '--';
-                      const ear = activeTool.startsWith('OD') ? 'right' : 'left';
-                      const field = activeTool.endsWith('VA') ? 'va' : 'vo';
-                      const val = tonalData[ear]?.[quickFreq]?.[field];
-                      return val !== undefined ? `${val} dB` : 'Não lançado';
+                      if (!quickTarget) return '--';
+                      const val = quickCurrent();
+                      return val !== undefined ? `${val}${val === 'NR' ? '' : ' dB'}` : 'Não lançado';
                     })()}
                   </strong>
                 </span>
@@ -642,32 +660,14 @@ export default function TonalAudiometryExam({
                 {/* Steppers -5 / +5 */}
                 <button
                   type="button"
-                  onClick={() => {
-                    if (!activeTool) return;
-                    const isRight = activeTool.startsWith('OD');
-                    const isVA = activeTool.endsWith('VA');
-                    const ear = isRight ? 'right' : 'left';
-                    const cur = tonalData[ear]?.[quickFreq]?.[isVA ? 'va' : 'vo'];
-                    const curNum = typeof cur === 'number' ? cur : 20;
-                    const nextVal = Math.max(-10, curNum - 5);
-                    handleThresholdChange(ear, quickFreq, isVA ? 'va' : 'vo', nextVal.toString());
-                  }}
+                  onClick={() => stepQuick(-5)}
                   className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 font-bold text-xs text-slate-800 hover:bg-slate-100 shadow-sm"
                 >
                   -5 dB
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (!activeTool) return;
-                    const isRight = activeTool.startsWith('OD');
-                    const isVA = activeTool.endsWith('VA');
-                    const ear = isRight ? 'right' : 'left';
-                    const cur = tonalData[ear]?.[quickFreq]?.[isVA ? 'va' : 'vo'];
-                    const curNum = typeof cur === 'number' ? cur : 20;
-                    const nextVal = Math.min(120, curNum + 5);
-                    handleThresholdChange(ear, quickFreq, isVA ? 'va' : 'vo', nextVal.toString());
-                  }}
+                  onClick={() => stepQuick(5)}
                   className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 font-bold text-xs text-slate-800 hover:bg-slate-100 shadow-sm"
                 >
                   +5 dB
@@ -678,12 +678,7 @@ export default function TonalAudiometryExam({
                   <button
                     key={`quick-val-${val}`}
                     type="button"
-                    onClick={() => {
-                      if (!activeTool) return;
-                      const isRight = activeTool.startsWith('OD');
-                      const isVA = activeTool.endsWith('VA');
-                      handleThresholdChange(isRight ? 'right' : 'left', quickFreq, isVA ? 'va' : 'vo', val.toString());
-                    }}
+                    onClick={() => applyQuick(val.toString())}
                     className="px-2 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors shadow-xs"
                   >
                     {val}
@@ -693,12 +688,7 @@ export default function TonalAudiometryExam({
                 {/* NR */}
                 <button
                   type="button"
-                  onClick={() => {
-                    if (!activeTool) return;
-                    const isRight = activeTool.startsWith('OD');
-                    const isVA = activeTool.endsWith('VA');
-                    handleThresholdChange(isRight ? 'right' : 'left', quickFreq, isVA ? 'va' : 'vo', 'NR');
-                  }}
+                  onClick={() => applyQuick('NR')}
                   className="px-2.5 py-1.5 rounded-lg bg-red-100 text-red-800 border border-red-200 font-bold text-xs hover:bg-red-200"
                 >
                   NR
@@ -707,12 +697,7 @@ export default function TonalAudiometryExam({
                 {/* Limpar ponto */}
                 <button
                   type="button"
-                  onClick={() => {
-                    if (!activeTool) return;
-                    const isRight = activeTool.startsWith('OD');
-                    const isVA = activeTool.endsWith('VA');
-                    handleThresholdChange(isRight ? 'right' : 'left', quickFreq, isVA ? 'va' : 'vo', '');
-                  }}
+                  onClick={() => applyQuick('')}
                   className="px-2.5 py-1.5 rounded-lg bg-slate-200 text-slate-700 font-semibold text-xs hover:bg-slate-300"
                 >
                   Limpar

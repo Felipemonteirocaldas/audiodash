@@ -5,7 +5,6 @@ import {
   WifiOff, 
   Database, 
   UserCheck, 
-  Zap, 
   ShieldCheck, 
   Download,
   BarChart3,
@@ -62,13 +61,6 @@ export default function BentoGridSection() {
                   <span className="text-xs font-bold text-slate-900">Automáticas</span>
                 </div>
               </div>
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
-                <Zap className="w-5 h-5 text-amber-600" />
-                <div>
-                  <span className="text-[11px] text-slate-500 block">Tempo Médio</span>
-                  <span className="text-xs font-bold text-slate-900">3 Min / Exame</span>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -108,7 +100,7 @@ export default function BentoGridSection() {
                 <span className="text-xs font-bold uppercase tracking-wider text-sky-600">Documentação Profissional</span>
                 <h3 className="text-xl font-extrabold text-slate-900 mt-1">Laudos em PDF</h3>
                 <p className="text-sm text-slate-600 mt-2">
-                  Imprima ou exporte laudos formatados com o timbre da sua clínica, carimbo do CFFa e gráficos em alta resolução.
+                  Imprima ou exporte laudos formatados com o timbre e identificação da sua clínica, nome e CRFa do profissional e o audiograma registrado no exame.
                 </p>
               </div>
             </div>

@@ -19,7 +19,7 @@ export default function BeforeAfterSection() {
       new: "Armazenamento em nuvem com conexão criptografada e backup manual exportável",
     },
     {
-      old: "Gastar de 30 a 45 minutos por laudo emitido após a consulta com o paciente",
+      old: "Redigir o laudo do zero depois da consulta, a partir de anotações soltas",
       new: "Registro estruturado e exportação em PDF ao final da avaliação, com revisão profissional",
     },
   ];

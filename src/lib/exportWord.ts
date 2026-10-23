@@ -3,6 +3,8 @@ import { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, Align
 import { saveAs } from 'file-saver';
 import { Audiometry, Patient, db, TonalFrequency, TympanometryData } from '@/db/db';
 import { calculatePTA, classifyTympanometry, degreeStandardLabel } from '@/lib/audiologyCalculations';
+import { letterheadLines } from '@/lib/letterhead';
+import { ENT_REFERRAL_TEXT, meatoscopyText } from '@/lib/examForm';
 import { customAlert } from '@/lib/dialogs';
 
 const tympWordLabel = (data: TympanometryData | undefined, type: string) => type === 'Inconclusivo' ? `Classificação: ${data?.recordedType ? 'incompleta ou incompatível com a sonda' : 'não registrada'}` : type === 'Normal' || type === 'Alterada' ? `Curva ${type.toLowerCase()}` : `Tipo ${type === 'As' ? 'As (Ar)' : type}`;
@@ -19,6 +21,12 @@ export const exportToDocx = async (exam: Audiometry, patient: Patient) => {
     const rightTymp = classifyTympanometry(exam.tympanometry?.right);
     const leftTymp = classifyTympanometry(exam.tympanometry?.left);
 
+    const letterhead = letterheadLines(settings);
+    const letterheadParagraphs = [letterhead.legal, letterhead.address, letterhead.contact].filter(Boolean).map(text => new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children: [new TextRun({ text, size: 18, color: '475569' })]
+    }));
+
     const doc = new Document({
       sections: [
         {
@@ -30,13 +38,14 @@ export const exportToDocx = async (exam: Audiometry, patient: Patient) => {
               alignment: AlignmentType.CENTER,
               children: [
                 new TextRun({
-                  text: settings?.clinicName || 'CLÍNICA DE FONOAUDIOLOGIA E AUDIOLOGIA',
+                  text: settings?.clinicName || '',
                   bold: true,
                   size: 28,
                   color: '1E3A8A'
                 })
               ]
             }),
+            ...letterheadParagraphs,
             new Paragraph({
               alignment: AlignmentType.CENTER,
               children: [
@@ -52,7 +61,7 @@ export const exportToDocx = async (exam: Audiometry, patient: Patient) => {
               spacing: { after: 300 },
               children: [
                 new TextRun({
-                  text: 'LAUDO AUDIOLÓGICO OFICIAL',
+                  text: 'AVALIAÇÃO AUDIOLÓGICA',
                   bold: true,
                   size: 22,
                   color: '2563EB'
@@ -83,12 +92,12 @@ export const exportToDocx = async (exam: Audiometry, patient: Patient) => {
                 new TextRun({ text: 'Data do Exame: ', bold: true }),
                 new TextRun({ text: `${exam.examDate ? exam.examDate.split('T')[0].split('-').reverse().join('/') : '---'}    ` }),
                 new TextRun({ text: 'Propósito: ', bold: true }),
-                new TextRun({ text: `${exam.examPurpose || 'Referencial'}` })
+                new TextRun({ text: `${exam.examPurpose || 'não informada'}` })
               ]
             }),
 
             // Meatoscopia se houver
-            ...(exam.meatoscopy?.right || exam.meatoscopy?.left ? [
+            ...(exam.meatoscopy?.right || exam.meatoscopy?.left || exam.meatoscopy?.rightDescription || exam.meatoscopy?.leftDescription || exam.meatoscopy?.referToENT ? [
               new Paragraph({
                 heading: HeadingLevel.HEADING_2,
                 children: [new TextRun({ text: '2. Inspeção do Meato Acústico Externo (Meatoscopia)', bold: true, size: 22, color: '1E3A8A' })]
@@ -97,9 +106,10 @@ export const exportToDocx = async (exam: Audiometry, patient: Patient) => {
                 spacing: { after: 200 },
                 children: [
                   new TextRun({ text: 'OD: ', bold: true, color: 'DC2626' }),
-                  new TextRun({ text: `${exam.meatoscopy?.rightDescription || exam.meatoscopy?.right || 'Não realizado'}\n` }),
-                  new TextRun({ text: 'OE: ', bold: true, color: '2563EB' }),
-                  new TextRun({ text: `${exam.meatoscopy?.leftDescription || exam.meatoscopy?.left || 'Não realizado'}` })
+                  new TextRun({ text: meatoscopyText(exam.meatoscopy, 'right') }),
+                  new TextRun({ text: 'OE: ', bold: true, color: '2563EB', break: 1 }),
+                  new TextRun({ text: meatoscopyText(exam.meatoscopy, 'left') }),
+                  ...(exam.meatoscopy?.referToENT ? [new TextRun({ text: ENT_REFERRAL_TEXT, break: 1 })] : [])
                 ]
               })
             ] : []),

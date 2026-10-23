@@ -112,6 +112,7 @@ export function getReviewIssues(exam: Partial<Audiometry>): string[] {
   if (!exam.patientId) issues.push('Selecione o paciente.');
   if (!exam.examDate || !ageAtExam(exam.examDate, exam.examDate) || exam.examDate > localDate()) issues.push('Informe uma data de exame válida, até hoje.');
   if (!exam.header?.speechTherapist?.trim()) issues.push('Identifique o profissional responsável e o CRFa.');
+  if (!exam.header?.transducer) issues.push('Informe o transdutor utilizado (supra-aural ou inserção).');
   if (!exam.header?.degreeStandard) issues.push('Selecione a referência de classificação utilizada neste exame.');
   if (!exam.header?.assessmentMethod || !exam.header?.responseType || !exam.header?.reliability) issues.push('Informe método, tipo de resposta e confiabilidade.');
   if (!exam.resultAndConduct?.trim()) issues.push('Redija ou revise o parecer e a conduta.');

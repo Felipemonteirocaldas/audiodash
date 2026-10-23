@@ -141,7 +141,7 @@ export default function CompareExams() {
                 <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
                   <div>
                     <p className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">Propósito</p>
-                    <p className="text-sm text-slate-700 font-medium capitalize">{baseline.examPurpose || 'Referencial'}</p>
+                    <p className="text-sm text-slate-700 font-medium capitalize">{baseline.examPurpose || 'não informada'}</p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">Fonoaudiólogo</p>
@@ -166,7 +166,7 @@ export default function CompareExams() {
                 <div className="grid grid-cols-2 gap-4 pt-4 border-t border-indigo-100/60">
                   <div>
                     <p className="text-xs text-indigo-400 uppercase font-bold tracking-wider mb-1">Propósito</p>
-                    <p className="text-sm text-indigo-900 font-medium capitalize">{current.examPurpose || 'Sequencial'}</p>
+                    <p className="text-sm text-indigo-900 font-medium capitalize">{current.examPurpose || 'não informada'}</p>
                   </div>
                   <div>
                     <p className="text-xs text-indigo-400 uppercase font-bold tracking-wider mb-1">Fonoaudiólogo</p>

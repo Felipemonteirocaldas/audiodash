@@ -1,6 +1,6 @@
 import { assessRetest1000 } from '@/lib/clinicalProtocol';
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { db, Audiometry } from '@/db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,7 +17,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { syncManager } from '@/lib/syncManager';
-import { customAlert } from '@/lib/dialogs';
+import { customAlert, customConfirm } from '@/lib/dialogs';
 import { useAuth } from '@/contexts/AuthContext';
 
 // Importação dos Componentes Modulares Especializados de Exame
@@ -33,7 +33,7 @@ import { ageAtExam, localDate, CLINICAL_RULES_VERSION, isReviewCurrent, adultTab
 import { DEGREE_STANDARD_LABELS } from '@/lib/audiologyCalculations';
 
 const createEmptyExam = (): Partial<Audiometry> => ({
-    header: { audiometer: '', impedanciometer: '', requestingPhysician: '', speechTherapist: '', degreeStandard: 'OMS_2021', transducer: 'supra', assessmentMethod: '', responseType: '', reliability: '', clinicalRulesVersion: CLINICAL_RULES_VERSION },
+    header: { audiometer: '', impedanciometer: '', requestingPhysician: '', speechTherapist: '', assessmentMethod: '', responseType: '', reliability: '', clinicalRulesVersion: CLINICAL_RULES_VERSION },
     tonalData: { right: {}, left: {} },
     tonalMasking: { right: {}, left: {} },
     logoAudiometry: {
@@ -43,7 +43,7 @@ const createEmptyExam = (): Partial<Audiometry> => ({
     tympanometry: { right: {}, left: {} },
     reflexes: { right: {}, left: {}, sondaOD: '', sondaOE: '' },
     resultAndConduct: '',
-    examPurpose: 'referencial',
+    examPurpose: undefined,
     examCategory: 'clinico',
     freeField: {},
     meatoscopy: { right: '', left: '', rightDescription: '', leftDescription: '' },
@@ -76,6 +76,7 @@ export default function NewExam() {
   useEffect(() => {
     let cancelled = false;
     setLoadError('');
+    setDirty(false);
     if (examId) {
       db.audiometries.get(examId).then(existingExam => {
         if (cancelled) return;
@@ -101,13 +102,28 @@ export default function NewExam() {
     return () => { cancelled = true; };
   }, [examId, patientId]);
 
+  // Alterações feitas pelo profissional desde o último carregamento/salvamento (o preenchimento automático do profissional não conta).
+  const [dirty, setDirty] = useState(false);
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
+  const goToExams = async () => {
+    if (dirty && !await customConfirm('Há alterações neste exame que ainda não foram salvas. Sair e descartá-las?', 'Alterações não salvas', 'Sair sem salvar', 'Continuar editando')) return;
+    navigate('/exames');
+  };
+
   const updateExam = (patch: Partial<Audiometry>) => {
     setExam(previous => ({ ...previous, ...patch }));
     setSaveStatus('idle');
+    setDirty(true);
   };
   const updateHeader = (patch: Partial<Audiometry['header']>) => {
     setExam(previous => ({ ...previous, header: { ...previous.header, ...patch, clinicalRulesVersion: CLINICAL_RULES_VERSION } }));
     setSaveStatus('idle');
+    setDirty(true);
   };
   const reviewExam = { ...exam, patientId: selectedPatientId, examDate };
   const eligibility = adultTablesEligibility(exam.header, patientAge);
@@ -141,6 +157,7 @@ export default function NewExam() {
 
       setSaveStatus('success');
       setExam(examData);
+      setDirty(false);
       if (!examId) navigate(`/exame/${examData.id}`, { replace: true });
     } catch (e) {
       console.error(e);
@@ -196,6 +213,13 @@ export default function NewExam() {
       >
         <FileSpreadsheet className="w-4 h-4 text-emerald-600" /> Excel
       </Button>
+      <Button
+        variant="outline"
+        onClick={() => handleExport('docx')}
+        className="gap-2 rounded-xl border-slate-200 hover:bg-slate-50 h-10 font-semibold"
+      >
+        <FileText className="w-4 h-4 text-blue-600" /> Word
+      </Button>
     </div>
   );
 
@@ -206,11 +230,9 @@ export default function NewExam() {
       {/* Cabeçalho Superior */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-3">
-          <Link to="/exames">
-            <Button variant="outline" size="sm" className="gap-2 h-9 rounded-xl border-slate-200">
-              <ArrowLeft className="w-4 h-4" /> Exames
-            </Button>
-          </Link>
+          <Button variant="outline" size="sm" onClick={goToExams} className="gap-2 h-9 rounded-xl border-slate-200">
+            <ArrowLeft className="w-4 h-4" /> Exames
+          </Button>
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-800">
               {examId ? 'Editar Exame Audiológico' : 'Novo Exame Audiológico'}
@@ -235,7 +257,7 @@ export default function NewExam() {
               <select
                 className="flex h-9 w-full rounded-lg border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 value={selectedPatientId}
-                onChange={e => setSelectedPatientId(e.target.value)}
+                onChange={e => { setSelectedPatientId(e.target.value); setDirty(true); setSaveStatus('idle'); }}
               >
                 <option value="">-- Selecione o paciente cadastrado --</option>
                 {patients?.filter(p => !p.archivedAt || p.id === selectedPatientId).map(p => (
@@ -260,7 +282,7 @@ export default function NewExam() {
                   type="date"
                   className="h-8 text-xs bg-white"
                   value={examDate}
-                  onChange={e => setExamDate(e.target.value)}
+                  onChange={e => { setExamDate(e.target.value); setDirty(true); setSaveStatus('idle'); }}
                 />
               </div>
 
@@ -268,9 +290,10 @@ export default function NewExam() {
                 <label className="text-xs font-semibold text-slate-700 block mb-1">Propósito</label>
                 <select
                   className="flex h-8 w-full rounded-lg border border-slate-300 bg-white px-2 py-0 text-xs font-medium text-slate-800"
-                  value={exam.examPurpose || 'referencial'}
-                  onChange={e => updateExam({ examPurpose: e.target.value as any })}
+                  value={exam.examPurpose || ''}
+                  onChange={e => updateExam({ examPurpose: (e.target.value || undefined) as any })}
                 >
+                  <option value="">Não informado</option>
                   <option value="referencial">Referencial</option>
                   <option value="sequencial">Sequencial</option>
                   <option value="admissional">Admissional</option>
@@ -465,8 +488,8 @@ export default function NewExam() {
               tonalMasking={exam.tonalMasking}
               freeField={exam.freeField}
               category={exam.examCategory}
-              standard={exam.header?.degreeStandard || 'OMS_2021'}
-              transducer={exam.header?.transducer || 'supra'}
+              standard={exam.header?.degreeStandard}
+              transducer={exam.header?.transducer}
               onTransducerChange={transducer => updateHeader({ transducer })}
               protocol={exam.header?.audiometryProtocol || undefined}
               showAverages={exam.header?.responseType === 'threshold'}
@@ -551,11 +574,9 @@ export default function NewExam() {
 
       {/* Barra Flutuante de Ação no Mobile */}
       <div className="fixed bottom-0 left-0 right-0 p-3 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-lg z-30 flex lg:hidden items-center justify-between gap-2">
-        <Link to="/exames" className="shrink-0">
-          <Button variant="outline" size="sm" className="h-10 px-3 rounded-xl border-slate-300">
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-        </Link>
+        <Button variant="outline" size="sm" onClick={goToExams} aria-label="Voltar para Exames" className="shrink-0 h-10 px-3 rounded-xl border-slate-300">
+          <ArrowLeft className="w-4 h-4" />
+        </Button>
         <Button
           variant="outline"
           onClick={() => handleExport('pdf')}

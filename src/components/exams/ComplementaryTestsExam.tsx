@@ -2,6 +2,7 @@ import ClinicalEvidence from './ClinicalEvidence';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ComplementaryTests, EarTonalData } from '@/db/db';
+import { updateWeber } from '@/lib/examForm';
 interface Props {
   complementary?: ComplementaryTests;
   tonalData?: {
@@ -21,25 +22,8 @@ export default function ComplementaryTestsExam({ complementary, onChange }: Prop
     });
   };
 
-  const updateWeberFreq = (freq: '500' | '1000' | '2000' | '4000', val: any) => {
-    const updatedFreqs = {
-      ...(current.weberFreqs || {}),
-      [freq]: val
-    };
-    
-    // Auto-generate text summary
-    const values = Object.entries(updatedFreqs).filter(([_, v]) => v);
-    let summary = '';
-    if (values.length > 0) {
-      summary = values.map(([f, v]) => `${f}Hz: ${v === 'indiferente' ? 'Indiferente' : v === 'od' ? 'Lateralizado para OD' : 'Lateralizado para OE'}`).join(' | ');
-    }
-
-    onChange({
-      ...current,
-      weberFreqs: updatedFreqs,
-      weber: summary
-    });
-  };
+  // O texto do Weber só é regenerado se estiver vazio ou ainda igual ao resumo automático.
+  const updateWeberFreq = (freq: '500' | '1000' | '2000' | '4000', val: '' | 'indiferente' | 'od' | 'oe') => onChange(updateWeber(current, freq, val));
 
   return (
     <div className="space-y-6">
@@ -63,7 +47,7 @@ export default function ComplementaryTestsExam({ complementary, onChange }: Prop
                   <select
                     className="w-full text-xs rounded border border-slate-300 bg-white p-1"
                     value={current.weberFreqs?.[freq] || ''}
-                    onChange={e => updateWeberFreq(freq, e.target.value)}
+                    onChange={e => updateWeberFreq(freq, e.target.value as '' | 'indiferente' | 'od' | 'oe')}
                   >
                     <option value="">Selecione...</option>
                     <option value="indiferente">Indiferente (Central)</option>

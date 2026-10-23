@@ -212,7 +212,7 @@ export default function StapedialReflexExam({ reflexes, tonalData, onChange }: P
               <tr className="bg-slate-50/80 border-t border-slate-200">
                 <td colSpan={5} className="p-3 border-r border-slate-200">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-red-700 shrink-0">Sonda no Direito:</span>
+                    <span className="text-xs font-semibold text-red-700 shrink-0">Observações OD:</span>
                     <Input
                       className="h-8 text-xs bg-white flex-1"
                       placeholder="Condições de pesquisa e observações"
@@ -223,7 +223,7 @@ export default function StapedialReflexExam({ reflexes, tonalData, onChange }: P
                 </td>
                 <td colSpan={4} className="p-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-blue-700 shrink-0">Sonda no Esquerdo:</span>
+                    <span className="text-xs font-semibold text-blue-700 shrink-0">Observações OE:</span>
                     <Input
                       className="h-8 text-xs bg-white flex-1"
                       placeholder="Condições de pesquisa e observações"

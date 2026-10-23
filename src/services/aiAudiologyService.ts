@@ -1,6 +1,7 @@
 import { recognitionPercentage } from '@/lib/clinicalProtocol';
 import type { Audiometry, AudiologicalOpinion } from '@/db/db';
 import { calculatePTA, classifyDegree, classifyType, classifyConfiguration, classifyWHOGlobal, assessNR7Audiogram, degreeStandardLabel } from '@/lib/audiologyCalculations';
+import { ENT_REFERRAL_TEXT, meatoscopyText } from '@/lib/examForm';
 import { formatTonalValue, hasRecordedValue, adultTablesEligibility, degreeEligibility } from '@/lib/examIntegrity';
 
 /** Local deterministic summary; conduct is supplied by the responsible clinician. */
@@ -31,7 +32,7 @@ export function generateLocalClinicalReport(exam: Partial<Audiometry>, patientAg
       lines.push(`Sugestão descritiva de grau (referência pediátrica): ${degree.degree}. Tipo e configuração definidos pelo profissional; integrar com os demais procedimentos (cross-check).`);
     }
     if (exam.examCategory === 'ocupacional') lines.push(`NR-7, Anexo II (análise descritiva): ${assessNR7Audiogram(data).reason}`);
-    if (exam.meatoscopy?.[ear]) lines.push(`Inspeção: ${exam.meatoscopy[ear]}. ${ear === 'right' ? exam.meatoscopy.rightDescription || '' : exam.meatoscopy.leftDescription || ''}`);
+    if (exam.meatoscopy?.[ear] || (ear === 'right' ? exam.meatoscopy?.rightDescription : exam.meatoscopy?.leftDescription)?.trim()) lines.push(`Inspeção: ${meatoscopyText(exam.meatoscopy, ear)}.`);
     const logo = exam.logoAudiometry?.[ear];
     if (hasRecordedValue(logo?.srt?.db)) lines.push(`LRF: ${logo!.srt.db} dB NA.`);
     if (hasRecordedValue(logo?.voiceDetection?.db)) lines.push(`LDV: ${logo!.voiceDetection.db} dB NA.`);
@@ -45,6 +46,7 @@ export function generateLocalClinicalReport(exam: Partial<Audiometry>, patientAg
       if (hasRecordedValue(point)) lines.push(`Reflexo ${freq} Hz (${label}${exam.reflexes?.earConvention === 'stimulated' ? ', orelha estimulada' : exam.reflexes?.earConvention === 'probe' ? ', orelha da sonda' : ', convenção da coluna não informada'}): ipsi ${point.ipsi ?? point.limiar ?? 'não informado'}, contra ${point.contra ?? 'não informado'}; decay ${point.decay ?? 'não informado'}.`);
     }
   }
+  if (exam.meatoscopy?.referToENT) lines.push(ENT_REFERRAL_TEXT);
   if (degreeCheck.eligible && standard === 'OMS_2021') lines.push(`Classificação global (OMS 2021, melhor orelha): ${classifyWHOGlobal(calculatePTA(exam.tonalData?.right), calculatePTA(exam.tonalData?.left)).label}`);
   if (hasRecordedValue(exam.freeField)) {
     lines.push(`CAMPO LIVRE: ${header.freeFieldCondition || 'condição não informada'}. Resultados sem atribuição de lateralidade.`);

@@ -1,5 +1,6 @@
 import { isReviewCurrent } from '@/lib/examIntegrity';
 import { examStatus } from '@/lib/clinicalOverview';
+import { matchesExamSearch, visibleExams } from '@/lib/examForm';
 import { customAlert } from '@/lib/dialogs';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -38,10 +39,14 @@ export default function Exams() {
   const allExams = useLiveQuery(() => db.audiometries.orderBy('examDate').reverse().toArray(), []);
   const allPatients = useLiveQuery(() => db.patients.orderBy('name').toArray(), []);
 
+  // Pacientes arquivados e seus exames ficam fora das listas desta tela (restauráveis em Pacientes).
+  const { visible: listedExams, hiddenArchived } = useMemo(() => visibleExams(allExams || [], allPatients || []), [allExams, allPatients]);
+  const activePatients = useMemo(() => (allPatients || []).filter(p => !p.archivedAt), [allPatients]);
+
   // Map patient names and phones to all exams for unified listing
   const enrichedExams = useMemo(() => {
     if (!allExams || !allPatients) return [];
-    return allExams.map((exam) => {
+    return listedExams.map((exam) => {
       const patient = allPatients.find((p) => p.id === exam.patientId);
       return {
         ...exam,
@@ -51,19 +56,14 @@ export default function Exams() {
         patient
       };
     });
-  }, [allExams, allPatients]);
+  }, [allExams, allPatients, listedExams]);
 
   // Filtered all exams list
   const filteredAllExams = useMemo(() => {
     return enrichedExams.filter((exam) => {
       const matchesCategory =
         categoryFilter === 'todos' || exam.examCategory === categoryFilter;
-      const matchesSearch =
-        searchTerm === '' ||
-        exam.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        exam.patientCpf.includes(searchTerm) ||
-        (exam.examDate && exam.examDate.includes(searchTerm)) ||
-        (exam.opinion?.clinical && exam.opinion.clinical.toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchesSearch = matchesExamSearch({ patientName: exam.patientName, patientCpf: exam.patientCpf, examDate: exam.examDate, synthesis: exam.opinion?.clinical }, searchTerm);
       return matchesCategory && matchesSearch;
     });
   }, [enrichedExams, categoryFilter, searchTerm]);
@@ -82,17 +82,17 @@ export default function Exams() {
 
   const fusePatients = useMemo(
     () =>
-      new Fuse(allPatients || [], {
+      new Fuse(activePatients, {
         keys: ['name', 'cpf'],
         threshold: 0.3
       }),
-    [allPatients]
+    [activePatients]
   );
 
   const searchPatientResults = useMemo(() => {
-    if (!patientSearchTerm) return allPatients || [];
+    if (!patientSearchTerm) return activePatients;
     return fusePatients.search(patientSearchTerm).map((result) => result.item);
-  }, [patientSearchTerm, fusePatients, allPatients]);
+  }, [patientSearchTerm, fusePatients, activePatients]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -154,7 +154,7 @@ export default function Exams() {
             }`}
           >
             <ListFilter className="w-4 h-4" />
-            <span>Todos os Exames ({allExams?.length || 0})</span>
+            <span>Todos os Exames ({listedExams.length})</span>
           </button>
           <button
             onClick={() => setActiveTab('by_patient')}
@@ -240,6 +240,11 @@ export default function Exams() {
           </CardHeader>
 
           <CardContent className="p-0">
+            {hiddenArchived > 0 && (
+              <p className="px-5 py-2.5 text-xs text-slate-600 border-b border-slate-100">
+                {hiddenArchived === 1 ? '1 exame de paciente arquivado não aparece nesta lista' : `${hiddenArchived} exames de pacientes arquivados não aparecem nesta lista`}. Para consultá-los, restaure o paciente em <Link to="/pacientes" className="font-semibold text-[#0071e3] hover:underline">Pacientes</Link>.
+              </p>
+            )}
             <div className="divide-y divide-slate-100">
               {filteredAllExams.map((exam) => {
                 const isSelected = selectedExams.includes(exam.id);
@@ -316,9 +321,8 @@ export default function Exams() {
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          if (exam.patient) {
-                            setPdfModalData({ exam, patient: exam.patient });
-                          }
+                          if (exam.patient) setPdfModalData({ exam, patient: exam.patient });
+                          else customAlert('O paciente deste exame não foi encontrado no cadastro. Não é possível gerar o PDF sem a identificação do paciente.');
                         }}
                         className="gap-1.5 bg-white text-rose-700 hover:bg-rose-50 border-rose-200 text-xs rounded-xl h-9 cursor-pointer"
                       >

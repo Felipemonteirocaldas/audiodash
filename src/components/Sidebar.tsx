@@ -25,8 +25,8 @@ export function Sidebar() {
   const settings = useLiveQuery(() => db.settings.toCollection().first(), []);
   const { isOnline, syncStatus, lastError } = useSyncStatus();
 
-  const professionalName = settings?.professionalName || 'Dra. Fonoaudióloga';
-  const clinicName = settings?.clinicName || 'Clínica Auditiva';
+  const professionalName = settings?.professionalName || 'Profissional não cadastrado';
+  const clinicName = settings?.clinicName || 'Complete o cadastro em Configurações';
 
   const daysLeft = useMemo(() => {
     if (!user?.subscriptionEndDate) return null;
@@ -34,13 +34,14 @@ export function Sidebar() {
   }, [user?.subscriptionEndDate]);
 
   const initials = useMemo(() => {
+    if (!settings?.professionalName) return '?';
     return professionalName
       .split(' ')
       .filter(word => word.length > 0)
       .map(word => word[0].toUpperCase())
       .slice(0, 2)
       .join('');
-  }, [professionalName]);
+  }, [professionalName, settings?.professionalName]);
 
   const getSyncBadge = () => {
     if (!isOnline) {

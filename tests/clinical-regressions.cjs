@@ -524,3 +524,240 @@ test('Exportações usam o profissional do exame e incluem a classificação reg
   assert.deepEqual(integrity.professionalClassificationLines(exam), ['OD — tipo: Neurossensorial; grau: Grau leve (OMS 2021)', 'OE — configuração: Descendente']);
   assert.deepEqual(integrity.professionalClassificationLines(fixture()), []);
 });
+
+test('painel: motivo da revisão distingue nunca revisado, editado e regras atualizadas', () => {
+  assert.equal(overview.reviewState(fixture()), 'never');
+  assert.equal(overview.reviewState(review(fixture())), 'current');
+  const reviewed = review(fixture());
+  assert.equal(overview.reviewState({ ...reviewed, resultAndConduct: 'Texto alterado depois da revisão.' }), 'edited');
+  const old = review({ ...fixture(), header: { ...fixture().header, clinicalRulesVersion: '2026-01-01.0' } });
+  assert.equal(overview.reviewState(old), 'rules');
+  assert.equal(overview.reviewState({ ...old, resultAndConduct: 'Também editado.' }), 'edited');
+});
+
+test('painel: períodos e comparação anterior com datas de fronteira', () => {
+  assert.deepEqual({ ...overview.periodRange('today', '2026-10-21') }, { from: '2026-10-21', to: '2026-10-21' });
+  assert.deepEqual({ ...overview.periodRange('month', '2026-10-21') }, { from: '2026-10-01', to: '2026-10-21' });
+  assert.deepEqual({ ...overview.periodRange('30d', '2026-10-21') }, { from: '2026-09-22', to: '2026-10-21' });
+  assert.equal(overview.periodRange('all', '2026-10-21'), null);
+  const prev = (period, today, custom) => ({ ...overview.previousRange(period, overview.periodRange(period, today, custom), today) });
+  assert.deepEqual(prev('today', '2026-03-01'), { from: '2026-02-28', to: '2026-02-28' });
+  assert.deepEqual(prev('month', '2026-10-21'), { from: '2026-09-01', to: '2026-09-21' });
+  assert.deepEqual(prev('month', '2026-03-31'), { from: '2026-02-01', to: '2026-02-28' });
+  assert.deepEqual(prev('month', '2026-01-15'), { from: '2025-12-01', to: '2025-12-15' });
+  assert.deepEqual(prev('30d', '2026-10-21'), { from: '2026-08-23', to: '2026-09-21' });
+  assert.deepEqual(prev('year', '2026-10-21'), { from: '2025-01-01', to: '2025-10-21' });
+  assert.deepEqual(prev('custom', '2026-10-21', { from: '2026-10-10', to: '2026-10-19' }), { from: '2026-09-30', to: '2026-10-09' });
+  assert.equal(overview.previousRange('all', null, '2026-10-21'), null);
+  assert.equal(overview.previousRange('custom', overview.periodRange('custom', '2026-10-21', { from: '2026-10-10' }), '2026-10-21'), null);
+  assert.deepEqual({ ...overview.periodRange('custom', '2026-10-21', { from: '2026-10-19', to: '2026-10-10' }) }, { from: '2026-10-10', to: '2026-10-19' });
+});
+
+test('painel: arquivados fora dos totais, agenda restante e público por idade no exame', () => {
+  const patients = [
+    { id: 'adult', birthDate: '1990-01-01' },
+    { id: 'child', birthDate: '2018-05-05' },
+    { id: 'old', birthDate: '1950-01-01', archivedAt: 1 },
+    { id: 'nodate', birthDate: '' }
+  ];
+  const exam = (id, patientId, examDate, reviewedExam) => { const base = { ...fixture(), id, patientId, examDate }; return reviewedExam ? review(base) : base; };
+  const exams = [exam('e1', 'adult', '2026-10-20', true), exam('e2', 'child', '2026-10-15', false), exam('e3', 'old', '2026-10-10', true), exam('e4', 'adult', '2026-09-10', false), exam('e5', 'nodate', '2026-10-12', false)];
+  const appt = (id, date, time, status) => ({ id, date, time, status, patientName: `P${id}`, type: 'Audiometria' });
+  const appointments = [appt('1', '2026-10-21', '08:00', 'completed'), appt('2', '2026-10-21', '09:00', 'scheduled'), appt('3', '2026-10-21', '14:00', 'scheduled'), appt('4', '2026-10-21', '11:00', 'canceled'), appt('5', '2026-10-22', '09:00', 'scheduled')];
+  const now = new Date(2026, 9, 21, 10, 0);
+  const all = overview.buildDashboardOverview({ patients, exams, appointments, now, period: 'month', population: 'all', pendingSync: 3 });
+  assert.equal(all.activePatients, 3); assert.equal(all.archivedPatients, 1);
+  assert.deepEqual(all.filtered.map(e => e.id).sort(), ['e1', 'e2', 'e5']);
+  assert.equal(all.counts.normal, 1); assert.equal(all.counts.draft, 2); assert.equal(all.review.never, 2);
+  assert.equal(all.previousCount, 1);
+  assert.deepEqual({ ...all.agenda }, { total: 3, scheduled: 2, completed: 1, late: 1 });
+  assert.equal(all.next.id, '3');
+  const ids = all.alerts.map(a => a.id);
+  assert.ok(ids.includes('late') && ids.includes('sync') && ids.includes('calibration'));
+  assert.match(all.alerts.find(a => a.id === 'calibration').title, /^3 exames/);
+  const children = overview.buildDashboardOverview({ patients, exams, appointments, now, period: 'month', population: 'children' });
+  assert.deepEqual(children.filtered.map(e => e.id), ['e2']);
+  assert.equal(children.excludedNoBirthDate, 1);
+  const adults = overview.buildDashboardOverview({ patients, exams, appointments, now, period: 'month', population: 'adults' });
+  assert.deepEqual(adults.filtered.map(e => e.id), ['e1']);
+});
+
+test('painel: alertas de assinatura e data por extenso em português', () => {
+  const now = new Date(2026, 9, 21, 10, 0);
+  const base = { patients: [], exams: [], appointments: [], now, period: 'month', population: 'all' };
+  assert.equal(overview.buildDashboardOverview({ ...base, subscription: { status: 'past_due' } }).alerts[0].level, 'danger');
+  const soon = overview.buildDashboardOverview({ ...base, subscription: { status: 'active', endDate: now.getTime() + 2 * 86400000 } }).alerts[0];
+  assert.match(soon.title, /2 dias/);
+  assert.equal(overview.buildDashboardOverview({ ...base, subscription: { status: 'active', endDate: now.getTime() + 30 * 86400000 } }).alerts.length, 0);
+  assert.equal(load('src/lib/dateLabels.ts').formatLongDatePt(now), 'Quarta-feira, 21 de outubro');
+});
+
+const validation = load('src/lib/settingsValidation.ts');
+test('configurações: CPF e CNPJ conferem os dígitos verificadores (valores de referência independentes)', () => {
+  assert.equal(validation.isValidCPF('529.982.247-25'), true);
+  assert.equal(validation.isValidCPF('52998224725'), true);
+  assert.equal(validation.isValidCPF('529.982.247-26'), false);
+  assert.equal(validation.isValidCPF('111.111.111-11'), false);
+  assert.equal(validation.isValidCPF('123'), false);
+  assert.equal(validation.isValidCNPJ('11.222.333/0001-81'), true);
+  assert.equal(validation.isValidCNPJ('11.222.333/0001-82'), false);
+  assert.equal(validation.isValidCNPJ('00000000000000'), false);
+});
+test('configurações: máscaras progressivas e limites', () => {
+  assert.equal(validation.formatCPF('52998224725'), '529.982.247-25');
+  assert.equal(validation.formatCPF('5299822'), '529.982.2');
+  assert.equal(validation.formatCPF('529'), '529');
+  assert.equal(validation.formatCNPJ('11222333000181'), '11.222.333/0001-81');
+  assert.equal(validation.formatCNPJ('11222333'), '11.222.333');
+  assert.equal(validation.formatCEP('01310100'), '01310-100');
+  assert.equal(validation.formatCEP('0131'), '0131');
+  assert.equal(validation.formatPhone('11987654321'), '(11) 98765-4321');
+  assert.equal(validation.formatPhone('1134567890'), '(11) 3456-7890');
+  assert.equal(validation.formatPhone('11'), '(11');
+  assert.equal(validation.formatPhone(''), '');
+});
+test('configurações: só campos preenchidos e inválidos geram erro', () => {
+  assert.deepEqual({ ...validation.validateSettings({}) }, {});
+  assert.deepEqual({ ...validation.validateSettings({ cpf: '', email: '  ', state: '' }) }, {});
+  const errors = validation.validateSettings({ cpf: '123', cnpj: '1', zipCode: '123', state: 'XX', email: 'a@b', phone: '1234', instagram: 'com espaço' });
+  assert.deepEqual(Object.keys(errors).sort(), ['cnpj', 'cpf', 'email', 'instagram', 'phone', 'state', 'zipCode']);
+  assert.deepEqual({ ...validation.validateSettings({ cpf: '529.982.247-25', cnpj: '11.222.333/0001-81', zipCode: '01310-100', state: 'sp', email: 'contato@clinica.com.br', phone: '(11) 98765-4321', instagram: '@suaclinica' }) }, {});
+});
+
+test('backup: arquivo inválido é recusado antes de qualquer alteração', () => {
+  const backup = load('src/lib/backup.ts', { '@/db/db': { db: {} } });
+  const bad = text => assert.throws(() => backup.parseBackup(text), error => error instanceof backup.BackupError);
+  bad('não é json');
+  bad('[]');
+  bad('{"patients":[]}');
+  bad('{"patients":[],"audiometries":{}}');
+  bad('{"patients":[{"name":"sem id"}],"audiometries":[]}');
+  bad('{"patients":[{"id":"a"},{"id":"a"}],"audiometries":[]}');
+  bad('{"patients":[],"audiometries":[],"appointments":"x"}');
+  const ok = backup.parseBackup(JSON.stringify({ exportedAt: '2026-10-21T12:00:00.000Z', patients: [{ id: 'p1' }], audiometries: [{ id: 'e1', patientId: 'p1' }, { id: 'e2', patientId: 'ausente' }] }));
+  assert.deepEqual({ ...ok.counts }, { patients: 1, audiometries: 2, settings: 0, appointments: 0, anamneses: 0 });
+  assert.equal(ok.orphanExams, 1);
+  assert.equal(ok.exportedAt, '2026-10-21T12:00:00.000Z');
+});
+
+test('backup: restauração marca tudo como pendente e substitui todas as tabelas em uma transação', async () => {
+  const calls = [];
+  const table = name => ({ clear: async () => { calls.push(`clear:${name}`); }, bulkAdd: async rows => { calls.push(`add:${name}:${rows.map(r => r.syncStatus).join(',')}`); } });
+  const db = Object.fromEntries(['patients', 'audiometries', 'settings', 'appointments', 'anamneses'].map(n => [n, table(n)]));
+  db.transaction = async (_mode, ...args) => { calls.push('begin'); await args[args.length - 1](); calls.push('commit'); };
+  const backup = load('src/lib/backup.ts', { '@/db/db': { db } });
+  const { rows } = backup.parseBackup(JSON.stringify({ patients: [{ id: 'p1', syncStatus: 'synced' }], audiometries: [] }));
+  await backup.restoreBackup(rows);
+  assert.equal(calls[0], 'begin'); assert.equal(calls[calls.length - 1], 'commit');
+  assert.ok(['patients', 'audiometries', 'settings', 'appointments', 'anamneses'].every(n => calls.includes(`clear:${n}`)));
+  assert.ok(calls.includes('add:patients:pending'));
+  assert.ok(!calls.some(c => c.startsWith('add:audiometries')));
+});
+
+test('configurações: telefone com código do país, contagens no singular e textos de estado', () => {
+  assert.equal(validation.formatPhone('+55 11 98765-4321'), '(11) 98765-4321');
+  assert.equal(validation.isValidPhone('+55 (11) 3456-7890'), true);
+  assert.equal(validation.isValidPhone('(55) 99999-9999'), true); // DDD 55 não é código do país
+  assert.equal(validation.isValidPhone('123456789012'), false);
+  const backup = load('src/lib/backup.ts', { '@/db/db': { db: {} } });
+  assert.equal(backup.describeCounts({ patients: 1, audiometries: 2, appointments: 1, anamneses: 0, settings: 1 }), '1 paciente, 2 exames, 1 agendamento, 0 anamneses');
+  const status = load('src/lib/settingsStatus.ts');
+  const now = new Date(2026, 9, 21, 12).getTime(), day = 86400000;
+  assert.equal(status.subscriptionSummary('active', now + 10 * day, now).label, 'Assinatura ativa');
+  assert.equal(status.subscriptionSummary('active', now - day, now).label, 'Assinatura vencida');
+  assert.equal(status.subscriptionSummary('active', now - day, now).tone, 'danger');
+  assert.equal(status.subscriptionSummary('active', null, now).endLabel, 'Data de validade não informada');
+  assert.match(status.subscriptionSummary('canceled', now + 5 * day, now).detail, /acesso continua até/);
+  assert.match(status.subscriptionSummary('canceled', now - day, now).detail, /acesso foi encerrado/);
+  assert.equal(status.subscriptionSummary('past_due', null, now).tone, 'danger');
+  assert.equal(status.subscriptionSummary(null, undefined, now).label, 'Sem assinatura ativa');
+  assert.equal(status.subscriptionSummary('active', NaN, now).endLabel, 'Data de validade não informada');
+  assert.equal(status.saveOutcome(true, 'success').tone, 'ok');
+  assert.match(status.saveOutcome(false, 'offline').message, /Sem conexão/);
+  assert.match(status.saveOutcome(false, 'error').message, /falhou/);
+  assert.match(status.saveOutcome(false, 'syncing').message, /em andamento/);
+  assert.equal(status.saveOutcome(false, 'unconfigured').tone, 'ok');
+});
+
+test('configurações: site aceita domínio com ou sem esquema e recusa esquemas perigosos', () => {
+  for (const ok of ['www.clinica.com.br', 'clinica.com.br', 'https://clinica.com.br/contato', 'http://clinica.com.br:8080']) assert.equal(validation.isValidWebsite(ok), true, ok);
+  for (const bad of ['javascript:alert(1)', 'clinica', 'ftp://clinica.com.br', 'clinica com br', 'data:text/html,x']) assert.equal(validation.isValidWebsite(bad), false, bad);
+  assert.equal(validation.validateSettings({ website: 'javascript:alert(1)' }).website !== undefined, true);
+  assert.deepEqual({ ...validation.validateSettings({ website: '' }) }, {});
+});
+
+test('laudo: cabeçalho institucional imprime razão social, CNPJ, endereço completo e contato, sem site nem Instagram', () => {
+  const { letterheadLines } = load('src/lib/letterhead.ts');
+  const full = letterheadLines({ corporateName: 'Abu Chain Fonoaudiologia Ltda', cnpj: '11222333000181', address: 'Rua das Flores, 100', neighborhood: 'Centro', city: 'Campinas', state: 'sp', zipCode: '13010000', phone: '(19) 99999-0000', email: 'contato@clinica.com.br', website: 'www.clinica.com.br', instagram: '@clinica' });
+  assert.equal(full.legal, 'Abu Chain Fonoaudiologia Ltda • CNPJ 11.222.333/0001-81');
+  assert.equal(full.address, 'Rua das Flores, 100, Centro, Campinas/SP, CEP 13010-000');
+  assert.equal(full.contact, '(19) 99999-0000 | contato@clinica.com.br');
+  assert.ok(!JSON.stringify(full).includes('www.') && !JSON.stringify(full).includes('Instagram'));
+  assert.deepEqual(letterheadLines({ cnpj: '11222333000181' }), { legal: 'CNPJ 11.222.333/0001-81', address: '', contact: '' });
+  assert.deepEqual(letterheadLines({ city: 'Santos' }), { legal: '', address: 'Santos', contact: '' });
+  assert.deepEqual(letterheadLines(null), { legal: '', address: '', contact: '' });
+});
+
+test('exames: entrada por toque com "Campo Livre" grava no campo livre, nunca na orelha esquerda', () => {
+  const form = load('src/lib/examForm.ts');
+  assert.deepEqual(form.quickEntryTarget('FREE_FIELD'), { kind: 'freeField' });
+  assert.deepEqual(form.quickEntryTarget('OE_VO'), { kind: 'ear', ear: 'left', via: 'vo' });
+  assert.deepEqual(form.quickEntryTarget('OD_VA'), { kind: 'ear', ear: 'right', via: 'va' });
+  assert.equal(form.quickEntryTarget(null), null);
+  const ff = form.setFreeFieldValue({}, '1000', '40');
+  assert.equal(ff['1000'].va, 40);
+  // NR guarda o último valor numérico como nível apresentado; apagar remove o valor.
+  const nr = form.setFreeFieldValue(ff, '1000', 'NR');
+  assert.equal(nr['1000'].va, 'NR');
+  assert.equal(nr['1000'].nrLevelVa, 40);
+  assert.equal(form.setFreeFieldValue(nr, '1000', '')['1000'].va, undefined);
+  assert.equal(form.setFreeFieldValue({}, '500', '4,5')['500'].va, undefined);
+});
+
+test('exames: "Gerar resumo" não apaga síntese, situação clínica nem classificações digitadas', () => {
+  const form = load('src/lib/examForm.ts');
+  const current = { clinicalStatus: 'altered', clinical: 'Síntese da fono', lossTypeRight: 'Condutiva (digitado)', lossDegreeRight: '', workflowStatus: 'reviewed' };
+  const merged = form.mergeSuggestedOpinion(current, { lossTypeRight: 'Neurossensorial', lossDegreeRight: 'Grau leve (OMS 2021)', configurationLeft: 'Variação…', workflowStatus: 'draft' });
+  assert.equal(merged.clinicalStatus, 'altered');
+  assert.equal(merged.clinical, 'Síntese da fono');
+  assert.equal(merged.lossTypeRight, 'Condutiva (digitado)');
+  assert.equal(merged.lossDegreeRight, 'Grau leve (OMS 2021)');
+  assert.equal(merged.configurationLeft, 'Variação…');
+  assert.equal(merged.workflowStatus, 'draft');
+});
+
+test('exames: meatoscopia em português nos documentos e encaminhamento ao otorrino no resumo', () => {
+  const form = load('src/lib/examForm.ts');
+  assert.equal(form.meatoscopyText({ right: 'cerumen', left: '' }, 'right'), 'Presença de cerúmen');
+  assert.equal(form.meatoscopyText({ right: 'perforation', rightDescription: 'Perfuração central' }, 'right'), 'Perfuração da membrana timpânica. Perfuração central');
+  assert.equal(form.meatoscopyText({ left: '', leftDescription: 'Descrição livre' }, 'left'), 'Descrição livre');
+  assert.equal(form.meatoscopyText(undefined, 'left'), 'Não registrado');
+  const exam = { ...fixture(), meatoscopy: { right: 'foreign_body', left: 'normal', referToENT: true } };
+  const text = reports.generateLocalClinicalReport(exam, 40).fullLaudo;
+  assert.match(text, /Inspeção: Presença de corpo estranho\./);
+  assert.match(text, /otorrinolaringologista/);
+  assert.ok(!/cerumen|foreign_body|perforation/.test(text));
+});
+
+test('exames: pacientes arquivados fora da lista e busca por data no formato brasileiro', () => {
+  const form = load('src/lib/examForm.ts');
+  const { visible, hiddenArchived } = form.visibleExams([{ id: 'e1', patientId: 'a' }, { id: 'e2', patientId: 'b' }, { id: 'e3', patientId: 'b' }], [{ id: 'a' }, { id: 'b', archivedAt: 5 }]);
+  assert.deepEqual(visible.map(e => e.id), ['e1']);
+  assert.equal(hiddenArchived, 2);
+  const row = { patientName: 'Paciente Sintético', patientCpf: '123.456.789-09', examDate: '2026-10-23', synthesis: 'Perda condutiva' };
+  for (const term of ['23/10', '23/10/2026', '2026-10', 'sintético', '12345678909', '456.789', 'condutiva', '']) assert.equal(form.matchesExamSearch(row, term), true, term);
+  for (const term of ['24/10', '2025', 'outro nome']) assert.equal(form.matchesExamSearch(row, term), false, term);
+});
+
+test('exames: Weber preserva texto digitado e reflexos informam a convenção das colunas', () => {
+  const form = load('src/lib/examForm.ts');
+  const auto = form.updateWeber({}, '500', 'od');
+  assert.equal(auto.weber, '500Hz: Lateralizado para OD');
+  assert.equal(form.updateWeber(auto, '1000', 'indiferente').weber, '500Hz: Lateralizado para OD | 1000Hz: Indiferente');
+  const typed = { weber: 'Lateraliza para OD em graves', weberFreqs: { 500: 'od' } };
+  assert.equal(form.updateWeber(typed, '1000', 'oe').weber, 'Lateraliza para OD em graves');
+  assert.deepEqual(form.updateWeber(typed, '1000', 'oe').weberFreqs, { 500: 'od', 1000: 'oe' });
+  assert.match(form.reflexConventionText('probe'), /orelha da sonda/);
+  assert.match(form.reflexConventionText('stimulated'), /orelha estimulada/);
+  assert.match(form.reflexConventionText(''), /não informada/);
+});

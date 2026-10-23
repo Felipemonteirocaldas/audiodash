@@ -4,6 +4,7 @@ import { GlobalSearch } from './GlobalSearch';
 import { NotificationsModal } from './NotificationsModal';
 import { LogoAD } from './LogoAD';
 import { useSyncStatus } from '@/hooks/useSyncStatus';
+import { formatLongDatePt } from '@/lib/dateLabels';
 import { 
   Wifi, 
   WifiOff, 
@@ -15,11 +16,7 @@ import {
 export function Header() {
   const { isOnline, syncStatus, lastError } = useSyncStatus();
 
-  const currentDateFormatted = new Date().toLocaleDateString('pt-BR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long'
-  });
+  const currentDateFormatted = formatLongDatePt();
 
   const getSyncBadge = () => {
     if (!isOnline) {
@@ -77,7 +74,7 @@ export function Header() {
 
         {/* Right Actions */}
         <div className="flex items-center gap-5">
-          <span className="text-sm text-slate-600 font-medium capitalize">
+          <span className="text-sm text-slate-600 font-medium">
             {currentDateFormatted}
           </span>
 
