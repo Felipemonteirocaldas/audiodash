@@ -264,3 +264,13 @@ Na revisão científica 1, foram alterados somente esses mesmos documentos. Nenh
   - preço numa constante.
 - **Migration `20261105000000_admin_and_paid_writes.sql` NÃO aplicada** (bloqueada, aguarda o ok explícito do usuário). Ela precisa ser aplicada antes de o `dev` ir para a `main`, porque o app passa a ler `is_admin`.
 - Pendente: KYC da Dodo (usuário); rotacionar o segredo do webhook de teste (o antigo pode estar no histórico); teste ponta a ponta com cartão de teste; `schema.sql`. O preço "R$ 50" da landing (número grande) continua escrito à parte.
+- Concluído com o usuário guiando os cliques (05/11/2026):
+  - migration `20261105000000_admin_and_paid_writes.sql` aplicada (4 políticas por tabela, 1 admin);
+  - "Verify JWT" desligado na função: uma chamada sem token chega ao código e recebe `invalid signature`;
+  - segredo do webhook de teste trocado e salvo em `DODO_WEBHOOK_SECRET`;
+  - endpoint de teste passou a receber todos os eventos (antes só `subscription.active` e `payment.succeeded`; cancelamento e renovação não chegavam).
+- Teste ponta a ponta (modo de teste, conta `candeiasinfo@gmail.com`, criada pelo usuário com Google, cartão 4242):
+  - `payment.succeeded`, `subscription.active` e `subscription.updated` entregues com 200;
+  - conta `active`, achada pelo `metadata.user_id`, com `subscription_end_date` 12/11 (o produto tem teste grátis de 7 dias; cobrança de hoje R$ 0,00 em BRL);
+  - cancelamento "agora" pelo painel da Dodo: `subscription.cancelled` entregue com 200 e conta `canceled`, mantendo o acesso até 12/11 (regra atual: usa até o fim do período).
+- Não conferido: a volta do checkout e o painel abrindo na janela do usuário; renovação (`subscription.renewed`) e expiração reais.
