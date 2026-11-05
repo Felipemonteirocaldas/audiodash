@@ -218,13 +218,18 @@ class SyncManager {
       const tables: SyncTable[] = ['patients', 'audiometries', 'settings', 'appointments', 'anamneses'];
       let totalSynced = 0;
       let hadErrors = false;
+      let firstError = '';
 
       for (const table of tables) {
         const pendingRecords = await db[table].where('syncStatus').equals('pending').toArray();
 
         if (pendingRecords.length > 0) {
-          const success = await this.pushToSupabase(table, pendingRecords);
-          
+          // Falha de uma tabela não pode impedir o envio das seguintes; os registros dela continuam pendentes.
+          const success = await this.pushToSupabase(table, pendingRecords).catch((err: unknown) => {
+            firstError ||= err instanceof Error ? err.message : String(err);
+            return false;
+          });
+
           if (success) {
             const ids = pendingRecords.map(r => r.id);
             await Promise.all(
@@ -240,7 +245,7 @@ class SyncManager {
       this._lastSyncTime = Date.now();
 
       if (hadErrors) {
-        this.setStatus('error', 'Alguns registros não puderam ser sincronizados.');
+        this.setStatus('error', firstError || 'Alguns registros não puderam ser sincronizados.');
         console.warn(`[SyncManager] Sync parcial: ${totalSynced} enviados, com erros.`);
       } else if (totalSynced === 0) {
         this.setStatus('success');
@@ -294,15 +299,19 @@ class SyncManager {
             }
           }
 
-          // Insert or update valid remote records into local DB
-          if (validRemoteRecords.length > 0) {
-            const localRecords = validRemoteRecords.map(d => ({ ...d, syncStatus: 'synced' }));
+          // Insert or update valid remote records into local DB, sem sobrescrever edições locais ainda não enviadas
+          const localPendingIds = new Set(await db[table].where('syncStatus').equals('pending').primaryKeys());
+          const incoming = validRemoteRecords.filter(d => !localPendingIds.has(d.id));
+          if (incoming.length > 0) {
+            const localRecords = incoming.map(d => ({ ...d, syncStatus: 'synced' }));
             await (db[table] as any).bulkPut(localRecords);
           }
         }
       }
       this._lastSyncTime = Date.now();
-      this.setStatus('success');
+      // O pull não envia nada: o estado final (sincronizado ou erro) vem do envio dos pendentes.
+      this.setStatus('idle');
+      void this.sync();
       return true;
     } catch (error) {
       console.error('[SyncManager] Erro no pull:', error);

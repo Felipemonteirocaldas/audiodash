@@ -196,3 +196,57 @@ Na revisão científica 1, foram alterados somente esses mesmos documentos. Nenh
   8. Menores: busca aceita data DD/MM/AAAA e CPF sem pontuação; "Gerar PDF" avisa quando o paciente não existe; botão "Word" no exame; o texto do Weber só é regenerado se estiver vazio ou igual ao resumo automático.
 - Verificação: `npm test` 63/63 (5 testes novos "exames: …"); `npx tsc --noEmit` sem erros; `npm run build` ok; `oxlint` sem erros (avisos antigos: Fast Refresh em `exportPdf.tsx` e pastas de skills); `git diff --check` ok. Conferido no Chrome do usuário (localhost:3000, sem salvar exames): itens 1, 2, 3, 4 (resumo), 7 e botão Word. Não conferidos visualmente: PDF/Word gerados, lista com paciente arquivado (não há arquivados na base) e layout da entrada por toque em tela pequena.
 - Achado fora da área de exames, não alterado: a página inicial ainda mostra "Evolução 2024 vs 2026 / Curva Estável" e a FAQ afirma que os laudos "cumprem os padrões do CFFa" (pendente junto com textos comerciais).
+
+## Internacionalização e dashboard (04/11/2026)
+- Análise e etapas I1–I6 em `docs/PLANO-INTERNACIONALIZACAO.md`. Nada implementado; aguardando o usuário autorizar a I1.
+
+## Dashboard reorganizado (04/11/2026, Claude)
+- `onboardingSteps` (em `clinicalOverview.ts`, com teste): lista de primeiros passos (cadastro com nome + CRFa + clínica, 1º paciente, 1º exame, 1º exame já revisado alguma vez). Aparece até concluir as quatro etapas e substitui o antigo bloco "Primeiros passos", que só aparecia com zero pacientes.
+- O painel passou a ter dois blocos: "Agenda de hoje" e "Exames". O bloco "Agenda de hoje" destaca o próximo atendimento e tem o botão "Iniciar exame" (`/exame/novo/:patientId`); agendamento sem paciente vinculado mostra um aviso. O bloco "Exames" tem os filtros no cabeçalho e uma linha de resumo (total, período anterior, aguardando revisão). Sem exames no filtro, aparece uma única mensagem no lugar de três caixas vazias.
+- Removidos: os 4 cartões de números, as etiquetas de escopo ("Hoje/Filtros/Cadastro") e a frase genérica do subtítulo, que passou a mostrar o número de pacientes ativos. A data no topo da página só aparece no celular (no desktop ela já está no Header).
+- `Layout.tsx`: título da aba por página ("Início · AudioDash").
+- Verificação: `npm test` 64/64, `tsc -b`, `npm run build`, oxlint nos 3 arquivos e `git diff --check` ok. Conferido no Chrome (conta real, sem salvar nada), mas só com a conta sem exames e sem agenda: o destaque do próximo atendimento e as três listas preenchidas não foram vistos. A visão de celular também não foi conferida.
+- Pendências do dashboard: design tokens (o desktop usa `#0071e3` e o MobileNav usa `indigo-600`), menu lateral compacto/recolhível e "Novo Exame" repetido no Header e no menu.
+
+## Teste do painel com dados e falhas de sincronização (04/11/2026, Claude)
+- Com autorização do usuário (conta de testes), foram criados no Chrome: o paciente "Paciente Teste Sintético", dois agendamentos de hoje ("Avulso Teste" às 08:00, sem cadastro, e o sintético às 23:30) e um exame em rascunho do sintético. Conferidos: o próximo atendimento com "Iniciar exame" (abre o exame com o paciente selecionado), a lista em duas colunas, o alerta de atraso, "Continuar e revisar", "Situação clínica" e "Últimos atualizados". O celular foi conferido num iframe de 390 px na mesma página.
+- **Supabase sem colunas (sincronização quebrada):** conferido coluna a coluna pela API (anon, `select` com `limit=0`). Faltam `audiometries.examPurpose/examCategory/freeField/meatoscopy/complementary/opinion`, `appointments.phone` e `patients.archivedAt`. Consequência: exames, agendamentos e arquivamentos ficam só no navegador. Correção em `supabase/migrations/20261104220000_missing_sync_columns.sql`, **aplicada em produção em 04/11/2026** pelo SQL Editor (projeto audiodash, com login do usuário). Antes, os tipos foram conferidos em `information_schema` (objetos em `jsonb`, textos em `text`, datas em `bigint`). Depois: as 8 colunas responderam pela API, e o app enviou 1 exame e 2 agendamentos, com 0 pendentes e o status "Sincronizado".
+- `syncManager.ts`:
+  1. o erro de uma tabela não interrompe mais o envio das seguintes, e o status mostra a primeira mensagem de erro;
+  2. o pull não sobrescreve mais registros locais com `syncStatus = 'pending'` (antes, uma edição ainda não enviada era trocada pela versão do servidor);
+  3. o pull terminava em "Sincronizado" mesmo com pendências; agora ele dispara o envio, e o status final vem do envio.
+- `LogoAD.tsx`: os IDs dos gradientes passaram a ser únicos (`useId`). No celular, o logo do cabeçalho não aparecia porque usava os gradientes do logo oculto da barra lateral.
+- `Layout.tsx`: títulos para Exame, Comparar exames, Anamnese e Evolução. `Dashboard.tsx`: concordância "sobre 1 exame".
+- Verificação: `npm test` 64/64, `tsc -b`, build, oxlint nos arquivos alterados e `git diff --check` ok. Avisos antigos de lint em `syncManager.ts` (linhas 89 e 172) não foram mexidos. As mudanças do sincronizador não têm teste automatizado (dependem do Dexie e do Supabase): o item 1 foi conferido no console, os itens 2 e 3 só pela tela "Erro Sync" após recarregar.
+- Os dados de teste continuam na conta de testes, agora também na nuvem: "Paciente Teste Sintético", "Avulso Teste" (agendamento) e um rascunho de exame.
+- Pendente: usuários que salvaram exames antes desta correção ainda têm os registros pendentes no próprio navegador. Eles sobem sozinhos na próxima vez que o app abrir com internet, desde que os dados do navegador não tenham sido apagados.
+
+## Segurança e organização do Supabase (04/11/2026, Claude, com autorização do usuário)
+- Auditoria só de leitura pelo SQL Editor (projeto audiodash, produção, app ainda sem usuários reais). Achados:
+  - 12 políticas "Allow anonymous …" com `USING/CHECK true` em `patients`, `audiometries` e `settings`: qualquer pessoa com a chave pública lia e alterava os dados de todos;
+  - políticas duplicadas (3–4 por tabela);
+  - bucket `audiometry-reports` público, com envio/alteração/exclusão anônimos (vazio e sem uso);
+  - `settings` com chave só em `id`, embora o app grave sempre `settings_1` (o segundo usuário não sincronizaria);
+  - 3 de 6 contas sem linha em `public.users`;
+  - nenhum índice em `user_id`/`patientId`;
+  - `handle_new_user` (security definer) sem `search_path`.
+- Aplicado: `supabase/migrations/20261104230000_security_and_sync_cleanup.sql`. Resultado:
+  - uma política `owner_all` por tabela (`to authenticated`, `auth.uid() = user_id`);
+  - `user_id default auth.uid()`;
+  - chave de `settings` em `(user_id, id)`;
+  - 6 índices;
+  - `public.users` com 6/6 contas;
+  - `search_path = ''` na função;
+  - bucket privado e sem as políticas anônimas.
+- Conferido:
+  - pela consulta de catálogo;
+  - de fora com a chave anônima: 0 linhas visíveis em todas as tabelas, insert recusado (42501), upload no bucket recusado;
+  - no app logado: o pull trouxe todos os dados; salvar Configurações sincronizou (nova chave); excluir agendamento sumiu do banco (conferido por SQL).
+- Não feito / pendente:
+  - 2 pacientes e 1 exame antigos com `user_id` nulo (de antes do RLS) foram mantidos e agora ficam invisíveis. Remover se forem testes; depois disso, dá para pôr `NOT NULL` em `user_id`;
+  - colunas legadas em `audiometries` (`anamnesis`, `vocalData`, `pureToneAverage`, `hearingLossDegree`, `finalReport`) estão vazias em todas as linhas e não foram removidas;
+  - o esquema base das tabelas não está no repositório (só as migrations de ajuste). Gerar um `schema.sql` completo antes de criar um projeto na UE;
+  - dado de teste: o CRFa "TESTE-0000" foi gravado nas Configurações da conta de testes.
+- Security Advisor (04/11/2026): havia 0 erros e 3 avisos. Aplicado `20261104235000_revoke_handle_new_user.sql`: a ACL de `handle_new_user` ficou só `postgres` e `service_role`. Depois de rodar o linter de novo: 0 erros e 1 aviso ("Leaked password protection", em Authentication → Attack Protection, talvez só no plano Pro). O cadastro de conta nova depois do revoke não foi testado (o gatilho não depende do EXECUTE de anon/authenticated).
+- Auth conferido: cadastro permitido, confirmação de e-mail ligada, Google ativo, Site URL `https://audiodash-five.vercel.app`.
+- Para vender, ainda faltam: checkout de teste da Dodo, paywall só na tela (o RLS não confere a assinatura), e-mail de administrador fixo em `ProtectedRoute.tsx`, backups/pausa do plano Free e webhook da Dodo não verificado.

@@ -216,3 +216,25 @@ export function buildDashboardOverview(input: DashboardInput) {
 }
 
 export type DashboardOverview = ReturnType<typeof buildDashboardOverview>;
+
+/* ------------------------------ Primeiros passos ------------------------------ */
+
+export interface OnboardingInput {
+  settings?: { professionalName?: string; crfaNumber?: string; clinicName?: string } | null;
+  patientCount: number;
+  examCount: number;
+  /** Algum exame já marcado como revisado alguma vez (mesmo que editado depois). */
+  hasReviewedExam: boolean;
+}
+
+/** Etapas até o primeiro exame revisado, cada uma conferida nos dados gravados. */
+export function onboardingSteps(input: OnboardingInput) {
+  const filled = (value?: string) => !!value?.trim();
+  const s = input.settings;
+  return [
+    { id: 'settings', label: 'Cadastrar profissional e clínica', detail: 'Nome, CRFa e clínica aparecem no cabeçalho do laudo.', to: '/configuracoes', done: filled(s?.professionalName) && filled(s?.crfaNumber) && filled(s?.clinicName) },
+    { id: 'patient', label: 'Cadastrar o primeiro paciente', detail: 'Exames e agendamentos ficam ligados ao cadastro.', to: '/pacientes', done: input.patientCount > 0 },
+    { id: 'exam', label: 'Registrar o primeiro exame', detail: 'Audiometria, imitanciometria e demais procedimentos realizados.', to: '/exame/novo', done: input.examCount > 0 },
+    { id: 'review', label: 'Revisar o primeiro exame', detail: 'Só exames revisados entram na situação clínica do painel.', to: '/exames', done: input.hasReviewedExam }
+  ];
+}

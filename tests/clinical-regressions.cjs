@@ -592,6 +592,15 @@ test('painel: alertas de assinatura e data por extenso em português', () => {
   assert.equal(load('src/lib/dateLabels.ts').formatLongDatePt(now), 'Quarta-feira, 21 de outubro');
 });
 
+test('painel: primeiros passos conferem cadastro, paciente, exame e revisão', () => {
+  const none = overview.onboardingSteps({ settings: null, patientCount: 0, examCount: 0, hasReviewedExam: false });
+  assert.deepEqual(none.map(s => s.done), [false, false, false, false]);
+  const blankCrfa = overview.onboardingSteps({ settings: { professionalName: 'Teste', crfaNumber: '  ', clinicName: 'Clínica' }, patientCount: 2, examCount: 0, hasReviewedExam: false });
+  assert.deepEqual(blankCrfa.map(s => s.done), [false, true, false, false]);
+  const all = overview.onboardingSteps({ settings: { professionalName: 'Teste', crfaNumber: '1-0000', clinicName: 'Clínica' }, patientCount: 1, examCount: 1, hasReviewedExam: true });
+  assert.ok(all.every(s => s.done));
+});
+
 const validation = load('src/lib/settingsValidation.ts');
 test('configurações: CPF e CNPJ conferem os dígitos verificadores (valores de referência independentes)', () => {
   assert.equal(validation.isValidCPF('529.982.247-25'), true);

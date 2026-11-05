@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useId } from 'react';
 
 interface LogoADProps extends React.SVGProps<SVGSVGElement> {
   className?: string;
 }
 
 export const LogoAD: React.FC<LogoADProps> = ({ className, ...props }) => {
+  // IDs únicos: o logo aparece mais de uma vez na página e um gradiente dentro de display:none não é desenhado.
+  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '');
   return (
     <svg 
       xmlns="http://www.w3.org/2000/svg" 
@@ -13,30 +15,30 @@ export const LogoAD: React.FC<LogoADProps> = ({ className, ...props }) => {
       {...props}
     >
       <defs>
-        <linearGradient id="grad-a" x1="0%" y1="100%" x2="100%" y2="0%">
+        <linearGradient id={`grad-a${uid}`} x1="0%" y1="100%" x2="100%" y2="0%">
           <stop offset="0%" stopColor="#0B4F6C" />
           <stop offset="100%" stopColor="#2CB5A0" />
         </linearGradient>
         
-        <linearGradient id="grad-d" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id={`grad-d${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#1DA1F2" />
           <stop offset="100%" stopColor="#0047AB" />
         </linearGradient>
 
-        <linearGradient id="grad-arrow" x1="0%" y1="100%" x2="100%" y2="0%">
+        <linearGradient id={`grad-arrow${uid}`} x1="0%" y1="100%" x2="100%" y2="0%">
           <stop offset="0%" stopColor="#2CB5A0" />
           <stop offset="100%" stopColor="#5CE1E6" />
         </linearGradient>
         
-        <linearGradient id="bar1" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={`bar1${uid}`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#5CE1E6" />
           <stop offset="100%" stopColor="#0B4F6C" />
         </linearGradient>
-        <linearGradient id="bar2" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={`bar2${uid}`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#2CB5A0" />
           <stop offset="100%" stopColor="#0B4F6C" />
         </linearGradient>
-        <linearGradient id="bar3" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={`bar3${uid}`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#1DA1F2" />
           <stop offset="100%" stopColor="#0047AB" />
         </linearGradient>
@@ -46,7 +48,7 @@ export const LogoAD: React.FC<LogoADProps> = ({ className, ...props }) => {
       <path 
         d="M 60 160 L 110 50 C 120 30 140 30 150 50 L 170 95" 
         fill="none" 
-        stroke="url(#grad-a)" 
+        stroke={`url(#grad-a${uid})`}
         strokeWidth="28" 
         strokeLinecap="round" 
         strokeLinejoin="round"
@@ -56,16 +58,16 @@ export const LogoAD: React.FC<LogoADProps> = ({ className, ...props }) => {
       <path 
         d="M 230 40 L 230 160 C 320 160 320 40 230 40 Z" 
         fill="none" 
-        stroke="url(#grad-d)" 
+        stroke={`url(#grad-d${uid})`}
         strokeWidth="28"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
 
       {/* Bars inside D */}
-      <rect x="245" y="110" width="14" height="40" rx="4" fill="url(#bar1)" />
-      <rect x="267" y="80" width="14" height="70" rx="4" fill="url(#bar2)" />
-      <rect x="289" y="50" width="14" height="100" rx="4" fill="url(#bar3)" />
+      <rect x="245" y="110" width="14" height="40" rx="4" fill={`url(#bar1${uid})`} />
+      <rect x="267" y="80" width="14" height="70" rx="4" fill={`url(#bar2${uid})`} />
+      <rect x="289" y="50" width="14" height="100" rx="4" fill={`url(#bar3${uid})`} />
 
       {/* The Trendline Arrow */}
       {/* Outer stroke for separation on the 'A' */}
@@ -82,7 +84,7 @@ export const LogoAD: React.FC<LogoADProps> = ({ className, ...props }) => {
       <path 
         d="M 30 130 L 70 120 L 95 155 L 140 85 L 165 110 L 210 55" 
         fill="none" 
-        stroke="url(#grad-arrow)" 
+        stroke={`url(#grad-arrow${uid})`}
         strokeWidth="6" 
         strokeLinecap="round" 
         strokeLinejoin="round" 
@@ -90,7 +92,7 @@ export const LogoAD: React.FC<LogoADProps> = ({ className, ...props }) => {
       {/* Arrowhead */}
       <path 
         d="M 215 45 L 195 50 L 205 75 Z" 
-        fill="url(#grad-arrow)" 
+        fill={`url(#grad-arrow${uid})`}
       />
     </svg>
   );
