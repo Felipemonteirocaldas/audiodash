@@ -9,6 +9,8 @@ export interface User {
   subscriptionStatus?: 'active' | 'inactive' | 'past_due' | 'canceled' | null;
   subscriptionEndDate?: number | null;
   stripeCustomerId?: string | null;
+  /** Conta mestre: coluna public.users.is_admin, alterada só por SQL (o usuário não tem UPDATE em users). */
+  isAdmin?: boolean;
 }
 
 export interface Patient {

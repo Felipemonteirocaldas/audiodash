@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ShieldCheck, Heart } from 'lucide-react';
 import { LogoAD } from '../LogoAD';
+import { PLAN_PRICE_LABEL } from '@/lib/settingsStatus';
 
 export default function LandingFooter() {
   return (
@@ -72,7 +73,7 @@ export default function LandingFooter() {
               </li>
               <li>
                 <a href="#precos" className="hover:text-blue-600 transition-colors">
-                  Assinar Plano Pro (R$ 50/mês)
+                  Assinar Plano Pro ({PLAN_PRICE_LABEL}/mês)
                 </a>
               </li>
               <li>

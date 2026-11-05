@@ -2,7 +2,8 @@ import { CheckCircle2, ShieldCheck, ArrowRight, Lock, Stethoscope } from 'lucide
 
 export default function PricingSection() {
   const handleCheckout = () => {
-    window.location.href = 'https://test.checkout.dodopayments.com/buy/pdt_0NkP4tyyh4C0dF9wG6eUW';
+    // O pagamento precisa estar ligado a uma conta: cadastro primeiro, checkout na página de planos.
+    window.location.href = '/login?cadastro=1';
   };
 
   return (

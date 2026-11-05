@@ -23,7 +23,7 @@ import {
   type BackupCounts
 } from '@/lib/backup';
 import { formatCEP, formatCNPJ, formatCPF, formatPhone, validateSettings } from '@/lib/settingsValidation';
-import { saveOutcome, subscriptionSummary } from '@/lib/settingsStatus';
+import { PLAN_PRICE_LABEL, saveOutcome, subscriptionSummary } from '@/lib/settingsStatus';
 
 type TabId = 'profissional' | 'clinica' | 'contato' | 'endereco' | 'assinatura';
 
@@ -493,7 +493,7 @@ export default function Settings() {
           {activeTab === 'assinatura' && (
             <div className="space-y-6">
               <div className={`rounded-xl border p-5 ${subscriptionTone}`}>
-                <p className="text-xs font-semibold uppercase tracking-wide">AudioDash Pro · R$ 50,00/mês</p>
+                <p className="text-xs font-semibold uppercase tracking-wide">AudioDash Pro · {PLAN_PRICE_LABEL}/mês</p>
                 <h3 className="mt-1 text-xl font-bold">{subscription.label}</h3>
                 <p className="mt-1 text-sm">{subscription.detail}</p>
                 <p className="mt-3 text-sm font-semibold">{subscription.endLabel}</p>

@@ -1,6 +1,7 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { LogoAD } from '@/components/LogoAD';
+import { hasPaidAccess } from '@/lib/settingsStatus';
 
 export default function ProtectedRoute() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -27,15 +28,9 @@ export default function ProtectedRoute() {
     import.meta.env.DEV
   );
 
-  const adminEmails = ['blckdogbrasil@gmail.com'];
-  const isAdmin = user?.email && adminEmails.includes(user.email.toLowerCase());
+  const hasAccess = user?.isAdmin || hasPaidAccess(user?.subscriptionStatus, user?.subscriptionEndDate);
 
-  const isActive = user?.subscriptionStatus === 'active';
-  const isCanceled = user?.subscriptionStatus === 'canceled'; 
-  const hasValidDate = user?.subscriptionEndDate ? Date.now() < user.subscriptionEndDate : false;
-  const hasAccess = (isActive || isCanceled) && hasValidDate;
-
-  if (!isLocalhost && !isAdmin && user && !hasAccess) {
+  if (!isLocalhost && user && !hasAccess) {
     return <Navigate to="/planos" replace />;
   }
 

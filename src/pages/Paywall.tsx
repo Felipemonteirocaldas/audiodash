@@ -1,34 +1,46 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { CreditCard, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { downloadFullBackup } from '@/lib/backup';
+import { supabase } from '@/lib/supabase';
+import { PLAN_PRICE_LABEL, TEST_CHECKOUT_URL, checkoutUrl, hasPaidAccess } from '@/lib/settingsStatus';
 
-// Defina VITE_DODO_CHECKOUT_URL no ambiente de produção. O link padrão abaixo é do modo de TESTE do Dodo Payments.
-const CHECKOUT_URL = import.meta.env.VITE_DODO_CHECKOUT_URL || 'https://test.checkout.dodopayments.com/buy/pdt_0NkP4tyyh4C0dF9wG6eUW';
+const CHECKOUT_URL = import.meta.env.VITE_DODO_CHECKOUT_URL || TEST_CHECKOUT_URL;
 
 export default function Paywall() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  // A Dodo volta para /planos?status=...; o webhook pode chegar alguns segundos depois do retorno.
+  const returnedStatus = new URLSearchParams(window.location.search).get('status');
+  const [confirming, setConfirming] = useState<'idle' | 'waiting' | 'timeout'>(returnedStatus === 'succeeded' || returnedStatus === 'active' ? 'waiting' : 'idle');
 
   useEffect(() => {
-    const adminEmails = ['blckdogbrasil@gmail.com'];
-    const isAdmin = user?.email && adminEmails.includes(user.email.toLowerCase());
-    
-    // Check if subscription is active AND not expired, or if user is admin
-    const isActive = user?.subscriptionStatus === 'active';
-    const isCanceled = user?.subscriptionStatus === 'canceled'; // Canceled but might still have time
-    const hasValidDate = user?.subscriptionEndDate ? Date.now() < user.subscriptionEndDate : false;
-    const hasAccess = (isActive || isCanceled) && hasValidDate;
-
-    if (user && (hasAccess || isAdmin)) {
+    if (user && (user.isAdmin || hasPaidAccess(user.subscriptionStatus, user.subscriptionEndDate))) {
       navigate('/painel', { replace: true });
     }
   }, [user, navigate]);
 
+  useEffect(() => {
+    if (confirming !== 'waiting' || !user || !supabase) return;
+    let tries = 0;
+    const timer = setInterval(async () => {
+      tries++;
+      const { data } = await supabase!.from('users').select('subscription_status, subscription_end_date').eq('id', user.id).single();
+      const end = data?.subscription_end_date ? new Date(data.subscription_end_date).getTime() : null;
+      if (hasPaidAccess(data?.subscription_status, end)) {
+        clearInterval(timer);
+        window.location.assign('/painel'); // recarrega para o AuthContext ler a assinatura nova
+      } else if (tries >= 20) {
+        clearInterval(timer);
+        setConfirming('timeout');
+      }
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [confirming, user]);
+
   const handleCheckout = () => {
-    // Redireciona para o link de checkout do Dodo Payments enviando o email
-    window.location.href = user?.email ? `${CHECKOUT_URL}${CHECKOUT_URL.includes('?') ? '&' : '?'}customer_email=${encodeURIComponent(user.email)}` : CHECKOUT_URL;
+    if (user) window.location.href = checkoutUrl(CHECKOUT_URL, user, window.location.origin);
   };
 
   return (
@@ -50,12 +62,19 @@ export default function Paywall() {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
           <div className="space-y-6">
+            {confirming !== 'idle' && (
+              <p role="status" className={`rounded-md p-3 text-sm ${confirming === 'waiting' ? 'bg-blue-50 text-blue-800' : 'bg-amber-50 text-amber-900'}`}>
+                {confirming === 'waiting'
+                  ? 'Confirmando o pagamento com a Dodo Payments…'
+                  : 'O pagamento foi feito, mas a confirmação ainda não chegou. Recarregue a página em alguns minutos; se persistir, fale com o suporte.'}
+              </p>
+            )}
             <div>
               <h3 className="text-lg leading-6 font-medium text-gray-900">
                 Plano AudioDash Pro
               </h3>
               <div className="mt-4">
-                <span className="text-4xl font-extrabold text-gray-900">R$ 50,00</span>
+                <span className="text-4xl font-extrabold text-gray-900">{PLAN_PRICE_LABEL}</span>
                 <span className="text-base font-medium text-gray-500">/mês</span>
               </div>
               <ul className="mt-6 space-y-4">

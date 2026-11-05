@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { LogoAD } from '@/components/LogoAD';
 
 export default function Login() {
-  const [isRegistering, setIsRegistering] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(() => new URLSearchParams(window.location.search).has('cadastro'));
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

@@ -51,7 +51,9 @@ serve(async (req) => {
   const data = payload?.data || {}
   const customerId = data.customer?.customer_id ?? data.customer_id
   const customerEmail = (data.customer?.email ?? data.customer_email ?? '').toLowerCase() || undefined
-  if (!customerId && !customerEmail) return json({ received: true, msg: 'No customer info' })
+  // O app envia metadata_user_id no link de checkout; é o vínculo mais confiável (o e-mail pode ter sido trocado).
+  const metaUserId = typeof data.metadata?.user_id === 'string' && /^[0-9a-f-]{36}$/i.test(data.metadata.user_id) ? data.metadata.user_id : undefined
+  if (!metaUserId && !customerId && !customerEmail) return json({ received: true, msg: 'No customer info' })
 
   const periodEnd = data.next_billing_date ?? data.expires_at ?? data.current_period_end
   const endDate = (fallbackDays: number) => (periodEnd ? new Date(periodEnd) : new Date(Date.now() + fallbackDays * 24 * 60 * 60 * 1000)).toISOString()
@@ -91,12 +93,16 @@ serve(async (req) => {
   const supabaseAdmin = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
   let updateQuery = supabaseAdmin.from('users').update(updateData)
   // ilike sem curingas: "_" e "%" do e-mail são escapados para não casar outro endereço.
-  updateQuery = customerEmail ? updateQuery.ilike('email', customerEmail.replace(/[\\%_]/g, '\\$&')) : updateQuery.eq('dodo_customer_id', customerId)
-  const { error } = await updateQuery
+  updateQuery = metaUserId ? updateQuery.eq('id', metaUserId)
+    : customerEmail ? updateQuery.ilike('email', customerEmail.replace(/[\\%_]/g, '\\$&'))
+    : updateQuery.eq('dodo_customer_id', customerId)
+  const { data: updated, error } = await updateQuery.select('id')
 
   if (error) {
     console.error('Erro ao atualizar usuário:', error)
     return json({ error: 'update failed' }, 500)
   }
-  return json({ received: true })
+  // Nenhuma conta encontrada: responde 200 para a Dodo não repetir, mas deixa registrado para conferência manual.
+  if (!updated?.length) console.warn('Webhook sem conta correspondente:', payload.type, { metaUserId, customerId, hasEmail: !!customerEmail })
+  return json({ received: true, matched: updated?.length ?? 0 })
 })

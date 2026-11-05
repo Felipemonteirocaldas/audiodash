@@ -680,6 +680,16 @@ test('configurações: telefone com código do país, contagens no singular e te
   assert.match(status.subscriptionSummary('canceled', now - day, now).detail, /acesso foi encerrado/);
   assert.equal(status.subscriptionSummary('past_due', null, now).tone, 'danger');
   assert.equal(status.subscriptionSummary(null, undefined, now).label, 'Sem assinatura ativa');
+  assert.equal(status.hasPaidAccess('active', now + day, now), true);
+  assert.equal(status.hasPaidAccess('canceled', now + day, now), true);
+  assert.equal(status.hasPaidAccess('active', now, now), false);
+  assert.equal(status.hasPaidAccess('active', null, now), false);
+  assert.equal(status.hasPaidAccess('past_due', now + day, now), false);
+  const link = new URL(status.checkoutUrl('https://test.checkout.dodopayments.com/buy/pdt_x', { id: 'u-1', email: 'a+b@teste.com' }, 'http://localhost:3000'));
+  assert.equal(link.searchParams.get('email'), 'a+b@teste.com');
+  assert.equal(link.searchParams.get('disableEmail'), 'true');
+  assert.equal(link.searchParams.get('metadata_user_id'), 'u-1');
+  assert.equal(link.searchParams.get('redirect_url'), 'http://localhost:3000/planos');
   assert.equal(status.subscriptionSummary('active', NaN, now).endLabel, 'Data de validade não informada');
   assert.equal(status.saveOutcome(true, 'success').tone, 'ok');
   assert.match(status.saveOutcome(false, 'offline').message, /Sem conexão/);

@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // Fetch subscription status from public.users table
             const { data: userData } = await supabase
               .from('users')
-              .select('subscription_status, dodo_customer_id, subscription_end_date')
+              .select('subscription_status, dodo_customer_id, subscription_end_date, is_admin')
               .eq('id', session.user.id)
               .single();
 
@@ -49,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               createdAt: new Date(session.user.created_at).getTime(),
               subscriptionStatus: userData?.subscription_status || null,
               subscriptionEndDate: userData?.subscription_end_date ? new Date(userData.subscription_end_date).getTime() : null,
+              isAdmin: userData?.is_admin === true,
               stripeCustomerId: userData?.dodo_customer_id || null // reusing field for Dodo id locally
             });
             setAuthProvider('supabase');
@@ -61,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               if (session?.user && supabase) {
                 const { data: userData } = await supabase
                   .from('users')
-                  .select('subscription_status, dodo_customer_id, subscription_end_date')
+                  .select('subscription_status, dodo_customer_id, subscription_end_date, is_admin')
                   .eq('id', session.user.id)
                   .single();
 
@@ -73,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   createdAt: new Date(session.user.created_at).getTime(),
                   subscriptionStatus: userData?.subscription_status || null,
                   subscriptionEndDate: userData?.subscription_end_date ? new Date(userData.subscription_end_date).getTime() : null,
+                  isAdmin: userData?.is_admin === true,
                   stripeCustomerId: userData?.dodo_customer_id || null
                 });
                 setAuthProvider('supabase');

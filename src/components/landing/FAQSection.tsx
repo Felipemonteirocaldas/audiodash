@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
+import { PLAN_PRICE_LABEL } from '@/lib/settingsStatus';
 
 export default function FAQSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
@@ -23,7 +24,7 @@ export default function FAQSection() {
     {
       question: "Há limite de exames ou pacientes cadastrados no Plano Pro?",
       answer:
-        "Nenhum limite! No Plano Pro por R$ 50,00/mês você tem acesso ilimitado a cadastros de pacientes, exames de audiometria tonal e vocal, comparativos de evolução e laudos.",
+        `Nenhum limite! No Plano Pro por ${PLAN_PRICE_LABEL}/mês você tem acesso ilimitado a cadastros de pacientes, exames de audiometria tonal e vocal, comparativos de evolução e laudos.`,
     },
     {
       question: "Como funciona o cancelamento do plano?",

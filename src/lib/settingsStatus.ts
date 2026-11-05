@@ -2,6 +2,29 @@
 
 const formatDate = (ms: number) => new Date(ms).toLocaleDateString('pt-BR');
 
+/** Preço exibido nas telas. O valor cobrado é o do produto na Dodo: mudar os dois juntos. */
+export const PLAN_PRICE_LABEL = 'R$ 50,00';
+/** Link de pagamento do modo de TESTE; em produção, definir VITE_DODO_CHECKOUT_URL na Vercel. */
+export const TEST_CHECKOUT_URL = 'https://test.checkout.dodopayments.com/buy/pdt_0NkP4tyyh4C0dF9wG6eUW';
+
+/** Mesma regra do RLS (public.has_paid_access): ativa ou cancelada, dentro da validade. */
+export function hasPaidAccess(status: string | null | undefined, endDate: number | null | undefined, now: number = Date.now()): boolean {
+  return (status === 'active' || status === 'canceled') && typeof endDate === 'number' && now < endDate;
+}
+
+/**
+ * Link de checkout amarrado à conta: e-mail travado e id do usuário no metadata (lido pelo webhook).
+ * Parâmetros de link estático da Dodo: email, disableEmail, metadata_*, redirect_url.
+ */
+export function checkoutUrl(base: string, user: { id: string; email: string }, origin: string): string {
+  const url = new URL(base);
+  url.searchParams.set('email', user.email);
+  url.searchParams.set('disableEmail', 'true');
+  url.searchParams.set('metadata_user_id', user.id);
+  url.searchParams.set('redirect_url', `${origin}/planos`);
+  return url.toString();
+}
+
 export interface SubscriptionSummary {
   label: string;
   detail: string;
