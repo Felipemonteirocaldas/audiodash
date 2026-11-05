@@ -250,3 +250,17 @@ Na revisão científica 1, foram alterados somente esses mesmos documentos. Nenh
 - Security Advisor (04/11/2026): havia 0 erros e 3 avisos. Aplicado `20261104235000_revoke_handle_new_user.sql`: a ACL de `handle_new_user` ficou só `postgres` e `service_role`. Depois de rodar o linter de novo: 0 erros e 1 aviso ("Leaked password protection", em Authentication → Attack Protection, talvez só no plano Pro). O cadastro de conta nova depois do revoke não foi testado (o gatilho não depende do EXECUTE de anon/authenticated).
 - Auth conferido: cadastro permitido, confirmação de e-mail ligada, Google ativo, Site URL `https://audiodash-five.vercel.app`.
 - Para vender, ainda faltam: checkout de teste da Dodo, paywall só na tela (o RLS não confere a assinatura), e-mail de administrador fixo em `ProtectedRoute.tsx`, backups/pausa do plano Free e webhook da Dodo não verificado.
+
+## Venda: Dodo, admin e branches (05/11/2026, Claude)
+- Fluxo decidido com o usuário: tudo em modo de teste até o lançamento. O Supabase atual faz papel de dev, e no lançamento será criado um projeto de produção limpo a partir de um `schema.sql`. Branch `dev` criado; `main` = o que está publicado.
+- Dodo ao vivo: verificação (KYC) não iniciada, sem produto e sem webhook. Dodo teste: produto "AudioDash Pro" `pdt_0NkP4tyyh4C0dF9wG6eUW` (R$ 50, assinatura) e endpoint para `.../functions/v1/dodo-webhook` desde 10/08. Secret `DODO_WEBHOOK_SECRET` existe no Supabase (não dá para confirmar se é o do endpoint de teste).
+- **Webhook em produção era inseguro e não funcionava:** a versão publicada (agosto) não verificava a assinatura (qualquer um com a chave anon ativava assinatura) e tinha "Verify JWT" ligado (a Dodo, que não manda JWT, recebia 401). Publicada a versão do repositório (`invalid signature` para chamada não assinada, conferido). **Falta desligar "Verify JWT with legacy secret"** (bloqueado pelo classificador; o usuário faz).
+- Código no `dev` (commit 29cb529):
+  - checkout com `email`+`disableEmail`, `metadata_user_id` e `redirect_url` (o antigo `customer_email` não é parâmetro da Dodo);
+  - o paywall espera o webhook ao voltar do checkout;
+  - o botão de assinar da landing leva ao cadastro;
+  - admin vem de `users.is_admin`;
+  - webhook casa por `metadata.user_id`;
+  - preço numa constante.
+- **Migration `20261105000000_admin_and_paid_writes.sql` NÃO aplicada** (bloqueada, aguarda o ok explícito do usuário). Ela precisa ser aplicada antes de o `dev` ir para a `main`, porque o app passa a ler `is_admin`.
+- Pendente: KYC da Dodo (usuário); rotacionar o segredo do webhook de teste (o antigo pode estar no histórico); teste ponta a ponta com cartão de teste; `schema.sql`. O preço "R$ 50" da landing (número grande) continua escrito à parte.
