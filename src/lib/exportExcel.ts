@@ -35,12 +35,20 @@ export async function exportToExcelJs(exam: Audiometry, patient: Patient) {
   const details = book.addWorksheet('Procedimentos');
   details.addRow(['Procedimento', 'Campo', 'Valor registrado']);
   const append = (section: string, value: unknown, prefix = '') => {
-    if (value && typeof value === 'object') Object.entries(value).forEach(([key, val]) => append(section, val, prefix ? `${prefix} / ${key}` : key));
+    // dif (cálculo antigo gravado) não vai para a planilha. limiar é o nome antigo do ipsi: sai como ipsi quando não há ipsi
+    // (como no PDF e no Word); havendo ipsi, o limiar antigo fica só no registro.
+    if (value && typeof value === 'object') {
+      const entries = Object.entries(value as Record<string, unknown>);
+      const hasIpsi = entries.some(([key, val]) => key === 'ipsi' && val !== undefined && val !== null && val !== '');
+      entries
+        .filter(([key]) => key !== 'dif' && !(key === 'limiar' && hasIpsi))
+        .forEach(([key, val]) => { const name = key === 'limiar' ? 'ipsi' : key; append(section, val, prefix ? `${prefix} / ${name}` : name); });
+    }
     else if (value !== undefined && value !== null && value !== '') details.addRow([section, prefix, String(value)]);
   };
   append('Meatoscopia', exam.meatoscopy); append('Logoaudiometria', exam.logoAudiometry); append('Timpanometria', exam.tympanometry); append('Reflexos', exam.reflexes); append('Mascaramento', exam.tonalMasking); append('Complementares', exam.complementary);
   const report = book.addWorksheet('Parecer');
-  report.addRows([['Situação', isReviewCurrent(exam) ? 'REVISADO' : 'RASCUNHO'], ['Situação clínica', exam.opinion?.clinicalStatus ? CLINICAL_STATUS_LABELS[exam.opinion.clinicalStatus] : 'Não revisada'], ...professionalClassificationLines(exam).map(line => ['Classificação registrada', line]), ['Síntese', exam.opinion?.clinical || ''], ['Parecer e conduta', exam.resultAndConduct || 'Não registrado']]);
+  report.addRows([['Situação', isReviewCurrent(exam) ? 'REVISADO' : 'RASCUNHO'], ['Situação clínica', isReviewCurrent(exam) && exam.opinion?.clinicalStatus ? CLINICAL_STATUS_LABELS[exam.opinion.clinicalStatus] : 'Não revisada'], ...professionalClassificationLines(exam).map(line => ['Classificação registrada', line]), ['Síntese', exam.opinion?.clinical || ''], ['Parecer e conduta', exam.resultAndConduct || 'Não registrado']]);
   for (const sheet of book.worksheets) {
     sheet.views = [{ state: 'frozen', ySplit: 1 }];
     sheet.columns.forEach((column, index) => { column.width = index === 0 ? 24 : 32; });

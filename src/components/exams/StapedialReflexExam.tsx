@@ -3,10 +3,7 @@ import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { EarReflexData, ReflexFrequency, EarTonalData } from '@/db/db';
-import {
-  analyzeStapedialReflexes,
-  getNumericThreshold
-} from '@/lib/audiologyCalculations';
+import { analyzeStapedialReflexes } from '@/lib/audiologyCalculations';
 const REFLEX_FREQS: ReflexFrequency[] = ['500', '1000', '2000', '4000'];
 
 interface Props {
@@ -46,27 +43,15 @@ export default function StapedialReflexExam({ reflexes, tonalData, onChange }: P
     field: 'limiar' | 'contra' | 'dif' | 'ipsi' | 'decay',
     value: string
   ) => {
-    // Se o usuário digitou o reflexo ipsi ou contra, calculamos a diferença com a VA se existir
+    // A diferença ipsi − VA é calculada na tela (analyzeStapedialReflexes); não é gravada.
     const currentPoint = reflexes[ear]?.[freq] || {};
-    let calculatedDif = currentPoint.dif;
-    if (field === 'ipsi' || field === 'limiar') calculatedDif = '';
-
-    if (field === 'ipsi' || field === 'limiar') {
-      const reflexVal = getNumericThreshold(value);
-      const tonalVA = getNumericThreshold(tonalData?.[ear]?.[freq]?.va);
-      if (reflexVal !== null && tonalVA !== null) {
-        calculatedDif = (reflexVal - tonalVA).toString();
-      }
-    }
-
     onChange({
       ...reflexes,
       [ear]: {
         ...reflexes[ear],
         [freq]: {
           ...currentPoint,
-          [field]: value,
-          dif: calculatedDif
+          [field]: value
         }
       }
     });

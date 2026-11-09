@@ -8,6 +8,7 @@ import { Search, Plus, FileText, Activity, Edit, Trash2, Calendar, X, MessageCir
 import { Link } from 'react-router-dom';
 import { customAlert } from '@/lib/dialogs';
 import { syncManager } from '@/lib/syncManager';
+import { syncAppointmentDeleted } from '@/lib/calendarSyncService';
 import { useAuth } from '@/contexts/AuthContext';
 import { examStatus } from '@/lib/clinicalOverview';
 import { lastRecordDate, permanentDeletionStatus, timestampToLocalDate } from '@/lib/recordRetention';
@@ -169,29 +170,34 @@ export default function Patients() {
       return;
     }
     try {
-      const exams = await db.audiometries.where('patientId').equals(editingPatientId).toArray();
-      for (const exam of exams) {
-        await syncManager.deleteRecord('audiometries', exam.id);
-      }
-      
-      const anamneses = await db.anamneses.where('patientId').equals(editingPatientId).toArray();
-      for (const anam of anamneses) {
-        await syncManager.deleteRecord('anamneses', anam.id);
-      }
+      const patientId = editingPatientId;
+      const exams = await db.audiometries.where('patientId').equals(patientId).primaryKeys();
+      const anamneses = await db.anamneses.where('patientId').equals(patientId).primaryKeys();
+      // appointments não tem índice em patientId (db.ts, versão 10): filtrar em memória.
+      const appointments = await db.appointments.filter(a => a.patientId === patientId).primaryKeys();
 
-      const appointments = await db.appointments.where('patientId').equals(editingPatientId).toArray();
-      for (const app of appointments) {
-        await syncManager.deleteRecord('appointments', app.id);
-      }
+      // Remove os eventos dos calendários externos antes de perder o vínculo local.
+      const calendarFailures = (await Promise.all(appointments.map(id => syncAppointmentDeleted(id))))
+        .filter(r => r.google === 'failed' || r.microsoft === 'failed').length;
 
-      await syncManager.deleteRecord('patients', editingPatientId);
-      
+      // Tudo some do aparelho em uma única transação; a nuvem recebe as exclusões em seguida (ou fica na fila).
+      const outcome = await syncManager.deleteRecords([
+        ...exams.map(id => ({ table: 'audiometries' as const, id })),
+        ...anamneses.map(id => ({ table: 'anamneses' as const, id })),
+        ...appointments.map(id => ({ table: 'appointments' as const, id })),
+        { table: 'patients' as const, id: patientId }
+      ]);
+
       setIsDeleteDialogOpen(false);
       setDeleteConfirmationText('');
       setIsFormOpen(false);
       setEditingPatientId(null);
       setNewPatient({ name: '', cpf: '', birthDate: '', gender: '', occupation: '', phone: '', notes: '' });
-      await customAlert("Paciente e todos os seus registros foram excluídos com sucesso.");
+      const notes = [
+        outcome === 'queued' ? 'A exclusão na nuvem ainda não foi confirmada e será tentada de novo na próxima sincronização.' : '',
+        calendarFailures ? `${calendarFailures} evento(s) não puderam ser removidos do calendário externo; apague-os manualmente.` : ''
+      ].filter(Boolean).join(' ');
+      await customAlert(`Paciente e seus registros foram excluídos deste aparelho.${notes ? ' ' + notes : ''}`);
     } catch (err) {
       await customAlert("Erro ao excluir paciente.");
     }

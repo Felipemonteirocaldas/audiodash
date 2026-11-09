@@ -3,6 +3,8 @@ import { airConductionPath, plottedLevel, OCTAVE_FREQUENCIES, illustrativeTympan
 import { frequencyOctaveOffset } from '@/lib/clinicalProtocol';
 import { recognitionPercentage } from '@/lib/clinicalProtocol';
 import { formatTonalValue, hasRecordedValue, isReviewCurrent, ageAtExam, professionalClassificationLines, examProfessional, CLINICAL_STATUS_LABELS } from '@/lib/examIntegrity';
+import { METHOD_LABELS, RESPONSE_LABELS, RELIABILITY_LABELS, transducerLabel, tympanometryLabel, freeFieldLevels as listFreeFieldLevels, reflexCell, logoProtocolLine, iprfLines, complementaryEntries, complementaryNotes, reviewStatusLabel, draftFilePrefix } from '@/lib/exportFormat';
+import { nr7ComparisonEligibility } from '@/lib/examComparison';
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet, pdf, Svg, Line, Path, Circle, Polygon, Polyline, Rect, G, Image } from '@react-pdf/renderer';
 import { Audiometry, Patient, Settings, db, EarTonalData, TonalFrequency } from '@/db/db';
@@ -10,11 +12,6 @@ import { customAlert } from '@/lib/dialogs';
 import { calculatePTA, classifyTympanometry, compareNR7, degreeStandardLabel } from '@/lib/audiologyCalculations';
 import { letterheadLines } from '@/lib/letterhead';
 import { ENT_REFERRAL_TEXT, meatoscopyText, reflexConventionText } from '@/lib/examForm';
-
-const METHOD_LABELS: Record<string, string> = { conventional: 'audiometria convencional', play: 'audiometria lúdica condicionada', vra: 'reforço visual (VRA)', observation: 'observação comportamental' };
-const RESPONSE_LABELS: Record<string, string> = { threshold: 'limiar auditivo', minimum_response: 'nível mínimo de resposta' };
-const RELIABILITY_LABELS: Record<string, string> = { good: 'boa', limited: 'limitada', inconclusive: 'inconclusiva' };
-const tympLabel = (type: string) => type === 'Inconclusivo' ? '-' : type === 'Normal' || type === 'Alterada' ? `Curva ${type.toLowerCase()}` : `Tipo ${type === 'As' ? 'As (Ar)' : type}`;
 
 const FREQUENCIES: TonalFrequency[] = ['125', '250', '500', '750', '1000', '1500', '2000', '3000', '4000', '6000', '8000'];
 const FREQ_OFFSETS: Record<string, number> = Object.fromEntries(FREQUENCIES.map(frequency => [frequency, frequencyOctaveOffset(frequency)]));
@@ -571,9 +568,9 @@ const AudiometryPDF = ({
   const tonalRows = FREQUENCIES.filter(f => OCTAVE_FREQUENCIES.has(f) || ([exam.tonalData?.right?.[f], exam.tonalData?.left?.[f]].some(point => point?.va !== undefined || point?.vo !== undefined)));
   const hasNR = [exam.tonalData?.right, exam.tonalData?.left, exam.freeField].some(ear => FREQUENCIES.some(f => ear?.[f]?.va === 'NR' || ear?.[f]?.vo === 'NR'));
   const age = ageAtExam(patient.birthDate, exam.examDate)?.label;
-  const transducer = exam.header?.transducer === 'insert' ? 'Inserção' : exam.header?.transducer === 'supra' ? 'Supra-aural' : 'Não registrado';
+  const transducer = transducerLabel(exam.header?.transducer);
   const avg = (value: number | null) => value !== null ? `${value} dB` : '—';
-  const freeFieldLevels = FREQUENCIES.filter(f => exam.freeField?.[f]?.va !== undefined).map(f => `${f} Hz: ${formatTonalValue(exam.freeField?.[f], 'va')}`);
+  const freeFieldLevels = listFreeFieldLevels(exam.freeField, FREQUENCIES);
 
   return (
     <Document title={`Avaliação audiológica - ${patient.name}`} author={examProfessional(exam, settings)}>
@@ -701,10 +698,8 @@ const AudiometryPDF = ({
               return (
                 <View key={ear} style={{ marginTop: 6 }} wrap={false}>
                   <Text style={{ fontSize: 7.5, color: ear === 'right' ? OD : OE, fontWeight: 'bold' }}>{ear === 'right' ? 'Orelha direita' : 'Orelha esquerda'}</Text>
-                  <Text style={{ fontSize: 7.5, color: MUTED }}>Idioma {logo?.language || 'não informado'}; material {logo?.materialReference || 'não informado'}; apresentação {logo?.presentation === 'recorded' ? 'gravada' : logo?.presentation === 'live' ? 'voz viva monitorada' : 'não informada'}; resposta {logo?.responseMode || 'não informada'}.</Text>
-                  {Object.entries(logo?.irf || {}).filter(([, p]) => hasRecordedValue(p)).map(([key, point]) => (
-                    <Text key={key} style={{ fontSize: 7.5, color: MUTED }}>IPRF ({key}): lista {point.listId || 'não informada'}; acertos {point.correctItems ?? '?'}/{point.totalItems ?? '?'}; {recognitionPercentage(point) ?? 'não calculável'}%; apresentação {point.db ?? '?'} dB NA; mascaramento {point.masking || 'não informado'}.</Text>
-                  ))}
+                  <Text style={{ fontSize: 7.5, color: MUTED }}>{logoProtocolLine(logo)}</Text>
+                  {iprfLines(logo).map(line => <Text key={line} style={{ fontSize: 7.5, color: MUTED }}>{line}</Text>)}
                 </View>
               );
             })}
@@ -723,7 +718,7 @@ const AudiometryPDF = ({
                   headColors={[undefined, OD, OE]}
                   widths={[1.1, 1, 1]}
                   rows={[
-                    ['Curva', tympLabel(rightTymp.type), tympLabel(leftTymp.type)],
+                    ['Curva', tympanometryLabel(tympR, rightTymp.type), tympanometryLabel(tympL, leftTymp.type)],
                     ['Pressão (daPa)', tympR?.curveShape === 'flat' ? 'Sem pico' : dash(tympR?.peak), tympL?.curveShape === 'flat' ? 'Sem pico' : dash(tympL?.peak)],
                     ['Admitância', tympR?.compliance200 != null ? `${tympR.compliance200} ${tympR.admittanceUnit || '(unidade não informada)'}` : '-', tympL?.compliance200 != null ? `${tympL.compliance200} ${tympL.admittanceUnit || '(unidade não informada)'}` : '-'],
                     ['Volume (ml)', dash(tympR?.volume), dash(tympL?.volume)],
@@ -737,11 +732,7 @@ const AudiometryPDF = ({
                   head={['Hz', 'OD', 'OE']}
                   headColors={[undefined, OD, OE]}
                   widths={[0.8, 1, 1]}
-                  rows={(['500', '1000', '2000', '4000'] as const).map(freq => [
-                    freq,
-                    `${exam.reflexes?.right?.[freq]?.ipsi ?? exam.reflexes?.right?.[freq]?.limiar ?? '-'} / ${exam.reflexes?.right?.[freq]?.contra ?? '-'}`,
-                    `${exam.reflexes?.left?.[freq]?.ipsi ?? exam.reflexes?.left?.[freq]?.limiar ?? '-'} / ${exam.reflexes?.left?.[freq]?.contra ?? '-'}`
-                  ])}
+                  rows={(['500', '1000', '2000', '4000'] as const).map(freq => [freq, reflexCell(exam.reflexes?.right?.[freq]), reflexCell(exam.reflexes?.left?.[freq])])}
                 />
                 {hasReflex && <Text style={S.note}>{reflexConventionText(exam.reflexes?.earConvention)}</Text>}
               </View>
@@ -756,21 +747,8 @@ const AudiometryPDF = ({
         {/* Testes complementares */}
         {showComplementary && (
           <Section number={num('complementary')} title="Testes audiológicos complementares">
-            {exam.complementary?.weber && <KeyValue label="Weber" value={exam.complementary.weber} />}
-            {(exam.complementary?.eoa?.right || exam.complementary?.eoa?.left) && (
-              <KeyValue label="EOA" value={`OD: ${exam.complementary?.eoa?.right || 'Não realizado'} | OE: ${exam.complementary?.eoa?.left || 'Não realizado'}${exam.complementary?.eoa?.notes ? ` (${exam.complementary.eoa.notes})` : ''}`} />
-            )}
-            {(exam.complementary?.toneDecayDetails?.right || exam.complementary?.toneDecayDetails?.left) && (
-              <KeyValue label="Tone decay" value={`OD: ${exam.complementary?.toneDecayDetails?.right || '-'} | OE: ${exam.complementary?.toneDecayDetails?.left || '-'}`} />
-            )}
-            {(exam.complementary?.sisi?.right || exam.complementary?.sisi?.left) && (
-              <KeyValue label="SISI" value={`OD: ${exam.complementary?.sisi?.right || '-'} | OE: ${exam.complementary?.sisi?.left || '-'}`} />
-            )}
-            {(exam.complementary?.bera?.right || exam.complementary?.bera?.left) && (
-              <KeyValue label="PEATE" value={`OD: ${exam.complementary?.bera?.right || '-'} | OE: ${exam.complementary?.bera?.left || '-'}${exam.complementary?.bera?.notes ? ` (${exam.complementary.bera.notes})` : ''}`} />
-            )}
-            {hasRecordedValue(exam.complementary?.eoa) && <Text style={S.note}>EOA: {exam.complementary?.eoa?.type || 'tipo não informado'}; protocolo {exam.complementary?.eoa?.protocol || 'não informado'}; qualidade {exam.complementary?.eoa?.quality || 'não informada'}.</Text>}
-            {hasRecordedValue(exam.complementary?.bera) && <Text style={S.note}>PEATE: protocolo {exam.complementary?.bera?.protocol || 'não informado'}; estímulo {exam.complementary?.bera?.stimulus || 'não informado'}; nível/unidade {exam.complementary?.bera?.levelAndUnit || 'não informado'}. Sem conversão automática nHL/eHL.</Text>}
+            {complementaryEntries(exam.complementary).map(([label, value]) => <KeyValue key={label} label={label} value={value} />)}
+            {complementaryNotes(exam.complementary).map(note => <Text key={note} style={S.note}>{note}</Text>)}
           </Section>
         )}
 
@@ -810,7 +788,7 @@ export const exportToPdf = async (exam: Audiometry, patient: Patient, options?: 
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Laudo_Audiometrico_${patient.name.replace(/\s+/g, '_')}.pdf`;
+    link.download = `${draftFilePrefix(exam)}Laudo_Audiometrico_${patient.name.replace(/\s+/g, '_')}.pdf`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -823,11 +801,15 @@ export const exportToPdf = async (exam: Audiometry, patient: Patient, options?: 
 
 const AudiometryComparativePDF = ({ baseline, current, patient, settings }: { baseline: Audiometry, current: Audiometry, patient: Patient, settings?: Settings }) => {
   const emissionDate = new Date().toLocaleDateString('pt-BR');
+  const allReviewed = isReviewCurrent(baseline) && isReviewCurrent(current);
+  const nr7 = nr7ComparisonEligibility(baseline, current, patient.birthDate);
+  const sameDate = baseline.examDate === current.examDate;
+  const title = `${allReviewed ? 'LAUDO COMPARATIVO' : 'COMPARATIVO'} DE AUDIOMETRIA${nr7.eligible ? ' (PCA / NR-7 ANEXO II)' : ''}${allReviewed ? '' : ' — RASCUNHO'}`;
 
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
-        
+
         {/* HEADER */}
         <View style={[styles.headerBox, { alignItems: 'center' }]} wrap={false}>
           {settings?.logoUrl ? (
@@ -837,8 +819,9 @@ const AudiometryComparativePDF = ({ baseline, current, patient, settings }: { ba
           )}
           <View style={styles.headerCenter}>
             <Text style={styles.clinicName}>{settings?.clinicName || ''}</Text>
-            <Text style={{ fontSize: 9, fontWeight: 'bold', color: '#2563eb', marginTop: 2 }}>
-              LAUDO COMPARATIVO DE AUDIOMETRIA EVOLUTIVA (PCA / NR-7 ANEXO II)
+            <Text style={{ fontSize: 9, fontWeight: 'bold', color: '#2563eb', marginTop: 2 }}>{title}</Text>
+            <Text style={{ fontSize: 7.5, fontWeight: 'bold', marginTop: 2, color: allReviewed ? '#166534' : '#92400e' }}>
+              Exame base: {reviewStatusLabel(baseline)} · Exame atual: {reviewStatusLabel(current)}
             </Text>
           </View>
           <View style={{ width: 45 }} />
@@ -877,20 +860,20 @@ const AudiometryComparativePDF = ({ baseline, current, patient, settings }: { ba
                       <Text style={styles.tableCell}>Variação (Δ)</Text>
                     </View>
                     {FREQUENCIES.map(f => {
-                      const bVal = baseline.tonalData?.[ear as 'right' | 'left']?.[f]?.va;
-                      const cVal = current.tonalData?.[ear as 'right' | 'left']?.[f]?.va;
-                      
-                      const hasB = typeof bVal === 'number';
-                      const hasC = typeof cVal === 'number';
-                      const shift = (hasB && hasC) ? (cVal as number) - (bVal as number) : null;
-                      
+                      const bPoint = baseline.tonalData?.[ear as 'right' | 'left']?.[f];
+                      const cPoint = current.tonalData?.[ear as 'right' | 'left']?.[f];
+                      const bVal = bPoint?.va;
+                      const cVal = cPoint?.va;
+
+                      const shift = (typeof bVal === 'number' && typeof cVal === 'number') ? cVal - bVal : null;
+
                       const isSignificantWorsening = shift !== null && shift >= 15;
-                      
+
                       return (
                         <View key={`sh_${ear}_${f}`} style={styles.tableRow}>
                           <Text style={styles.tableCellFreq}>{f}</Text>
-                          <Text style={styles.tableCell}>{hasB ? bVal : '--'}</Text>
-                          <Text style={styles.tableCell}>{hasC ? cVal : '--'}</Text>
+                          <Text style={styles.tableCell}>{bVal !== undefined ? String(formatTonalValue(bPoint, 'va')) : '--'}</Text>
+                          <Text style={styles.tableCell}>{cVal !== undefined ? String(formatTonalValue(cPoint, 'va')) : '--'}</Text>
                           <Text style={[styles.tableCell, { fontWeight: 'bold', color: isSignificantWorsening ? '#dc2626' : (shift !== null && shift < 0 ? '#10b981' : '#333') }]}>
                             {shift !== null ? `${shift > 0 ? '+' : ''}${shift} dB` : '--'}
                           </Text>
@@ -898,17 +881,28 @@ const AudiometryComparativePDF = ({ baseline, current, patient, settings }: { ba
                       );
                     })}
                   </View>
-                  <Text style={{ fontSize: 6.8, marginTop: 3 }}>NR-7, Anexo II: {compareNR7(baseline.tonalData?.[ear as 'right' | 'left'], current.tonalData?.[ear as 'right' | 'left']).reason}</Text>
+                  {nr7.eligible && <Text style={{ fontSize: 6.8, marginTop: 3 }}>NR-7, Anexo II: {compareNR7(baseline.tonalData?.[ear as 'right' | 'left'], current.tonalData?.[ear as 'right' | 'left']).reason}</Text>}
                 </View>
               ))}
             </View>
-            
-            <View style={{ backgroundColor: '#fef2f2', padding: 5, borderRadius: 3, marginTop: 4, borderWidth: 1, borderColor: '#fecaca' }}>
-              <Text style={{ fontSize: 7.5, color: '#991b1b', fontWeight: 'bold' }}>Critérios descritivos da NR-7, Anexo II (itens 5.3 e 5.4):</Text>
-              <Text style={{ fontSize: 7, color: '#991b1b', marginTop: 1 }}>
-                Em vermelho: piora de 15 dB ou mais na frequência. Desencadeamento: média de 3, 4 e 6 kHz ≥ 10 dB ou ≥ 15 dB em uma dessas frequências, com referência ≤ 25 dB NA. Agravamento: média de 0,5–2 kHz ou 3–6 kHz ≥ 10 dB ou ≥ 15 dB em frequência isolada. O exame base deve ser o exame de referência vigente. Diagnóstico conclusivo e aptidão: médico do trabalho (item 6).
-              </Text>
-            </View>
+
+            <Text style={{ fontSize: 7, marginTop: 3 }}>Em vermelho: piora de 15 dB ou mais na frequência (destaque descritivo). NR: ausência de resposta no nível indicado; não entra no cálculo da variação.</Text>
+            {(sameDate || nr7.warnings.length > 0 || !nr7.eligible) && (
+              <View style={{ backgroundColor: '#fffbeb', padding: 5, borderRadius: 3, marginTop: 4, borderWidth: 1, borderColor: '#fcd34d' }}>
+                {!nr7.eligible && <Text style={{ fontSize: 7, color: '#92400e' }}>Critérios da NR-7, Anexo II, não aplicados: {nr7.blockers.join(' ')}</Text>}
+                {sameDate && <Text style={{ fontSize: 7, color: '#92400e' }}>Os dois exames têm a mesma data; a base é o registrado primeiro.</Text>}
+                {nr7.warnings.map(warning => <Text key={warning} style={{ fontSize: 7, color: '#92400e' }}>{warning}</Text>)}
+              </View>
+            )}
+
+            {nr7.eligible && (
+              <View style={{ backgroundColor: '#fef2f2', padding: 5, borderRadius: 3, marginTop: 4, borderWidth: 1, borderColor: '#fecaca' }}>
+                <Text style={{ fontSize: 7.5, color: '#991b1b', fontWeight: 'bold' }}>Critérios descritivos da NR-7, Anexo II (itens 5.3 e 5.4):</Text>
+                <Text style={{ fontSize: 7, color: '#991b1b', marginTop: 1 }}>
+                  Desencadeamento: média de 3, 4 e 6 kHz ≥ 10 dB ou ≥ 15 dB em uma dessas frequências, com referência ≤ 25 dB NA. Agravamento: média de 0,5–2 kHz ou 3–6 kHz ≥ 10 dB ou ≥ 15 dB em frequência isolada. O exame base deve ser o exame de referência vigente. Diagnóstico conclusivo e aptidão: médico do trabalho (item 6).
+                </Text>
+              </View>
+            )}
 
           </View>
         </View>
@@ -920,7 +914,7 @@ const AudiometryComparativePDF = ({ baseline, current, patient, settings }: { ba
             <Text style={{ fontSize: 8, fontWeight: 'bold' }}>{examProfessional(current, settings)}</Text>
             <Text style={{ fontSize: 7, color: '#475569' }}>Fonoaudiólogo(a) responsável pela comparação</Text>
           </View>
-          <Text style={styles.emissionStamp}>Laudo comparativo emitido em {emissionDate} via AudioDash.</Text>
+          <Text style={styles.emissionStamp}>{allReviewed ? 'Laudo comparativo' : 'Comparativo em rascunho'} emitido em {emissionDate} via AudioDash.</Text>
         </View>
 
         <Text 
@@ -934,17 +928,19 @@ const AudiometryComparativePDF = ({ baseline, current, patient, settings }: { ba
   );
 };
 
+export const createComparisonDocument = (baseline: Audiometry, current: Audiometry, patient: Patient, settings?: Settings) => <AudiometryComparativePDF baseline={baseline} current={current} patient={patient} settings={settings} />;
+
 export const exportComparisonToPdf = async (baseline: Audiometry, current: Audiometry, patient: Patient) => {
   try {
     const settingsArray = await db.settings.toArray();
     const settings = settingsArray[0];
 
-    const blob = await pdf(<AudiometryComparativePDF baseline={baseline} current={current} patient={patient} settings={settings} />).toBlob();
-    
+    const blob = await pdf(createComparisonDocument(baseline, current, patient, settings)).toBlob();
+
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Comparativo_Audiometria_${patient.name.replace(/\s+/g, '_')}.pdf`;
+    link.download = `${draftFilePrefix(baseline) || draftFilePrefix(current)}Comparativo_Audiometria_${patient.name.replace(/\s+/g, '_')}.pdf`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

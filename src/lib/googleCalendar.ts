@@ -8,6 +8,7 @@
  */
 
 import { Appointment } from '@/db/db';
+import { externalEventTitle, EXTERNAL_EVENT_DESCRIPTION } from './calendarIntegration';
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
@@ -156,8 +157,8 @@ function appointmentToGoogleEvent(appointment: Appointment) {
   })();
 
   return {
-    summary: `${appointment.type} - ${appointment.patientName}`,
-    description: appointment.notes || `Agendamento AudioDash\nTipo: ${appointment.type}`,
+    summary: externalEventTitle(appointment),
+    description: EXTERNAL_EVENT_DESCRIPTION,
     start: {
       dateTime: `${appointment.date}T${appointment.time}:00`,
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,

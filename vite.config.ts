@@ -10,26 +10,25 @@ export default defineConfig({
     react(),
     nodePolyfills(),
     VitePWA({
-      registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      // 'prompt': a nova versão espera o usuário (src/components/UpdatePrompt.tsx); recarregar sozinho perderia exame não salvo.
+      registerType: 'prompt',
+      includeAssets: ['favicon.svg'],
       workbox: {
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024 // 10MB
       },
       manifest: {
         name: 'AudioDash',
         short_name: 'AudioDash',
-        description: 'Offline-first Audiometry PWA',
+        description: 'Registro de exames audiológicos e laudos para fonoaudiólogos',
+        lang: 'pt-BR',
         theme_color: '#ffffff',
+        // shortcut: só o SVG existe em public/. Para o botão "Instalar" do Chrome em todos os casos, acrescentar
+        // pwa-192x192.png e pwa-512x512.png (arte da marca) em public/ e listá-los aqui.
         icons: [
           {
-            src: 'pwa-192x192.png',
-            sizes: '192x192',
-            type: 'image/png'
-          },
-          {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png'
+            src: 'favicon.svg',
+            sizes: 'any',
+            type: 'image/svg+xml'
           }
         ]
       }

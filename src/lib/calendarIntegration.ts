@@ -5,6 +5,20 @@ import { Appointment } from '@/db/db';
  * Generates .ics files, Google Calendar URLs, and Outlook URLs
  */
 
+// ─── Dados enviados a calendários de terceiros ──────────────────────────────
+
+/**
+ * Título para Google/Outlook: tipo do atendimento e só as iniciais do paciente. Nome completo e observações
+ * clínicas não saem do sistema (LGPD, minimização de dado de saúde enviado a terceiro).
+ */
+export function externalEventTitle(appointment: Pick<Appointment, 'type' | 'patientName'>): string {
+  const initials = (appointment.patientName || '')
+    .split(/\s+/).filter(Boolean).map(part => `${part[0].toUpperCase()}.`).join('');
+  return initials ? `${appointment.type} — ${initials}` : appointment.type;
+}
+
+export const EXTERNAL_EVENT_DESCRIPTION = 'Agendamento AudioDash. Detalhes do atendimento ficam no sistema.';
+
 // ─── ICS File Generation ────────────────────────────────────────────────────
 
 function formatICSDate(dateStr: string, timeStr: string): string {
@@ -127,8 +141,8 @@ export function downloadMultiICS(appointments: Appointment[], label: string) {
 export function generateGoogleCalendarURL(appointment: Appointment): string {
   const dtStart = formatICSDate(appointment.date, appointment.time);
   const dtEnd = formatICSDate(appointment.date, addOneHour(appointment.time));
-  const title = encodeURIComponent(`${appointment.type} - ${appointment.patientName}`);
-  const details = encodeURIComponent(appointment.notes || '');
+  const title = encodeURIComponent(externalEventTitle(appointment));
+  const details = encodeURIComponent(EXTERNAL_EVENT_DESCRIPTION);
 
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dtStart}/${dtEnd}&details=${details}&sf=true&output=xml`;
 }
@@ -139,8 +153,8 @@ export function generateOutlookURL(appointment: Appointment): string {
   const startDate = `${appointment.date}T${appointment.time}:00`;
   const endTime = addOneHour(appointment.time);
   const endDate = `${appointment.date}T${endTime}:00`;
-  const subject = encodeURIComponent(`${appointment.type} - ${appointment.patientName}`);
-  const body = encodeURIComponent(appointment.notes || '');
+  const subject = encodeURIComponent(externalEventTitle(appointment));
+  const body = encodeURIComponent(EXTERNAL_EVENT_DESCRIPTION);
 
   return `https://outlook.live.com/calendar/0/action/compose?subject=${subject}&startdt=${startDate}&enddt=${endDate}&body=${body}`;
 }

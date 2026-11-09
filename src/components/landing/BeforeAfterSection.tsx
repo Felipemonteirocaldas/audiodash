@@ -114,7 +114,7 @@ export default function BeforeAfterSection() {
         {/* Footer Callout */}
         <div className="max-w-7xl mx-auto mt-6 p-5 sm:p-6 bg-white border border-slate-200 rounded-2xl md:rounded-3xl shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-center sm:text-left">
-            <h4 className="text-sm font-bold text-slate-900">Economize até 15 horas mensais na digitação de exames</h4>
+            <h4 className="text-sm font-bold text-slate-900">Menos digitação repetida: cálculos e documentos saem do exame registrado</h4>
             <p className="text-xs text-slate-500 mt-1">Dedique seu tempo ao atendimento humanizado dos seus pacientes.</p>
           </div>
           <a

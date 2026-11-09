@@ -17,7 +17,7 @@ export default function PricingSection() {
             Um valor acessível para transformar <span className="text-blue-600">o seu consultório</span>
           </h2>
           <p className="text-base sm:text-lg text-slate-600">
-            Cancele quando quiser com 1 clique. Sem fidelidade ou custos escondidos.
+            Sem fidelidade. O cancelamento é feito pelo portal do cliente ou pelo suporte.
           </p>
         </div>
 
@@ -57,7 +57,7 @@ export default function PricingSection() {
             {/* Bottom Trust Notes */}
             <div className="pt-6 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500 font-semibold">
               <span className="flex items-center gap-1.5">
-                <Lock className="w-4 h-4 text-blue-600" /> Pagamento 100% Criptografado
+                <Lock className="w-4 h-4 text-blue-600" /> Pagamento processado pela Dodo Payments
               </span>
               <span className="flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-emerald-600" /> Conforme Normas CFFa

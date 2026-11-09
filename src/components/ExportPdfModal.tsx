@@ -341,7 +341,7 @@ export default function ExportPdfModal({ isOpen, onClose, exam, patient }: Props
               </>
             ) : (
               <>
-                <Download className="w-4 h-4" /> Baixar PDF Oficial
+                <Download className="w-4 h-4" /> Baixar PDF
               </>
             )}
           </Button>

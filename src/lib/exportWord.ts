@@ -1,13 +1,16 @@
-import { formatTonalValue, isReviewCurrent, hasRecordedValue, professionalClassificationLines, examProfessional } from '@/lib/examIntegrity';
+import { isReviewCurrent, hasRecordedValue, professionalClassificationLines, examProfessional } from '@/lib/examIntegrity';
 import { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, AlignmentType, WidthType, HeadingLevel } from 'docx';
 import { saveAs } from 'file-saver';
-import { Audiometry, Patient, db, TonalFrequency, TympanometryData } from '@/db/db';
+import { Audiometry, Patient, db, TonalFrequency } from '@/db/db';
 import { calculatePTA, classifyTympanometry, degreeStandardLabel } from '@/lib/audiologyCalculations';
 import { letterheadLines } from '@/lib/letterhead';
-import { ENT_REFERRAL_TEXT, meatoscopyText } from '@/lib/examForm';
+import { ENT_REFERRAL_TEXT, meatoscopyText, reflexConventionText } from '@/lib/examForm';
 import { customAlert } from '@/lib/dialogs';
+import { protocolLine, tympanometryLabel, tonalWithMasking, freeFieldLevels, reflexCell, logoProtocolLine, iprfLines, complementaryEntries, complementaryNotes, draftFilePrefix } from '@/lib/exportFormat';
 
-const tympWordLabel = (data: TympanometryData | undefined, type: string) => type === 'Inconclusivo' ? `Classificação: ${data?.recordedType ? 'incompleta ou incompatível com a sonda' : 'não registrada'}` : type === 'Normal' || type === 'Alterada' ? `Curva ${type.toLowerCase()}` : `Tipo ${type === 'As' ? 'As (Ar)' : type}`;
+const heading = (text: string) => new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun({ text, bold: true, size: 22, color: '1E3A8A' })] });
+const note = (text: string) => new Paragraph({ children: [new TextRun({ text, size: 18, color: '475569' })] });
+const cell = (text: string, bold = false) => new TableCell({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text, bold })] })] });
 
 const FREQUENCIES: TonalFrequency[] = ['125', '250', '500', '750', '1000', '1500', '2000', '3000', '4000', '6000', '8000'];
 
@@ -20,6 +23,10 @@ export const exportToDocx = async (exam: Audiometry, patient: Patient) => {
     const leftPTA = calculatePTA(exam.header?.responseType === 'threshold' ? exam.tonalData?.left : undefined);
     const rightTymp = classifyTympanometry(exam.tympanometry?.right);
     const leftTymp = classifyTympanometry(exam.tympanometry?.left);
+    const freeField = freeFieldLevels(exam.freeField, FREQUENCIES);
+    const hasMasking = (['right', 'left'] as const).some(ear => FREQUENCIES.some(f => exam.tonalData?.[ear]?.[f]?.maskedVa || exam.tonalData?.[ear]?.[f]?.maskedVo));
+    const complementary = complementaryEntries(exam.complementary);
+    const complementaryText = complementaryNotes(exam.complementary);
 
     const letterhead = letterheadLines(settings);
     const letterheadParagraphs = [letterhead.legal, letterhead.address, letterhead.contact].filter(Boolean).map(text => new Paragraph({
@@ -95,6 +102,7 @@ export const exportToDocx = async (exam: Audiometry, patient: Patient) => {
                 new TextRun({ text: `${exam.examPurpose || 'não informada'}` })
               ]
             }),
+            new Paragraph({ spacing: { after: 200 }, children: [new TextRun({ text: 'Protocolo: ', bold: true }), new TextRun({ text: protocolLine(exam.header) })] }),
 
             // Meatoscopia se houver
             ...(exam.meatoscopy?.right || exam.meatoscopy?.left || exam.meatoscopy?.rightDescription || exam.meatoscopy?.leftDescription || exam.meatoscopy?.referToENT ? [
@@ -134,14 +142,16 @@ export const exportToDocx = async (exam: Audiometry, patient: Patient) => {
                 ...FREQUENCIES.map(f => new TableRow({
                   children: [
                     new TableCell({ children: [new Paragraph({ text: f, alignment: AlignmentType.CENTER })] }),
-                    new TableCell({ children: [new Paragraph({ text: String(formatTonalValue(exam.tonalData?.right?.[f], 'va')), alignment: AlignmentType.CENTER })] }),
-                    new TableCell({ children: [new Paragraph({ text: String(formatTonalValue(exam.tonalData?.right?.[f], 'vo')), alignment: AlignmentType.CENTER })] }),
-                    new TableCell({ children: [new Paragraph({ text: String(formatTonalValue(exam.tonalData?.left?.[f], 'va')), alignment: AlignmentType.CENTER })] }),
-                    new TableCell({ children: [new Paragraph({ text: String(formatTonalValue(exam.tonalData?.left?.[f], 'vo')), alignment: AlignmentType.CENTER })] })
+                    new TableCell({ children: [new Paragraph({ text: tonalWithMasking(exam.tonalData?.right?.[f], 'va'), alignment: AlignmentType.CENTER })] }),
+                    new TableCell({ children: [new Paragraph({ text: tonalWithMasking(exam.tonalData?.right?.[f], 'vo'), alignment: AlignmentType.CENTER })] }),
+                    new TableCell({ children: [new Paragraph({ text: tonalWithMasking(exam.tonalData?.left?.[f], 'va'), alignment: AlignmentType.CENTER })] }),
+                    new TableCell({ children: [new Paragraph({ text: tonalWithMasking(exam.tonalData?.left?.[f], 'vo'), alignment: AlignmentType.CENTER })] })
                   ]
                 }))
               ]
             }),
+            ...(hasMasking ? [note('(M) = limiar obtido com mascaramento.')] : []),
+            ...(freeField.length ? [note(`Campo livre (sem lateralidade; ${exam.header?.freeFieldCondition || 'condição não informada'}): ${freeField.join(' · ')}.`)] : []),
 
             // Médias Tonais
             new Paragraph({
@@ -168,29 +178,45 @@ export const exportToDocx = async (exam: Audiometry, patient: Patient) => {
                 new TextRun({ text: `LRF: ${exam.logoAudiometry?.left?.srt?.db ?? '--'} dB | LDV: ${exam.logoAudiometry?.left?.voiceDetection?.db ?? '--'} dB | IPRF: ${exam.logoAudiometry?.left?.irf?.mono?.percentage ?? '--'}%` })
               ]
             }),
+            ...(['right', 'left'] as const).filter(ear => hasRecordedValue(exam.logoAudiometry?.[ear])).flatMap(ear => [
+              note(`${ear === 'right' ? 'OD' : 'OE'}: ${logoProtocolLine(exam.logoAudiometry?.[ear])}`),
+              ...iprfLines(exam.logoAudiometry?.[ear]).map(line => note(`${ear === 'right' ? 'OD' : 'OE'} — ${line}`))
+            ]),
 
             // Imitanciometria se preenchida
+            ...(hasRecordedValue(exam.tympanometry) || hasRecordedValue(exam.reflexes) ? [heading('5. Imitanciometria')] : []),
             ...(hasRecordedValue(exam.tympanometry) ? [
-              new Paragraph({
-                heading: HeadingLevel.HEADING_2,
-                children: [new TextRun({ text: '5. Imitanciometria', bold: true, size: 22, color: '1E3A8A' })]
-              }),
               new Paragraph({
                 spacing: { after: 200 },
                 children: [
                   new TextRun({ text: 'OD: ', bold: true, color: 'DC2626' }),
-                  new TextRun({ text: `${tympWordLabel(exam.tympanometry?.right, rightTymp.type)} | Sonda: ${exam.tympanometry?.right?.probeFrequency || '?'} Hz | Pico: ${exam.tympanometry?.right?.curveShape === 'flat' ? 'sem pico' : `${exam.tympanometry?.right?.peak ?? '-'} daPa`} | Admitância: ${exam.tympanometry?.right?.compliance200 ?? '-'} ${exam.tympanometry?.right?.admittanceUnit || '(unidade não informada)'} | Volume: ${exam.tympanometry?.right?.volume ?? '-'} | Referência: ${exam.tympanometry?.right?.normativeReference || 'não informada'}\n` }),
+                  new TextRun({ text: `${tympanometryLabel(exam.tympanometry?.right, rightTymp.type)} | Sonda: ${exam.tympanometry?.right?.probeFrequency || '?'} Hz | Pico: ${exam.tympanometry?.right?.curveShape === 'flat' ? 'sem pico' : `${exam.tympanometry?.right?.peak ?? '-'} daPa`} | Admitância: ${exam.tympanometry?.right?.compliance200 ?? '-'} ${exam.tympanometry?.right?.admittanceUnit || '(unidade não informada)'} | Volume: ${exam.tympanometry?.right?.volume ?? '-'} | Referência: ${exam.tympanometry?.right?.normativeReference || 'não informada'}\n` }),
                   new TextRun({ text: 'OE: ', bold: true, color: '2563EB' }),
-                  new TextRun({ text: `${tympWordLabel(exam.tympanometry?.left, leftTymp.type)} | Sonda: ${exam.tympanometry?.left?.probeFrequency || '?'} Hz | Pico: ${exam.tympanometry?.left?.curveShape === 'flat' ? 'sem pico' : `${exam.tympanometry?.left?.peak ?? '-'} daPa`} | Admitância: ${exam.tympanometry?.left?.compliance200 ?? '-'} ${exam.tympanometry?.left?.admittanceUnit || '(unidade não informada)'} | Volume: ${exam.tympanometry?.left?.volume ?? '-'} | Referência: ${exam.tympanometry?.left?.normativeReference || 'não informada'}` })
+                  new TextRun({ text: `${tympanometryLabel(exam.tympanometry?.left, leftTymp.type)} | Sonda: ${exam.tympanometry?.left?.probeFrequency || '?'} Hz | Pico: ${exam.tympanometry?.left?.curveShape === 'flat' ? 'sem pico' : `${exam.tympanometry?.left?.peak ?? '-'} daPa`} | Admitância: ${exam.tympanometry?.left?.compliance200 ?? '-'} ${exam.tympanometry?.left?.admittanceUnit || '(unidade não informada)'} | Volume: ${exam.tympanometry?.left?.volume ?? '-'} | Referência: ${exam.tympanometry?.left?.normativeReference || 'não informada'}` })
                 ]
               })
             ] : []),
+            ...(hasRecordedValue(exam.reflexes) ? [
+              note('Reflexos acústicos (ipsilateral / contralateral, dB):'),
+              new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                rows: [
+                  new TableRow({ children: [cell('Hz', true), cell('OD', true), cell('OE', true)] }),
+                  ...(['500', '1000', '2000', '4000'] as const).map(freq => new TableRow({ children: [cell(freq), cell(reflexCell(exam.reflexes?.right?.[freq])), cell(reflexCell(exam.reflexes?.left?.[freq]))] }))
+                ]
+              }),
+              note(reflexConventionText(exam.reflexes?.earConvention))
+            ] : []),
+
+            // Testes complementares
+            ...(complementary.length || complementaryText.length ? [
+              heading('6. Testes Audiológicos Complementares'),
+              ...complementary.map(([label, value]) => new Paragraph({ children: [new TextRun({ text: `${label}: `, bold: true }), new TextRun({ text: value })] })),
+              ...complementaryText.map(text => note(text))
+            ] : []),
 
             // Conclusão e Parecer
-            new Paragraph({
-              heading: HeadingLevel.HEADING_2,
-              children: [new TextRun({ text: '6. Parecer Fonoaudiológico e Conduta', bold: true, size: 22, color: '1E3A8A' })]
-            }),
+            heading('7. Parecer Fonoaudiológico e Conduta'),
             ...professionalClassificationLines(exam).map(line => new Paragraph({ children: [new TextRun({ text: line, size: 20 })] })),
             new Paragraph({ children: [new TextRun({ text: `Classificação de grau adotada: ${degreeStandardLabel(exam.header?.degreeStandard)}.`, size: 18, color: '475569' })] }),
             new Paragraph({
@@ -219,7 +245,7 @@ export const exportToDocx = async (exam: Audiometry, patient: Patient) => {
     });
 
     const blob = await Packer.toBlob(doc);
-    saveAs(blob, `Laudo_Audiometrico_${patient.name.replace(/\s+/g, '_')}.docx`);
+    saveAs(blob, `${draftFilePrefix(exam)}Laudo_Audiometrico_${patient.name.replace(/\s+/g, '_')}.docx`);
   } catch (err: any) {
     console.error(err);
     await customAlert('Erro ao exportar Word: ' + (err.message || String(err)));

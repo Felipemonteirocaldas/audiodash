@@ -8,7 +8,9 @@ import AudiogramSVG from '@/components/AudiogramSVG';
 import { exportComparisonToPdf } from '@/lib/exportPdf';
 import { TonalFrequency } from '@/db/db';
 import { compareNR7 } from '@/lib/audiologyCalculations';
-import { formatTonalValue } from '@/lib/examIntegrity';
+import { formatTonalValue, isReviewCurrent } from '@/lib/examIntegrity';
+import { nr7ComparisonEligibility, orderForComparison } from '@/lib/examComparison';
+import { reviewStatusLabel } from '@/lib/exportFormat';
 
 export default function CompareExams() {
   const { examId1, examId2 } = useParams();
@@ -19,9 +21,11 @@ export default function CompareExams() {
   const patientId = exam1?.patientId || exam2?.patientId;
   const patient = useLiveQuery(() => patientId ? db.patients.get(patientId) : undefined, [patientId]);
 
-  // Sort exams by date (oldest first as baseline)
-  const baseline = exam1 && exam2 ? (new Date(exam1.examDate).getTime() < new Date(exam2.examDate).getTime() ? exam1 : exam2) : null;
-  const current = exam1 && exam2 ? (new Date(exam1.examDate).getTime() < new Date(exam2.examDate).getTime() ? exam2 : exam1) : null;
+  const ordered = exam1 && exam2 ? orderForComparison(exam1, exam2) : null;
+  const baseline = ordered?.baseline ?? null;
+  const current = ordered?.current ?? null;
+  const nr7 = baseline && current && patient ? nr7ComparisonEligibility(baseline, current, patient.birthDate) : null;
+  const statusBadge = (exam: NonNullable<typeof exam1>) => <span className={`inline-block text-xs font-bold px-2 py-0.5 rounded border ${isReviewCurrent(exam) ? 'text-emerald-800 border-emerald-300 bg-emerald-50' : 'text-amber-900 border-amber-300 bg-amber-50'}`}>{reviewStatusLabel(exam)}</span>;
 
   const handleExportPdf = async () => {
     if (baseline && current && patient) {
@@ -80,7 +84,7 @@ export default function CompareExams() {
               })}
             </tbody>
           </table>
-          {(() => {
+          {nr7?.eligible && (() => {
             const result = compareNR7(baseline?.tonalData?.[ear], current?.tonalData?.[ear]);
             return <p className="mt-3 text-sm text-slate-700 bg-slate-50 border rounded-lg p-3"><strong>NR-7, Anexo II:</strong> {result.reason}{result.meanShift346 !== null && ` (Δ média 3–6 kHz: ${result.meanShift346} dB; Δ média 0,5–2 kHz: ${result.meanShift05to2} dB.)`}</p>;
           })()}
@@ -105,7 +109,7 @@ export default function CompareExams() {
         </div>
         <div className="ml-auto">
           <Button onClick={handleExportPdf} className="gap-2 bg-slate-900 text-white hover:bg-slate-800">
-            <FileText className="w-4 h-4" /> Exportar Laudo (PDF)
+            <FileText className="w-4 h-4" /> Exportar comparativo (PDF)
           </Button>
         </div>
       </div>
@@ -138,6 +142,7 @@ export default function CompareExams() {
                 <div className="flex items-baseline gap-2">
                   <div className="text-4xl font-extrabold tracking-tight text-slate-800">{baseline.examDate.split('-').reverse().join('/')}</div>
                 </div>
+                {statusBadge(baseline)}
                 <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
                   <div>
                     <p className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">Propósito</p>
@@ -163,6 +168,7 @@ export default function CompareExams() {
                 <div className="flex items-baseline gap-2">
                   <div className="text-4xl font-extrabold tracking-tight text-indigo-700">{current.examDate.split('-').reverse().join('/')}</div>
                 </div>
+                {statusBadge(current)}
                 <div className="grid grid-cols-2 gap-4 pt-4 border-t border-indigo-100/60">
                   <div>
                     <p className="text-xs text-indigo-400 uppercase font-bold tracking-wider mb-1">Propósito</p>
@@ -201,13 +207,23 @@ export default function CompareExams() {
                   {renderComparisonTable('left', 'Ouvido Esquerdo (OE)')}
                 </div>
                 
-                <div className="mt-8 p-4 bg-blue-50 border border-blue-100 rounded-xl">
-                  <h4 className="font-semibold text-blue-900 mb-2">Critérios da NR-7, Anexo II (itens 5.3 e 5.4)</h4>
-                  <p className="text-sm text-blue-800">
-                    Desencadeamento: com referência ≤ 25 dB NA em 500–8000 Hz, piora ≥ 10 dB na média de 3, 4 e 6 kHz ou ≥ 15 dB em uma dessas frequências. Agravamento (PAINPSE confirmada): piora ≥ 10 dB na média de 0,5–2 kHz ou de 3–6 kHz, ou ≥ 15 dB em frequência isolada. Em vermelho: piora ≥ 15 dB na frequência. O diagnóstico conclusivo e a aptidão cabem ao médico do trabalho (item 6).
-                  </p>
-                  {!['referencial', 'admissional'].includes(baseline.examPurpose || '') && <p className="text-sm text-amber-800 mt-2">O exame mais antigo foi usado como base, mas não está marcado como referencial ou admissional. Confirme se é o exame de referência vigente (itens 4.3.1 e 5.5).</p>}
-                </div>
+                <p className="mt-4 text-sm text-slate-600">Em vermelho: piora de 15 dB ou mais na frequência (destaque descritivo). NR não entra no cálculo da variação.</p>
+                {(ordered?.sameDate || (nr7 && (!nr7.eligible || nr7.warnings.length > 0))) && (
+                  <div role="status" className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-900 space-y-1">
+                    {nr7 && !nr7.eligible && <p>Critérios da NR-7, Anexo II, não aplicados: {nr7.blockers.join(' ')}</p>}
+                    {ordered?.sameDate && <p>Os dois exames têm a mesma data; a base é o registrado primeiro.</p>}
+                    {nr7?.warnings.map(warning => <p key={warning}>{warning}</p>)}
+                  </div>
+                )}
+                {nr7?.eligible && (
+                  <div className="mt-8 p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                    <h4 className="font-semibold text-blue-900 mb-2">Critérios da NR-7, Anexo II (itens 5.3 e 5.4)</h4>
+                    <p className="text-sm text-blue-800">
+                      Desencadeamento: com referência ≤ 25 dB NA em 500–8000 Hz, piora ≥ 10 dB na média de 3, 4 e 6 kHz ou ≥ 15 dB em uma dessas frequências. Agravamento (PAINPSE confirmada): piora ≥ 10 dB na média de 0,5–2 kHz ou de 3–6 kHz, ou ≥ 15 dB em frequência isolada. O diagnóstico conclusivo e a aptidão cabem ao médico do trabalho (item 6).
+                    </p>
+                    {!['referencial', 'admissional'].includes(baseline.examPurpose || '') && <p className="text-sm text-amber-800 mt-2">O exame mais antigo foi usado como base, mas não está marcado como referencial ou admissional. Confirme se é o exame de referência vigente (itens 4.3.1 e 5.5).</p>}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

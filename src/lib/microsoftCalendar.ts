@@ -8,6 +8,7 @@
  */
 
 import { Appointment } from '@/db/db';
+import { externalEventTitle, EXTERNAL_EVENT_DESCRIPTION } from './calendarIntegration';
 
 const CLIENT_ID = import.meta.env.VITE_MICROSOFT_CLIENT_ID || '';
 const SCOPES = ['Calendars.ReadWrite'];
@@ -115,6 +116,16 @@ export async function connectMicrosoftCalendar(): Promise<string> {
   }
 }
 
+/** Esquece a conexão neste navegador sem abrir janela (logout do AudioDash): token, marca e cache do MSAL. */
+export function forgetMicrosoftLocally() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(CONNECTED_KEY);
+  Object.keys(localStorage).filter(k => k.startsWith('msal.') || k.includes('login.windows.net') || k.includes('login.microsoftonline.com'))
+    .forEach(k => localStorage.removeItem(k));
+  msalInstance = null; // a instância em memória ainda conhece a conta
+  msalLoadPromise = null;
+}
+
 export async function disconnectMicrosoftCalendar() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(CONNECTED_KEY);
@@ -181,10 +192,10 @@ function appointmentToOutlookEvent(appointment: Appointment) {
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   return {
-    subject: `${appointment.type} - ${appointment.patientName}`,
+    subject: externalEventTitle(appointment),
     body: {
       contentType: 'Text',
-      content: appointment.notes || `Agendamento AudioDash\nTipo: ${appointment.type}`,
+      content: EXTERNAL_EVENT_DESCRIPTION,
     },
     start: {
       dateTime: `${appointment.date}T${appointment.time}:00`,

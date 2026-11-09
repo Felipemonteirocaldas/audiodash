@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { CreditCard, CheckCircle2, AlertCircle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { downloadFullBackup } from '@/lib/backup';
 import { supabase } from '@/lib/supabase';
-import { PLAN_PRICE_LABEL, TEST_CHECKOUT_URL, checkoutUrl, hasPaidAccess } from '@/lib/settingsStatus';
+import { PLAN_PRICE_LABEL, checkoutUrl, hasPaidAccess, resolveCheckoutUrl } from '@/lib/settingsStatus';
 
-const CHECKOUT_URL = import.meta.env.VITE_DODO_CHECKOUT_URL || TEST_CHECKOUT_URL;
+const CHECKOUT_URL = resolveCheckoutUrl(import.meta.env.VITE_DODO_CHECKOUT_URL, import.meta.env.DEV);
 
 export default function Paywall() {
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading } = useAuth();
   const navigate = useNavigate();
   // A Dodo volta para /planos?status=...; o webhook pode chegar alguns segundos depois do retorno.
   const returnedStatus = new URLSearchParams(window.location.search).get('status');
@@ -39,8 +39,11 @@ export default function Paywall() {
     return () => clearInterval(timer);
   }, [confirming, user]);
 
+  // Sem conta não há a quem vincular a assinatura (e "Sair" limparia dados locais de quem não entrou).
+  if (!isLoading && !user) return <Navigate to="/login" replace />;
+
   const handleCheckout = () => {
-    if (user) window.location.href = checkoutUrl(CHECKOUT_URL, user, window.location.origin);
+    if (user && CHECKOUT_URL) window.location.href = checkoutUrl(CHECKOUT_URL, user, window.location.origin);
   };
 
   return (
@@ -97,7 +100,7 @@ export default function Paywall() {
               </ul>
             </div>
 
-            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4 rounded-md">
+            <div className="bg-blue-50 border border-blue-200 p-4 mb-4 rounded-md">
               <div className="flex">
                 <div className="flex-shrink-0">
                   <AlertCircle className="h-5 w-5 text-blue-400" aria-hidden="true" />
@@ -112,10 +115,14 @@ export default function Paywall() {
 
             <button
               onClick={handleCheckout}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              disabled={!CHECKOUT_URL}
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               Assinar Agora
             </button>
+            {!CHECKOUT_URL && (
+              <p role="alert" className="text-sm text-red-700">Pagamento indisponível no momento. Entre em contato com o suporte.</p>
+            )}
             
             <div className="border border-slate-200 rounded-md p-4 text-sm text-gray-600 space-y-2">
               <p>Seus prontuários continuam guardados mesmo sem assinatura ativa. Você pode baixar a cópia completa dos dados deste dispositivo a qualquer momento (Res. CFFa 777/2025, arts. 7º e 8º).</p>

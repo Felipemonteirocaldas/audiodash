@@ -90,8 +90,13 @@ serve(async (req) => {
       return json({ received: true })
   }
 
+  // Ordem dos eventos: a Dodo pode reenviar ou entregar fora de ordem. Só aplica eventos mais novos que o último aplicado
+  // (webhook-timestamp já validado em verifySignature). Requer a migração 20261108120000_users_rls_and_webhook_order.sql.
+  const eventAt = new Date(Number(req.headers.get('webhook-timestamp')) * 1000).toISOString()
+  updateData.last_webhook_at = eventAt
+
   const supabaseAdmin = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
-  let updateQuery = supabaseAdmin.from('users').update(updateData)
+  let updateQuery = supabaseAdmin.from('users').update(updateData).or(`last_webhook_at.is.null,last_webhook_at.lt.${eventAt}`)
   // ilike sem curingas: "_" e "%" do e-mail são escapados para não casar outro endereço.
   updateQuery = metaUserId ? updateQuery.eq('id', metaUserId)
     : customerEmail ? updateQuery.ilike('email', customerEmail.replace(/[\\%_]/g, '\\$&'))
@@ -102,7 +107,8 @@ serve(async (req) => {
     console.error('Erro ao atualizar usuário:', error)
     return json({ error: 'update failed' }, 500)
   }
-  // Nenhuma conta encontrada: responde 200 para a Dodo não repetir, mas deixa registrado para conferência manual.
-  if (!updated?.length) console.warn('Webhook sem conta correspondente:', payload.type, { metaUserId, customerId, hasEmail: !!customerEmail })
+  // Nenhuma linha alterada: conta inexistente OU evento mais antigo que o último aplicado. Responde 200 para a Dodo
+  // não repetir, mas deixa registrado para conferência manual.
+  if (!updated?.length) console.warn('Webhook sem alteração (conta não encontrada ou evento antigo):', payload.type, { metaUserId, customerId, hasEmail: !!customerEmail, eventAt })
   return json({ received: true, matched: updated?.length ?? 0 })
 })

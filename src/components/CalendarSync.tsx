@@ -474,7 +474,12 @@ export function CalendarConnections() {
                 <div>
                   <strong className="text-slate-600">Preciso conectar toda vez que logar?</strong>
                   <br />
-                  Não. A conexão é salva no seu navegador. Só precisa reconectar se limpar os dados do navegador ou trocar de dispositivo.
+                  Sim. Ao sair do AudioDash, a conexão é desfeita neste navegador para que outra pessoa no mesmo computador não envie agendamentos ao seu calendário.
+                </div>
+                <div>
+                  <strong className="text-slate-600">O que é enviado ao calendário?</strong>
+                  <br />
+                  Data, horário, tipo de atendimento e as iniciais do paciente. Nome completo e observações não são enviados.
                 </div>
                 <div>
                   <strong className="text-slate-600">Os eventos antigos são sincronizados?</strong>

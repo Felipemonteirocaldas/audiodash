@@ -18,11 +18,11 @@ export default function LandingPage() {
     document.title = "AudioDash | Software para Fonoaudiologia";
     const metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) {
-      metaDesc.setAttribute("content", "AudioDash é o sistema completo para fonoaudiólogos. Agilize seus laudos, audiometrias e gestão de clínicas com nossa plataforma moderna e segura.");
+      metaDesc.setAttribute("content", "AudioDash: registro de audiometrias, anamneses, agenda e emissão de laudos para fonoaudiólogos.");
     } else {
       const meta = document.createElement('meta');
       meta.name = "description";
-      meta.content = "AudioDash é o sistema completo para fonoaudiólogos. Agilize seus laudos, audiometrias e gestão de clínicas com nossa plataforma moderna e segura.";
+      meta.content = "AudioDash: registro de audiometrias, anamneses, agenda e emissão de laudos para fonoaudiólogos.";
       document.head.appendChild(meta);
     }
   }, []);

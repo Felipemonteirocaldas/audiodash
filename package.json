@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "test": "node --test tests/clinical-regressions.cjs",
+    "test": "node --test tests/clinical-regressions.cjs tests/sync-regressions.cjs tests/exports-regressions.cjs",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
@@ -34,7 +34,6 @@
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^6.0.3",
     "autoprefixer": "^10.5.4",
     "oxlint": "^1.71.0",

@@ -72,6 +72,16 @@ Força das fontes: **N** = norma legal; **R** = recomendação/guia profissional
 - Escolha da referência: a tela usa o exame mais antigo dos dois selecionados e avisa quando ele não está marcado como "referencial" (itens 4.3.1 e 5.5). Pendente: seleção explícita do exame de referência vigente e atualização automática após desencadeamento/agravamento (5.5.1).
 - Requisitos de registro na revisão: VA em 500–8000 Hz e confirmação do repouso auditivo de 14 h (item 3.4).
 
+### OCU-NR7-03 · Elegibilidade da comparação NR-7 (tela e PDF comparativo)
+- Fonte: NR7_ANEXO2 (itens 4.3.1, 5.3–5.5; Anexo II trata do trabalhador exposto a níveis de pressão sonora elevados). Força: N para os critérios; elegibilidade é decisão do software.
+- Unidade: par de exames do mesmo paciente (base × atual), avaliado por orelha em OCU-NR7-02.
+- População: exames com `examCategory = 'ocupacional'` nos DOIS exames e paciente com ≥ 18 anos na data de CADA exame (`ageAtExam`).
+- Exclusões: exame clínico ou sem categoria; idade < 18 anos ou não calculável (data de nascimento ausente/inválida). Nesses casos o bloco NR-7 não é mostrado e a tela/PDF dizem o motivo; a tabela de variação continua descritiva.
+- Limite etário: decisão conservadora do software (pedido de auditoria), não texto expresso da NR-7. Exclui jovens aprendizes (14–17 anos) — validar com responsável clínico/médico do trabalho.
+- Avisos (não bloqueiam): transdutor, tipo de resposta, método ou confiabilidade ausentes em algum exame ou diferentes entre os exames; dois exames na mesma data (base = registrado primeiro, `createdAt`).
+- Situação de revisão: cada exame mostra REVISADO/RASCUNHO (`isReviewCurrent`); com rascunho, o PDF não usa a palavra "laudo" no título e o arquivo recebe o prefixo `Rascunho_`.
+- Implementação: `nr7ComparisonEligibility` e `orderForComparison` em `src/lib/examComparison.ts`; testes em `tests/exports-regressions.cjs`.
+
 ### AUD-MASC-01 · Alertas de mascaramento (BSA 2018, §8.6)
 - Força: R estrangeira, ativada apenas quando o profissional seleciona o protocolo.
 - Regra 1: diferença VA/VA sem mascaramento ≥ 40 dB (supra-aural) ou ≥ 55 dB (inserção).
@@ -88,6 +98,7 @@ Força das fontes: **N** = norma legal; **R** = recomendação/guia profissional
 - Fonte: SBFA_IMIT_2025. Jerger (A, Ar/As, Ad, B, C) para sonda de 226 Hz em orelhas não operadas; 1000 Hz em recém-nascidos/lactentes (até 6 meses pela BSA; alguns autores até 9) com curva normal ou alterada.
 - Decisão: classificação sempre informada pelo profissional, com unidade e referência normativa. Tipo de Jerger com 1000 Hz, ou normal/alterada com 226 Hz, bloqueia a revisão.
 - Sem limites numéricos programados: os valores variam por equipamento (a própria SBFa remete aos manuais).
+- Documentos: "Inconclusivo" escolhido pelo profissional sai como "Inconclusivo (informado pelo profissional)"; classificação ausente ou incompatível sai como pendência, nunca como inconclusivo (`tympanometryLabel`). Marcar "sem pico" apaga a pressão do pico digitada.
 
 ### IMIT-TIMP-02 · Timpanograma ilustrativo
 - Força: C (convenção de apresentação; decisão do usuário em 21/10/2026, após pedido da fonoaudióloga consultada).

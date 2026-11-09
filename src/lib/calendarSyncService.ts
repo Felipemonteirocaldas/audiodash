@@ -9,12 +9,14 @@
 import { Appointment } from '@/db/db';
 import {
   isGoogleConnected,
+  disconnectGoogleCalendar,
   syncToGoogle,
   updateGoogleEvent,
   deleteGoogleEvent,
 } from './googleCalendar';
 import {
   isMicrosoftConnected,
+  forgetMicrosoftLocally,
   syncToOutlook,
   updateOutlookEvent,
   deleteOutlookEvent,
@@ -54,6 +56,16 @@ function removeMapping(appointmentId: string) {
 
 function getMapping(appointmentId: string): CalendarMapping | undefined {
   return getMappings()[appointmentId];
+}
+
+/**
+ * Logout do AudioDash: desconecta Google e Microsoft neste navegador e apaga o mapeamento.
+ * Sem isso, a próxima conta no mesmo computador enviaria agendamentos para o calendário da anterior.
+ */
+export function forgetCalendarConnections() {
+  disconnectGoogleCalendar();
+  forgetMicrosoftLocally();
+  localStorage.removeItem(MAPPING_KEY);
 }
 
 // ─── Sync Operations ────────────────────────────────────────────────────────
@@ -183,7 +195,8 @@ export async function syncAppointmentDeleted(appointmentId: string): Promise<Syn
     }
   }
 
-  removeMapping(appointmentId);
+  // Só esquece o vínculo se nada falhou; com falha, o evento ainda existe lá fora e pode ser removido depois.
+  if (result.google !== 'failed' && result.microsoft !== 'failed') removeMapping(appointmentId);
   return result;
 }
 

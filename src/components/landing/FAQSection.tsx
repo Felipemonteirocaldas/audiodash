@@ -43,7 +43,7 @@ export default function FAQSection() {
             Perguntas Frequentes
           </h2>
           <p className="text-base text-slate-600">
-            Tudo o que você precisa saber para revolucionar seu atendimento fonoaudiológico.
+            Respostas sobre funcionamento, dados e assinatura do AudioDash.
           </p>
         </div>
 

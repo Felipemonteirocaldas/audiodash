@@ -171,6 +171,11 @@ export default function NewExam() {
       await customAlert('Selecione um paciente antes de exportar.');
       return;
     }
+    // O documento precisa corresponder ao registro salvo, não ao que está só na tela.
+    if (dirty || !examId) {
+      await customAlert('Salve o exame antes de exportar.');
+      return;
+    }
     if (type === 'pdf') {
       setIsPdfModalOpen(true);
     } else if (type === 'docx') {

@@ -4,6 +4,8 @@
 
 ## 1. Pedido e próxima ação
 
+**08/11/2026 — Auditoria de código (software, não clínica):** plano em `docs/PLANO-CORRECOES-AUDITORIA.md`. Fase 1 = correções C1–C10 (começar por C1: logout que apaga dados não enviados); Fase 2 = auditoria das partes não lidas (A1–A8). Atualização 08/11/2026: usuário autorizou; Fase 2 auditada e correções de sincronização/login/pagamento/calendários/PWA feitas (ver seção "Execução" do plano, com pendências do usuário: migração e deploy no Supabase, variável na Vercel, apagar arquivos sem uso, ícones). Correções clínicas das exportações feitas por agente separado (registro no mesmo plano). Nada commitado.
+
 O usuário solicitou um plano de implementação e orientações para o Claude continuar quando o contexto/créditos do Codex se esgotarem. O plano foi registrado em `docs/PLANO-IMPLEMENTACAO-CLINICA.md`. Nenhuma etapa E0–E8 foi iniciada pela criação destes documentos.
 
 Quando o usuário autorizar a execução, começar por E0: conferir fontes originais e elaborar a matriz de regras. Em seguida, E1: inventário dos estados e contratos atuais. Não iniciar diretamente pela ativação dos booleanos de Metz/PAIR.

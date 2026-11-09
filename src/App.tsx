@@ -18,11 +18,13 @@ import Manual from './pages/Manual';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import { Dialogs } from './components/ui/Dialogs';
+import { UpdatePrompt } from './components/UpdatePrompt';
 
 export default function App() {
   return (
     <AuthProvider>
       <Dialogs />
+      <UpdatePrompt />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />

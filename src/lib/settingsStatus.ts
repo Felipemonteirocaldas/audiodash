@@ -7,6 +7,31 @@ export const PLAN_PRICE_LABEL = 'R$ 50,00';
 /** Link de pagamento do modo de TESTE; em produção, definir VITE_DODO_CHECKOUT_URL na Vercel. */
 export const TEST_CHECKOUT_URL = 'https://test.checkout.dodopayments.com/buy/pdt_0NkP4tyyh4C0dF9wG6eUW';
 
+/**
+ * Link de checkout a usar. O link de TESTE só vale em desenvolvimento: em produção sem VITE_DODO_CHECKOUT_URL
+ * devolve null e a tela desabilita a compra (antes caía em silêncio no modo de teste e o acesso nunca era liberado).
+ */
+export function resolveCheckoutUrl(envUrl: string | undefined, isDev: boolean): string | null {
+  if (envUrl) return envUrl;
+  return isDev ? TEST_CHECKOUT_URL : null;
+}
+
+export interface SubscriptionProfile {
+  subscription_status: string | null;
+  subscription_end_date: string | null;
+  is_admin: boolean;
+  dodo_customer_id: string | null;
+}
+
+/**
+ * Perfil de assinatura a usar ao abrir o app. Leitura bem-sucedida vence; com falha (ex.: sem internet), usa o último
+ * perfil lido com sucesso neste aparelho, para quem paga não cair na tela de planos ao trabalhar offline.
+ * O RLS do banco continua decidindo o que pode ser gravado na nuvem.
+ */
+export function pickProfile(fetched: SubscriptionProfile | null, failed: boolean, cached: SubscriptionProfile | null): SubscriptionProfile | null {
+  return failed ? cached : fetched;
+}
+
 /** Mesma regra do RLS (public.has_paid_access): ativa ou cancelada, dentro da validade. */
 export function hasPaidAccess(status: string | null | undefined, endDate: number | null | undefined, now: number = Date.now()): boolean {
   return (status === 'active' || status === 'canceled') && typeof endDate === 'number' && now < endDate;

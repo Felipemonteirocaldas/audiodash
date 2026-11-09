@@ -8,9 +8,30 @@ interface PendingDeletion {
   table: SyncTable;
   id: string;
   timestamp: number;
+  /** Conta que pediu a exclusão. Itens sem dono são de versões anteriores. */
+  user_id?: string;
 }
 
 const DELETIONS_STORAGE_KEY = 'audiodash_pending_deletions';
+/** Conta dona dos dados guardados neste aparelho. Impede enviar pendências de uma conta para outra. */
+export const DATA_OWNER_KEY = 'audiodash_data_owner';
+const SYNC_TABLES: SyncTable[] = ['patients', 'audiometries', 'settings', 'appointments', 'anamneses'];
+
+export function getDataOwner(): string | null {
+  try { return localStorage.getItem(DATA_OWNER_KEY); } catch { return null; }
+}
+
+export function setDataOwner(userId: string | null): void {
+  try {
+    if (userId) localStorage.setItem(DATA_OWNER_KEY, userId);
+    else localStorage.removeItem(DATA_OWNER_KEY);
+  } catch { /* armazenamento indisponível */ }
+}
+
+/** Verdadeiro quando os dados do aparelho pertencem a outra conta (sem dono registrado = dados antigos, aceitos). */
+export function isForeignData(owner: string | null, userId: string): boolean {
+  return !!owner && owner !== userId;
+}
 
 class SyncManager {
   private isSyncing = false;
@@ -54,15 +75,40 @@ class SyncManager {
     }
   }
 
-  private addPendingDeletion(table: SyncTable, id: string): void {
-    const list = this.getPendingDeletions().filter(d => !(d.table === table && d.id === id));
-    list.push({ table, id, timestamp: Date.now() });
+  private queueDeletions(items: { table: SyncTable; id: string }[], userId: string | null): void {
+    const keys = new Set(items.map(i => `${i.table}:${i.id}`));
+    const list = this.getPendingDeletions().filter(d => !keys.has(`${d.table}:${d.id}`));
+    const now = Date.now();
+    for (const i of items) list.push({ table: i.table, id: i.id, timestamp: now, user_id: userId ?? undefined });
     this.savePendingDeletions(list);
   }
 
-  private removePendingDeletion(table: SyncTable, id: string): void {
-    const list = this.getPendingDeletions().filter(d => !(d.table === table && d.id === id));
-    this.savePendingDeletions(list);
+  /** Esvazia a fila de exclusões (logout limpo, sem pendências). */
+  clearPendingDeletions(): void {
+    this.savePendingDeletions([]);
+  }
+
+  private async sessionUserId(): Promise<string | null> {
+    if (!supabase) return null;
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.user?.id ?? null;
+  }
+
+  /**
+   * Apaga na nuvem e confirma. Com RLS, um delete recusado (ex.: assinatura vencida) volta sem erro e sem linhas;
+   * nesse caso confere se o registro ainda existe: se existe, a exclusão NÃO aconteceu.
+   */
+  private async deleteRemote(table: SyncTable, id: string): Promise<boolean> {
+    if (!supabase) return false;
+    const { data, error } = await supabase.from(table).delete().eq('id', id).select('id');
+    if (error) {
+      console.warn(`[SyncManager] Erro ao excluir '${id}' de '${table}' na nuvem:`, error.message);
+      return false;
+    }
+    if (data && data.length > 0) return true;
+    const { data: still, error: readError } = await supabase.from(table).select('id').eq('id', id).limit(1);
+    if (readError) return false;
+    return !still || still.length === 0; // nunca chegou à nuvem ou já foi apagado
   }
 
   /**
@@ -74,19 +120,16 @@ class SyncManager {
     const deletions = this.getPendingDeletions();
     if (deletions.length === 0) return;
 
-    console.log(`[SyncManager] Processando ${deletions.length} exclusões pendentes...`);
+    const userId = await this.sessionUserId();
+    if (!userId) return;
     const remaining: PendingDeletion[] = [];
 
     for (const item of deletions) {
+      // Itens de outra conta não são enviados com esta sessão (o RLS recusaria) e não ficam acumulando.
+      if (item.user_id && item.user_id !== userId) continue;
       try {
-        const { error } = await supabase.from(item.table).delete().eq('id', item.id);
-        if (error) {
-          console.warn(`[SyncManager] Erro ao deletar '${item.id}' de '${item.table}' no Supabase:`, error.message);
-          remaining.push(item);
-        } else {
-          console.log(`[SyncManager] ✓ Registro '${item.id}' excluído de '${item.table}' na nuvem.`);
-        }
-      } catch (err) {
+        if (!await this.deleteRemote(item.table, item.id)) remaining.push(item);
+      } catch {
         remaining.push(item);
       }
     }
@@ -95,36 +138,30 @@ class SyncManager {
   }
 
   /**
-   * Delete a record locally in IndexedDB and in Supabase
+   * Apaga registros no aparelho (em uma única transação) e enfileira a exclusão na nuvem.
+   * Devolve 'cloud' se a nuvem confirmou todas, 'queued' se alguma ficou pendente.
    */
-  async deleteRecord(table: SyncTable, id: string): Promise<boolean> {
-    // 1. Delete immediately from local IndexedDB
-    try {
-      await (db[table] as any).delete(id);
-    } catch (localErr) {
-      console.error(`[SyncManager] Erro ao deletar localmente de '${table}':`, localErr);
-    }
+  async deleteRecords(items: { table: SyncTable; id: string }[]): Promise<'cloud' | 'queued'> {
+    if (items.length === 0) return 'cloud';
+    const tables = [...new Set(items.map(i => i.table))].map(t => db[t]);
+    await db.transaction('rw', tables, async () => {
+      for (const i of items) await (db[i.table] as any).delete(i.id);
+    });
+    const userId = isConfigured ? await this.sessionUserId() : null;
+    this.queueDeletions(items, userId);
+    await this.syncDeletions();
+    const left = new Set(this.getPendingDeletions().map(d => `${d.table}:${d.id}`));
+    return items.some(i => left.has(`${i.table}:${i.id}`)) ? 'queued' : 'cloud';
+  }
 
-    // 2. Mark as pending deletion
-    this.addPendingDeletion(table, id);
+  async deleteRecord(table: SyncTable, id: string): Promise<'cloud' | 'queued'> {
+    return this.deleteRecords([{ table, id }]);
+  }
 
-    // 3. If online and Supabase is configured, delete directly from cloud
-    if (navigator.onLine && isConfigured && supabase) {
-      try {
-        const { error } = await supabase.from(table).delete().eq('id', id);
-        if (!error) {
-          this.removePendingDeletion(table, id);
-          console.log(`[SyncManager] ✓ '${id}' excluído com sucesso da nuvem ('${table}').`);
-          return true;
-        } else {
-          console.warn(`[SyncManager] Erro ao deletar na nuvem, mantido na fila offline:`, error.message);
-        }
-      } catch (cloudErr) {
-        console.warn(`[SyncManager] Exceção ao deletar na nuvem:`, cloudErr);
-      }
-    }
-
-    return true;
+  /** Registros ainda não enviados (todas as tabelas) mais exclusões na fila. */
+  async countPending(): Promise<number> {
+    const counts = await Promise.all(SYNC_TABLES.map(t => db[t].where('syncStatus').equals('pending').count()));
+    return counts.reduce((a, b) => a + b, 0) + this.getPendingDeletions().length;
   }
 
   /**
@@ -161,11 +198,13 @@ class SyncManager {
   private async pushToSupabase(table: string, records: any[]): Promise<boolean> {
     if (!supabase) return false;
 
-    const { data: { session } } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
+    const userId = await this.sessionUserId();
     if (!userId) {
       console.error('[SyncManager] Usuário não logado, cancelando push.');
       return false;
+    }
+    if (isForeignData(getDataOwner(), userId)) {
+      throw new Error('Os dados deste aparelho pertencem a outra conta e não foram enviados.');
     }
 
     const cleanRecords = records.map(record => {
@@ -174,14 +213,26 @@ class SyncManager {
     });
 
     const { error } = await supabase.from(table).upsert(cleanRecords);
-    
+
     if (error) {
       console.error(`[SyncManager] Erro ao enviar para '${table}':`, error.message);
       throw new Error(`Erro na tabela ${table}: ${error.message} (Código: ${error.code})`);
     }
-    
-    console.log(`[SyncManager] ✓ ${records.length} registros enviados para '${table}'`);
     return true;
+  }
+
+  /**
+   * Marca como enviados só os registros que não mudaram durante o envio: uma edição feita enquanto o upsert
+   * estava em andamento tem outro updatedAt e continua 'pending' para o próximo ciclo.
+   */
+  private async markSynced(table: SyncTable, sent: { id: string; updatedAt?: number }[]): Promise<void> {
+    const sentAt = new Map(sent.map(r => [r.id, r.updatedAt]));
+    await db.transaction('rw', db[table], async () => {
+      await (db[table] as any)
+        .where('id').anyOf([...sentAt.keys()])
+        .and((row: { id: string; updatedAt?: number; syncStatus: string }) => row.syncStatus === 'pending' && row.updatedAt === sentAt.get(row.id))
+        .modify({ syncStatus: 'synced' });
+    });
   }
 
   /**
@@ -215,7 +266,7 @@ class SyncManager {
       await this.syncDeletions();
 
       // 2. Push pending creations and updates
-      const tables: SyncTable[] = ['patients', 'audiometries', 'settings', 'appointments', 'anamneses'];
+      const tables = SYNC_TABLES;
       let totalSynced = 0;
       let hadErrors = false;
       let firstError = '';
@@ -231,10 +282,7 @@ class SyncManager {
           });
 
           if (success) {
-            const ids = pendingRecords.map(r => r.id);
-            await Promise.all(
-              ids.map(id => db[table].update(id, { syncStatus: 'synced' }))
-            );
+            await this.markSynced(table, pendingRecords);
             totalSynced += pendingRecords.length;
           } else {
             hadErrors = true;
@@ -270,15 +318,18 @@ class SyncManager {
    */
   async pullFromSupabase(userId: string): Promise<boolean> {
     if (!navigator.onLine || !isConfigured || !supabase) return false;
-    
+    // Dados de outra conta no aparelho: não misturar. Quem resolve é o AuthContext (cópia ou descarte).
+    if (isForeignData(getDataOwner(), userId)) return false;
+    setDataOwner(userId);
+
     this.setStatus('syncing');
     try {
       // 1. First sync any pending deletions to ensure Supabase doesn't return them
       await this.syncDeletions();
 
       const pendingDeletionIds = new Set(this.getPendingDeletions().map(d => d.id));
-      const tables: SyncTable[] = ['patients', 'audiometries', 'settings', 'appointments', 'anamneses'];
-      
+      const tables = SYNC_TABLES;
+
       for (const table of tables) {
         const { data, error } = await supabase.from(table).select('*').eq('user_id', userId);
         if (error) {

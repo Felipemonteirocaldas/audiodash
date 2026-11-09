@@ -657,9 +657,11 @@ export default function Agenda() {
   };
 
   const sendWhatsAppReminder = (app: Appointment) => {
-    const patient = patients?.find(
-      (p) => p.id === app.patientId || p.name.toLowerCase() === app.patientName.toLowerCase()
-    );
+    // Com id, só o id. Pelo nome apenas quando não há id e existe uma única paciente com esse nome (homônimos).
+    const byName = patients?.filter((p) => p.name.toLowerCase() === app.patientName.toLowerCase()) ?? [];
+    const patient = app.patientId
+      ? patients?.find((p) => p.id === app.patientId)
+      : byName.length === 1 ? byName[0] : undefined;
     const rawPhone = app.phone || patient?.phone || '';
     const cleanPhone = rawPhone.replace(/\D/g, '');
     const msg = encodeURIComponent(
@@ -676,9 +678,12 @@ export default function Agenda() {
     const proceed = await customConfirm('Tem certeza que deseja excluir este agendamento?');
     if (proceed) {
       // Sync deletion to external calendars first
-      await syncAppointmentDeleted(id);
-      await syncManager.deleteRecord('appointments', id);
-      showSyncToast('✓ Agendamento excluído');
+      const calendar = await syncAppointmentDeleted(id);
+      const outcome = await syncManager.deleteRecord('appointments', id);
+      const calendarFailed = calendar.google === 'failed' || calendar.microsoft === 'failed';
+      showSyncToast(calendarFailed
+        ? 'Agendamento excluído; o evento não foi removido do calendário externo'
+        : outcome === 'queued' ? 'Agendamento excluído neste aparelho; envio à nuvem pendente' : '✓ Agendamento excluído');
     }
   };
 

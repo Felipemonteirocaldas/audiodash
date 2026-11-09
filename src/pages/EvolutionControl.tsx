@@ -4,7 +4,10 @@ import { db, TonalFrequency } from '@/db/db';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Activity } from 'lucide-react';
-import { formatTonalValue } from '@/lib/examIntegrity';
+import { formatTonalValue, isReviewCurrent } from '@/lib/examIntegrity';
+import { transducerLabel } from '@/lib/exportFormat';
+
+const MAX_COLUMNS = 10;
 
 const FREQUENCIES: TonalFrequency[] = ['500', '1000', '2000', '3000', '4000', '6000', '8000'];
 
@@ -16,8 +19,8 @@ export default function EvolutionControl() {
     patientId ? db.audiometries.where('patientId').equals(patientId).toArray() : []
   , [patientId]);
 
-  // Sort oldest to newest, limit to last 10 exams
-  const exams = allExams ? allExams.sort((a, b) => new Date(a.examDate).getTime() - new Date(b.examDate).getTime()).slice(-10) : [];
+  // Mais antigo → mais recente (mesma data: ordem de registro); mostra só os últimos MAX_COLUMNS.
+  const exams = allExams ? allExams.sort((a, b) => a.examDate.localeCompare(b.examDate) || (a.createdAt ?? 0) - (b.createdAt ?? 0)).slice(-MAX_COLUMNS) : [];
 
   const getTonalValue = (exam: any, ear: 'right' | 'left', freq: TonalFrequency) => {
     return exam.tonalData?.[ear]?.[freq]?.va ?? '-';
@@ -57,6 +60,7 @@ export default function EvolutionControl() {
             <CardTitle className="text-lg flex items-center gap-2">
               <Activity className="w-5 h-5 text-indigo-600" /> Comparativo de Limiares (VA)
             </CardTitle>
+            {allExams.length > MAX_COLUMNS && <p role="status" className="text-sm text-amber-800 mt-1">Mostrando os {MAX_COLUMNS} mais recentes de {allExams.length} exames.</p>}
           </CardHeader>
           <CardContent className="p-0">
             <table className="w-full text-sm text-center border-collapse">
@@ -67,7 +71,8 @@ export default function EvolutionControl() {
                     <th key={exam.id} className="p-3 border-r border-b font-semibold min-w-[120px]">
                       <div className="text-indigo-700">{exam.examDate.split('-').reverse().join('/')}</div>
                       <div className="text-xs font-normal text-slate-500 uppercase">{exam.examPurpose || 'não informada'}</div>
-                      <div className="text-xs font-normal text-slate-500">#{i + 1}</div>
+                      <div className="text-xs font-normal text-slate-500">#{i + 1} · {transducerLabel(exam.header?.transducer)}</div>
+                      <div className={`text-xs font-bold ${isReviewCurrent(exam) ? 'text-emerald-700' : 'text-amber-700'}`}>{isReviewCurrent(exam) ? 'Revisado' : 'Rascunho'}</div>
                     </th>
                   ))}
                 </tr>
